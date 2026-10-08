@@ -342,7 +342,8 @@ body{
 .hrow:first-of-type{border-top:0}
 .hrow .nm{flex:1; font-weight:700}
 .addrow{display:flex; gap:8px; margin-top:10px}
-.addsel{flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:400 .9rem var(--body)}
+.addrow{flex-wrap:wrap}
+.addsel{flex:1 1 200px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:400 .9rem var(--body)}
 .togs{display:flex; flex-wrap:wrap; gap:6px}
 .tog{background:var(--bg); border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:6px 10px; font:600 .82rem var(--body); cursor:pointer}
 .tog[aria-pressed="true"]{background:var(--panel2); color:var(--ink); border-color:var(--gold)}
@@ -444,6 +445,43 @@ body{background:var(--bg) !important; animation:none !important}
 .cf-text{margin-top:6px; background:rgba(255,255,255,.82); border-radius:8px; padding:10px 12px; font:400 .9rem/1.45 var(--body); white-space:pre-wrap}
 .cf-stats{margin-top:8px; text-align:right; font:700 .95rem var(--display)}
 .dbplate .cd-image[data-state="loading"]{display:none}
+
+/* ---- auto-tracking duel UI ---- */
+.statusbox{padding:10px 14px}
+.pills{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:6px}
+.spill{font:600 .78rem var(--display); border:1px solid var(--line); border-radius:999px; padding:3px 10px; color:var(--ink); background:var(--bg)}
+.spill.used{color:var(--muted); text-decoration:line-through}
+.spill.lock{border-color:var(--red); color:var(--red)}
+.statusbox .lr{margin:2px 0; font-size:.88rem}
+.usedline{margin:6px 0 0; font-size:.8rem; color:var(--muted)}
+.pendbox, .trigbox{border-left:4px solid var(--gold)}
+.trigbox{border-left-color:var(--sky)}
+.tog.big{padding:8px 12px; font-size:.9rem; color:var(--ink)}
+.tog.rec{border-color:var(--gold); box-shadow:inset 0 0 0 1px var(--gold)}
+.tog.play{color:var(--ink); background:var(--panel2); padding:8px 12px; font-size:.88rem}
+.tog.play:hover, .tog.big:hover{border-color:var(--gold)}
+.tog.on{border-color:var(--gold); background:color-mix(in srgb, var(--gold) 22%, var(--panel))}
+.stoprow{display:flex; gap:6px; margin-top:10px; flex-wrap:wrap}
+.pendbox .primary{margin-top:10px}
+.pendbox .primary:disabled{opacity:.45; cursor:default}
+.pendbox .ghost{margin-left:8px; margin-top:10px}
+.warnline{color:var(--red)}
+.actlog{padding:8px 12px}
+.actlog .stoptop{flex-wrap:wrap}
+.actlog details{margin-top:6px; font-size:.85rem; color:var(--muted)}
+.actlist{margin:4px 0 0; padding-left:1.2rem}
+.manualtoggle{background:none; border:0; padding:0}
+.hdrside{display:flex; flex-direction:column; align-items:flex-end; gap:6px}
+.compactbtn{padding:3px 10px; font-size:.75rem}
+/* compact: just the middle column, narrow enough to pin beside the game */
+html.compact .side{display:none !important}
+html.compact .layout{grid-template-columns:1fr !important}
+html.compact .center main{max-width:560px; padding-left:10px; padding-right:10px}
+html.compact .top{padding:8px 12px}
+html.compact .emblem{width:34px; height:38px}
+html.compact h1{font-size:1.1rem}
+html.compact .elements{display:none}
+html.compact .loghead, html.compact .duellog{display:none}
 </style>
 </head>
 <body>
@@ -465,7 +503,7 @@ body{background:var(--bg) !important; animation:none !important}
         <div class="elements" id="elementRow" aria-hidden="true"></div>
       </div>
     </div>
-    <div class="swatches" id="swatches" role="group" aria-label="Color theme"></div>
+    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div>
   </header>
 
   <!-- HAND -->
@@ -687,6 +725,12 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
     swWrap.appendChild(b);
   });
   paintSwatches();
+
+  // ---------- compact (overlay-friendly) mode ----------
+  var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
+  function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full view" : "Compact"; }
+  document.getElementById("compactBtn").addEventListener("click", function(){ compact = !compact; save("hbc-compact", compact); paintCompact(); });
+  paintCompact();
 
   // ---------- tabs ----------
   var tabs = document.querySelectorAll(".tab");
@@ -914,7 +958,7 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
     if (n("increase") === 1 && usesFaris) notes.push("Increase in hand is fine. The other copy is still in your Deck for Faris.");
     var ns = ["stratos","vyon"].filter(function(id){ return n(id); });
     if (ns.length > 1) notes.push("Normal Summon conflict: " + ns.map(function(id){ return NAMES[id]; }).join(", ") + ". Stratos is usually the best use of it.");
-    if (n("ahl") && (n("stratos") || n("faris"))) notes.push("Play A Hero Lives before anything else hits the field. It needs an empty board.");
+    if (n("ahl") && (n("stratos") || n("faris"))) notes.push("Play A Hero Lives before you summon anything face-up. It needs you to control no face-up monsters (backrow and face-down monsters are fine). It can only summon a Level 4 or lower Elemental HERO from your Deck: Stratos or Shadow Mist.");
     if (n("ic") && !n("neos")) notes.push("Instant Contact needs Neos on your field or in your GY, or its summon is negated and returns at the End Phase.");
     if (n("ash")) notes.push(turn === "first" ? "Hold Ash for their first search or Deck summon." : "Use Ash on their turn 1 search or Deck summon.");
     if (n("fuwalos")) notes.push(turn === "first" ? "Fuwalos needs you to control no cards, so it's dead once your board is up. Hold it for later turns." : "Fuwalos: chain it to their first Deck or Extra Deck summon. At their End Phase you keep up to (cards they control + 6), so a big board for them means you keep more.");
@@ -936,14 +980,14 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
   var EXTRA = [
     {n:"Destroyer Phoenix Enforcer", c:1, f:["end","break"], m:"1 Level 6+ HERO + 1 Destiny HERO", w:"Going first as your end board, or at the start of your turn going second.", y:"Quick Effect: destroy 1 of your cards and 1 card on the field. Comes back with a Destiny HERO from the GY if destroyed."},
     {n:"Shining Neos Wingman", c:2, f:["end","break"], m:"Neos + 1 Wingman Fusion", w:"On their turn through Favorite Contact, or on your turn with Polymerization before attacking.", y:"Destroys their cards up to the number of different Attributes on the field. Can't be destroyed by card effects."},
-    {n:"Flame Wingman \u2013 Infernal Rage", c:2, f:["bridge"], m:"2 Elemental HEROs with different Attributes", w:"Whenever you can make it, mainly to search Favorite Contact.", y:"Counts as a Wingman. If made with Neos, it can tribute itself to summon a Level 7 or lower Elemental HERO from Deck or Extra Deck."},
+    {n:"Flame Wingman \u2013 Infernal Rage", c:2, f:["bridge"], m:"2 Elemental HEROs with different Attributes", w:"Whenever you can make it, mainly to search Favorite Contact.", y:"Counts as a Wingman. If made with Neos (a Normal Monster), it can tribute itself to summon a Level 7 or lower Elemental HERO that can't be Normal Summoned from your Deck or Extra Deck, like Sunrise or Flame Wingman."},
     {n:"Sunrise", c:2, f:["bridge","break"], m:"2 HEROs with different Attributes", w:"Early in the combo when Polymerization is your only Fusion, or going second against one key card.", y:"Searches Miracle Fusion. Destroys a card when another of your HEROs attacks."},
     {n:"Flame Wingman", c:2, f:["bridge"], m:"Instant Contact target (Level 6)", w:"Once Neos is on your field or in your GY.", y:"A Wingman for Shining Neos Wingman without spending a Fusion spell."},
     {n:"Dangerous", c:1, f:["end","break"], m:"Destiny HERO + DARK Effect Monster", w:"From Fusion Destiny next to DPE, or with Dystopia going second.", y:"Quick Effect: discard to dump a Destiny HERO and pump your Destiny HEROs. Turns on Dystopia's destroy."},
-    {n:"Dystopia", c:1, f:["break"], m:"2 Destiny HEROs", w:"Going second for burn plus an extra destroy.", y:"Burns for a Level 4 or lower Destiny HERO's ATK. Destroys a card once its ATK has changed."},
+    {n:"Dystopia", c:1, f:["break"], m:"2 Destiny HEROs", w:"Going second for an extra destroy once Dangerous changes its ATK. Its burn needs a Level 4 or lower Destiny HERO, which this deck no longer runs.", y:"Burns for a Level 4 or lower Destiny HERO's ATK. Destroys a card once its ATK has changed."},
     {n:"Vision HERO Trinity", c:1, f:["break"], m:"3 HEROs", w:"Going second against 2 or 3 monsters you can beat.", y:"Double ATK on Fusion Summon and 3 attacks. It can't attack directly."},
     {n:"Xtra HERO Cross Crusader", c:1, f:["bridge"], m:"2 Warriors", w:"When the combo stalls with 2 spare Warriors and a Destiny HERO in the GY.", y:"Revives a Destiny HERO, then tributes one to search a HERO. HERO-only lock."},
-    {n:"Xtra HERO Wonder Driver", c:1, f:["bridge"], m:"2 HEROs", w:"After using Polymerization when more HERO summons are coming.", y:"Sets a used Polymerization or Fusion spell from your GY when a HERO lands in a zone it points to."},
+    {n:"Xtra HERO Wonder Driver", c:1, f:["bridge"], m:"2 HEROs", w:"After using Polymerization when more HERO summons are coming.", y:"Sets a used Polymerization or a spell with \u201CFusion\u201D in its name (Miracle Fusion, Fusion Destiny) from your GY when a HERO lands in a zone it points to."},
     {n:"Xtra HERO Infernal Devicer", c:1, f:["bridge"], m:"2 HEROs", w:"Only when you need Neos in hand and have 2 spare HEROs.", y:"Reveal Shining Neos Wingman to add Neos. Your weakest pick; first cut for Dark Law."}
   ];
   var ICONS = {
@@ -1096,7 +1140,7 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
       notes:["Get Neos into the GY first.","Flame Wingman for Shining Neos Wingman, or Sunrise for its Miracle Fusion search.","Even negated, the monster is still a HERO body for tributes and materials."]},
     {sec:"Spells", id:"mf", n:1, name:"Miracle Fusion", info:["Normal Spell"],
       fx:["Fusion Summon an Elemental HERO Fusion Monster by banishing materials from your field or GY."],
-      notes:["Sunrise searches it, so one copy is enough.","Shadow Mist (DARK) + a LIGHT Elemental HERO into Infernal Rage."]},
+      notes:["Sunrise searches it, so one copy is enough.","Shadow Mist (DARK) + Stratos (WIND) or Neos (LIGHT) into Infernal Rage. Both materials must be Elemental HEROs with different Attributes."]},
     {sec:"Traps", id:"fc", n:1, name:"Favorite Contact", info:["Normal Trap"],
       fx:["Special Summon a Fusion Monster that lists a HERO as material, ignoring its summoning conditions, by putting its listed materials from your hand, field, GY, or banished cards on the bottom of the Deck. One per turn."],
       notes:["Infernal Rage searches it. Set it for their turn.","Flip it mid-combo on their turn for Shining Neos Wingman after they commit monsters. Neos must be in your hand, field, GY, or banished, not the Deck.","Not only for Shining Neos Wingman: it can make any Fusion that lists a HERO, like DPE from two Malicious in your GY or banished."]},
@@ -1409,7 +1453,8 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
         "Maxx \u201CC\u201D early in their combo forces them to choose between giving you cards and stopping.",
         "Junk / Synchron version: same targets, but more ways to recover. Lean more on Maxx \u201CC\u201D, Fuwalos, and your board.",
         "Imperm: Baronne de Fleur once it's on the field, before you start your combo."]],
-      ["Your board", ["Baronne de Fleur can negate one effect per turn. Bait it with a cheap monster effect before your key play."]]
+      ["Your board", ["Baronne de Fleur negates any card or effect, but only once while it's face-up. Bait it with your least important card or effect before your key play, then it's spent.",
+        "It also has a once-per-turn targeted destroy, so expect it to pick off a card on your field."]]
     ]},
     {id:"be", name:"Blue-Eyes", sections:[
       ["Ash this", ["1st: Wishes for Eyes of Blue. One discard for two searches: a Level 1 LIGHT Tuner and a Spell/Trap that mentions Blue-Eyes White Dragon. Strong players hold Ash specifically for it.",
@@ -1426,7 +1471,8 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
         "Predaplant Dragostapelia negates the effects of your monsters that have a Predator Counter. Use DPE's or Shining Neos Wingman's effects on monsters it hasn't marked, or clear Dragostapelia first."]]
     ]},
     {id:"gp", name:"Galaxy Photon", sections:[
-      ["Ash this", ["1st: Galaxy-Eyes Photon Dragon's search when it's Special Summoned (adds another Galaxy-Eyes Photon Dragon). Several of their lines fall apart here.",
+      ["Ash this", ["1st: Galaxy Photon Dragon (the Rank 4 Xyz) detaching to add or send a Photon or Galaxy card from the Deck. It's their main engine piece. Imperm also stops it, since it's a monster effect on the field.",
+        "Photon Vanisher's search (adds Galaxy-Eyes Photon Dragon when it's Special Summoned) is a decent target too, but it's an extender, not the core.",
         "2nd: Galaxy Soldier's search when it's Special Summoned (adds a Galaxy monster)."]],
       ["Your board", ["Number 90: Galaxy-Eyes Photon Lord negates one of your monster effects. Make it spend that on something cheap before your key play.",
         "On your turn, Photon Lord can also pull a Photon or Galaxy card from their Deck. That's a solid Ash target on your turn.",
@@ -1516,7 +1562,7 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
 
   function freshDuel(order){
     return {order: order || "first", phase:"setup", n:1, lp:{me:8000, opp:8000}, hand:{}, opening:null, drew:null,
-      used:[], added:[], stops:[], opt:{}, locks:{}, perDuel:{}, zones:{neos:"deck", mist:"deck", increase:"deck"}, note:"", log:[]};
+      used:[], added:[], stops:[], opt:{}, locks:{}, perDuel:{}, board:{field:[], back:[], gy:{}, ban:{}}, ns:false, queue:[], acts:[], zones:{neos:"deck", mist:"deck", increase:"deck"}, note:"", log:[]};
   }
   var D = load(DUEL_KEY, null);
   if (!D || !D.phase || !D.zones) D = freshDuel(turn);
@@ -1619,13 +1665,40 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
       var btn = nodes("button", "chip", c.name); btn.type = "button";
       btn.setAttribute("aria-pressed", D.drew === c.id ? "true" : "false");
       if (D.drew === c.id) btn.dataset.n = "1";
-      btn.addEventListener("click", function(){ D.drew = D.drew === c.id ? null : c.id; persist(); renderBody(); });
+      btn.addEventListener("click", function(){ D.drew = c.id; persist(); document.getElementById("stepNext").click(); });
       wrap.appendChild(btn);
     });
     b.appendChild(wrap);
-    b.appendChild(nodes("p", "hint", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Pick the card, or press Next to skip."));
+    b.appendChild(nodes("p", "hint", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Tap what you drew and you\u2019re straight into your Main Phase. Press Next if you\u2019d rather skip it."));
+    var bd = B();
+    if (D.n > 1 && (bd.field.length || bd.back.length || bd.gy.increase)){
+      var cb = box("Anything happen on their turn?");
+      cb.appendChild(nodes("p", "hint", "Tap anything that got destroyed or removed. Skip if nothing changed."));
+      var w = nodes("div", "togs");
+      bd.field.forEach(function(x, i){ var t = nodes("button", "tog", "\u2716 " + nm(x)); t.type = "button";
+        t.addEventListener("click", function(){ bd.field.splice(i, 1); toGY(x); take(D.queue, "mist"); syncZones(); persist(); renderBody(); }); w.appendChild(t); });
+      bd.back.forEach(function(x, i){ var t = nodes("button", "tog", "\u2716 " + nm(x)); t.type = "button";
+        t.addEventListener("click", function(){ bd.back.splice(i, 1); if (x === "increase_t") inc(bd.gy, "increase"); syncZones(); persist(); renderBody(); }); w.appendChild(t); });
+      if (bd.gy.increase && bd.back.indexOf("increase_t") < 0){ var t2 = nodes("button", "tog rec", "I took damage: Increase back to backrow"); t2.type = "button";
+        t2.addEventListener("click", function(){ inc(bd.gy, "increase", -1); bd.back.push("increase_t"); D.opt.inc_place = true; syncZones(); persist(); renderBody(); }); w.appendChild(t2); }
+      cb.appendChild(w);
+    }
   }
 
+  var MAIN_IDS = CARDS.map(function(c){ return c.id; });
+  var HERO_MONSTERS = ["stratos","mist","faris","vyon","increase","malicious","neos"];
+  var ADD_SOURCES = [
+    {k:"draw", t:"Drew it (Maxx \u201CC\u201D, Fuwalos, other draws)", targets:MAIN_IDS},
+    {k:"stratos", t:"Stratos: add a HERO monster", targets:HERO_MONSTERS},
+    {k:"mist", t:"Shadow Mist (sent to GY): add a HERO, not Shadow Mist", targets:HERO_MONSTERS.filter(function(x){ return x !== "mist"; }), opt:"mist"},
+    {k:"ecall", t:"E-Call: add an Elemental HERO", targets:["stratos","mist","neos"]},
+    {k:"vyon_poly", t:"Vyon: add Polymerization", targets:["poly"], opt:"vyon_poly"},
+    {k:"sunrise_search", t:"Sunrise: add Miracle Fusion", targets:["mf"], opt:"sunrise_search"},
+    {k:"rage_search", t:"Infernal Rage: add a \u201CFavorite\u201D card (Deck or GY)", targets:["fc"], opt:"rage_search"},
+    {k:"cross_search", t:"Cross Crusader: add a HERO (different name than the one tributed)", targets:HERO_MONSTERS, opt:"cross_search", lock:"hero"},
+    {k:"devicer", t:"Infernal Devicer: add Neos (reveal Shining Neos Wingman)", targets:["neos"], opt:"devicer", lock:"hero"},
+    {k:"other", t:"Returned to hand some other way", targets:MAIN_IDS}
+  ];
   function renderHandBox(){
     var b = box("Your hand (" + handCount(D.hand) + ")");
     var ids = Object.keys(D.hand).filter(function(k){ return D.hand[k]; });
@@ -1638,13 +1711,31 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
       u.addEventListener("click", function(){ D.hand[k]--; if (!D.hand[k]) delete D.hand[k]; D.used.push(k); persist(); renderBody(); });
       row.appendChild(u); b.appendChild(row);
     });
+    // Each source only offers cards its effect can actually add (per the official card text).
     var add = nodes("div", "addrow");
-    var sel = nodes("select", "addsel"); sel.setAttribute("aria-label", "Card added to hand");
-    sel.appendChild(nodes("option", null, "Card searched or added\u2026")).value = "";
-    CARDS.forEach(function(c){ var o = nodes("option", null, c.name); o.value = c.id; sel.appendChild(o); });
+    var src = nodes("select", "addsel"); src.setAttribute("aria-label", "What added the card");
+    src.appendChild(nodes("option", null, "What added a card?\u2026")).value = "";
+    ADD_SOURCES.forEach(function(s){ var o = nodes("option", null, s.t); o.value = s.k; src.appendChild(o); });
+    var tgt = nodes("select", "addsel"); tgt.setAttribute("aria-label", "Card added to hand"); tgt.disabled = true;
+    function fillTargets(){
+      tgt.innerHTML = "";
+      var s = ADD_SOURCES.filter(function(x){ return x.k === src.value; })[0];
+      if (!s){ tgt.appendChild(nodes("option", null, "Card\u2026")).value = ""; tgt.disabled = true; return; }
+      var ok = s.targets.filter(function(id){ return (D.hand[id] || 0) < (MAX[id] || 3); });
+      if (!ok.length){ tgt.appendChild(nodes("option", null, "No legal cards left")).value = ""; tgt.disabled = true; return; }
+      ok.forEach(function(id){ var o = nodes("option", null, NAMES[id]); o.value = id; tgt.appendChild(o); });
+      tgt.disabled = false;
+    }
+    src.addEventListener("change", fillTargets); fillTargets();
     var ab = nodes("button", "mini", "Add to hand"); ab.type = "button";
-    ab.addEventListener("click", function(){ if (!sel.value) return; D.hand[sel.value] = (D.hand[sel.value] || 0) + 1; D.added.push(sel.value); persist(); renderBody(); });
-    add.appendChild(sel); add.appendChild(ab); b.appendChild(add);
+    ab.addEventListener("click", function(){
+      var s = ADD_SOURCES.filter(function(x){ return x.k === src.value; })[0];
+      if (!s || !tgt.value) return;
+      D.hand[tgt.value] = (D.hand[tgt.value] || 0) + 1; D.added.push(tgt.value);
+      if (s.opt){ D.opt[s.opt] = true; if (s.lock) D.locks[s.lock] = true; }
+      persist(); renderBody();
+    });
+    add.appendChild(src); add.appendChild(tgt); add.appendChild(ab); b.appendChild(add);
     if (D.used.length || D.added.length){
       b.appendChild(nodes("p", "hint", (D.added.length ? "Added this turn: " + D.added.map(function(k){ return NAMES[k]; }).join(", ") + ". " : "") +
         (D.used.length ? "Used this turn: " + D.used.map(function(k){ return NAMES[k]; }).join(", ") + "." : "")));
@@ -1717,8 +1808,8 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
   var STOP_LABEL = {}; Object.keys(OPT_LABEL).forEach(function(k){ STOP_LABEL[k] = OPT_LABEL[k]; });
   STOP_EXTRA.forEach(function(i){ STOP_LABEL[i.k] = i.t; });
   // Which handtraps can actually hit each effect (for a gentle double-check).
-  var NOT_ASH = ["faris_ss","faris_place","inc_ss","inc_place","ic","fc","poly","mf","sunrise_destroy","snw","dpe","dystopia_burn","dystopia_destroy","cross_revive","driver","ash","maxx"];
-  var NOT_IMP = ["destiny","ic","fc","poly","mf","ahl","ecall","mist","malicious","inc_place","ash","maxx"];
+  var NOT_ASH = ["fuwalos","imperm","faris_ss","faris_place","inc_ss","inc_place","ic","fc","poly","mf","sunrise_destroy","snw","dpe","dystopia_burn","dystopia_destroy","cross_revive","driver","ash","maxx"];
+  var NOT_IMP = ["faris_ss","inc_ss","fuwalos","imperm","destiny","ic","fc","poly","mf","ahl","ecall","mist","malicious","inc_place","ash","maxx"];
   var STOP_BY = {ash:"Ash", imp:"Imperm", other:"Negated"};
   var STOP_TIP = {
     inc_vision:"No Vyon this turn. Normal Summon what you can, get Malicious bodies out, and save Polymerization for next turn.",
@@ -1781,14 +1872,312 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
     b.appendChild(ul);
   }
 
+
+  // ================= auto-tracking play engine =================
+  // You tap the play you made; hand, board, GY, once-per-turns, locks, LP and key-card locations update themselves.
+  var XNAMES = {sunrise:"Sunrise", rage:"Infernal Rage", snw:"Shining Neos Wingman", fwing:"Flame Wingman", dpe:"DPE",
+    dangerous:"Dangerous", dystopia:"Dystopia", trinity:"Trinity", cross:"Cross Crusader", driver:"Wonder Driver", devicer:"Infernal Devicer",
+    increase_t:"Increase (backrow)", vyon_t:"Vyon (backrow)", fc_set:"Favorite Contact (set)", imperm_set:"Imperm (set)"};
+  function nm(id){ return NAMES[id] || XNAMES[id] || id; }
+  var ATTRS = {stratos:"WIND", mist:"DARK", faris:"DARK", vyon:"DARK", increase:"DARK", malicious:"DARK", neos:"LIGHT",
+    sunrise:"LIGHT", rage:"WIND", snw:"LIGHT", fwing:"WIND", dpe:"DARK", dangerous:"DARK", dystopia:"DARK", trinity:"DARK",
+    cross:"DARK", driver:"LIGHT", devicer:"DARK"};
+  var LEVELS = {stratos:4, mist:4, faris:5, vyon:4, increase:3, malicious:6, neos:7, sunrise:7, rage:8, snw:8, fwing:6, dpe:8, dangerous:6, dystopia:8, trinity:8};
+  var HERO = ["stratos","mist","faris","vyon","increase","malicious","neos","sunrise","rage","snw","fwing","dpe","dangerous","dystopia","trinity","cross","driver","devicer"];
+  var ELEM = ["stratos","mist","neos","sunrise","rage","snw","fwing"];
+  var DESTINY = ["malicious","dpe","dangerous","dystopia"];
+  var EXTRA_IDS = ["sunrise","rage","snw","fwing","dpe","dangerous","dystopia","trinity","cross","driver","devicer"];
+  var DECK_HERO = ["stratos","mist","faris","vyon","increase","malicious","neos"];
+  var dot = function(id){ var a = ATTRS[id]; return a ? (ATTR_DOT[a.toLowerCase()] + " ") : ""; };
+
+  function B(){ if (!D.board) D.board = {field:[], back:[], gy:{}, ban:{}}; if (D.ns === undefined) D.ns = false; if (!D.queue) D.queue = []; if (!D.acts) D.acts = []; return D.board; }
+  function inc(o, k, n){ o[k] = (o[k] || 0) + (n || 1); if (o[k] <= 0) delete o[k]; }
+  function take(arr, id){ var i = arr.indexOf(id); if (i >= 0) arr.splice(i, 1); }
+  function toGY(id){ inc(B().gy, id); if (id === "mist" && !D.opt.mist) trig("mist"); }
+  function fromHand(id){ inc(D.hand, id, -1); }
+  function summon(id, how){ B().field.push(id); if (how === "ns") D.ns = true; onSummon(id, how); }
+  function heroesOnField(){ return B().field.filter(function(x){ return HERO.indexOf(x) >= 0; }); }
+  function syncZones(){
+    var b = B();
+    ["neos","mist","increase"].forEach(function(k){
+      var z = "deck";
+      if (D.hand[k]) z = "hand";
+      else if (b.field.indexOf(k) >= 0 || b.back.indexOf(k + "_t") >= 0) z = "field";
+      else if (b.gy[k]) z = "gy";
+      else if (b.ban[k]) z = "banished";
+      D.zones[k] = z;
+    });
+  }
+  // ---- triggered / follow-up effects go into a queue you resolve with one tap ----
+  function trig(k){ if (!D.queue.some(function(q){ return q === k; })) D.queue.push(k); }
+  function onSummon(id, how){
+    if (id === "stratos") trig("stratos");
+    if (id === "vyon" && !D.opt.vyon_dump) trig("vyon_dump");
+    if (id === "faris" && !D.opt.faris_place) trig("faris_place");
+    if (id === "sunrise" && !D.opt.sunrise_search) trig("sunrise_search");
+    if (id === "rage" && !D.opt.rage_search) trig("rage_search");
+    if (id === "snw" && !D.opt.snw) trig("snw");
+    if (id === "increase" && how === "back" && !D.opt.inc_vision) trig("inc_vision");
+    if (id === "cross" && how === "link" && !D.opt.cross_revive && B().gy.malicious) trig("cross_revive");
+    if (id === "devicer" && how === "link" && !D.opt.devicer) trig("devicer");
+  }
+  var TRIG = {
+    stratos: {t:"Stratos: search a HERO or destroy backrow", opts:function(){ return DECK_HERO.map(function(x){ return {k:x, t:nm(x)}; }).concat([{k:"_st", t:"Destroy Spells/Traps instead"}]); },
+      apply:function(k){ if (k !== "_st"){ inc(D.hand, k); D.added.push(k); } }, stopKey:"stratos"},
+    mist: {t:"Shadow Mist (sent to GY): search a HERO", opt:"mist", opts:function(){ return DECK_HERO.filter(function(x){ return x !== "mist"; }).map(function(x){ return {k:x, t:nm(x), rec:x === "neos"}; }); },
+      apply:function(k){ inc(D.hand, k); D.added.push(k); }},
+    vyon_dump: {t:"Vyon: send a HERO from your Deck to the GY", opt:"vyon_dump", opts:function(){ return DECK_HERO.map(function(x){ return {k:x, t:nm(x), rec:(x === "mist" && !D.opt.mist) || (x === "neos" && D.opt.mist)}; }); },
+      apply:function(k){ toGY(k); }},
+    faris_place: {t:"Faris: place a Vision HERO in your backrow", opt:"faris_place", lock:"faris", opts:function(){ return [{k:"increase", t:"Increase", rec:true}, {k:"vyon", t:"Vyon"}]; },
+      apply:function(k){ B().back.push(k + "_t"); }},
+    inc_vision: {t:"Increase: Special Summon a Level 4 or lower Vision HERO from your Deck", opt:"inc_vision", opts:function(){ return [{k:"vyon", t:"Vyon", rec:true}, {k:"increase", t:"Increase"}]; },
+      apply:function(k){ summon(k, "deck"); }},
+    sunrise_search: {t:"Sunrise: add Miracle Fusion", opt:"sunrise_search", opts:function(){ return [{k:"mf", t:"Miracle Fusion", rec:true}]; }, apply:function(k){ inc(D.hand, k); D.added.push(k); }},
+    rage_search: {t:"Infernal Rage: add a Favorite card", opt:"rage_search", opts:function(){ return [{k:"fc", t:"Favorite Contact", rec:true}]; }, apply:function(k){ if (B().gy.fc) inc(B().gy, "fc", -1); inc(D.hand, k); D.added.push(k); }},
+    snw: {t:"Shining Neos Wingman: destroy their cards", opt:"snw", opts:function(){ return [{k:"done", t:"Destroyed", rec:true}]; }, apply:function(){}},
+    cross_revive: {t:"Cross Crusader: revive a Destiny HERO", opt:"cross_revive", lock:"hero", opts:function(){ return [{k:"malicious", t:"Malicious", rec:true}]; }, apply:function(k){ inc(B().gy, k, -1); summon(k, "gy"); }},
+    devicer: {t:"Infernal Devicer: add Neos (reveal Shining Neos Wingman)", opt:"devicer", lock:"hero", opts:function(){ return [{k:"neos", t:"Neos", rec:true}]; }, apply:function(k){ inc(D.hand, k); D.added.push(k); }}
+  };
+  // ---- fusion / link recipes (from the official material text) ----
+  function attrsDiffer(m){ var s = {}; m.forEach(function(x){ s[ATTRS[x]] = 1; }); return Object.keys(s).length === m.length; }
+  var RECIPES = {
+    sunrise: {n:2, txt:"2 HEROs with different Attributes", ok:function(m){ return m.every(function(x){ return HERO.indexOf(x) >= 0; }) && attrsDiffer(m); }},
+    rage: {n:2, txt:"2 Elemental HEROs with different Attributes", ok:function(m){ return m.every(function(x){ return ELEM.indexOf(x) >= 0; }) && attrsDiffer(m); }},
+    snw: {n:2, txt:"Neos + a Wingman Fusion (Infernal Rage or Flame Wingman)", ok:function(m){ return m.indexOf("neos") >= 0 && (m.indexOf("rage") >= 0 || m.indexOf("fwing") >= 0); }},
+    trinity: {n:3, txt:"3 HEROs", ok:function(m){ return m.every(function(x){ return HERO.indexOf(x) >= 0; }); }},
+    dpe: {n:2, txt:"Level 6+ HERO + Destiny HERO", ok:function(m){ return m.some(function(x, i){ var o = m[1 - i]; return (LEVELS[x] || 0) >= 6 && DESTINY.indexOf(o) >= 0; }); }},
+    dangerous: {n:2, txt:"Destiny HERO + DARK Effect Monster", ok:function(m){ return m.some(function(x, i){ var o = m[1 - i]; return DESTINY.indexOf(x) >= 0 && ATTRS[o] === "DARK"; }); }},
+    dystopia: {n:2, txt:"2 Destiny HEROs", ok:function(m){ return m.every(function(x){ return DESTINY.indexOf(x) >= 0; }); }},
+    cross: {n:2, txt:"2 Warrior monsters", ok:function(m){ return m.indexOf("devicer") < 0; }, link:true},
+    driver: {n:2, txt:"2 HEROs", ok:function(m){ return m.every(function(x){ return HERO.indexOf(x) >= 0; }); }, link:true},
+    devicer: {n:2, txt:"2 HEROs", ok:function(m){ return m.every(function(x){ return HERO.indexOf(x) >= 0; }); }, link:true}
+  };
+  // A pending multi-step play (picking materials etc.) lives here while you tap.
+  var pending = null;
+  function snapshot(){ var a = D.acts; D.acts = []; var s = JSON.stringify(D); D.acts = a; return s; }
+  function restore(s, acts){ D = JSON.parse(s); D.acts = acts; }
+  function act(label, cost, gain, stop){
+    var before = snapshot();
+    if (cost) cost();
+    var mid = snapshot();
+    if (gain) gain();
+    syncZones();
+    D.acts.push({t:label, before:before, mid:mid, stop:stop || null});
+    persist(); renderBody(); renderLP();
+  }
+  function plays(){
+    var b = B(), h = D.hand, P = [];
+    var faceUp = b.field.length > 0;
+    if (h.ahl && !faceUp) P.push({t:"A Hero Lives", pick:{t:"Summon from your Deck (pay half your LP)", o:[{k:"stratos", t:"Stratos", rec:true}, {k:"mist", t:"Shadow Mist"}]},
+      cost:function(){ fromHand("ahl"); inc(b.gy, "ahl"); D.lp.me = Math.floor(D.lp.me / 2); }, run:function(k){ summon(k, "deck"); }, stop:"ahl"});
+    if (h.ecall) P.push({t:"E-Call", pick:{t:"Add an Elemental HERO", o:[{k:"stratos", t:"Stratos", rec:true}, {k:"mist", t:"Shadow Mist"}, {k:"neos", t:"Neos"}]},
+      cost:function(){ fromHand("ecall"); inc(b.gy, "ecall"); }, run:function(k){ inc(D.hand, k); D.added.push(k); }, stop:"ecall"});
+    if (!D.ns){
+      ["stratos","vyon","mist","malicious","neos"].forEach(function(x){
+        if (!h[x]) return;
+        if ((LEVELS[x] || 0) <= 4) P.push({t:"Normal Summon " + nm(x), run:function(){ fromHand(x); summon(x, "ns"); }});
+      });
+      if (h.faris && b.field.length) P.push({t:"Tribute Summon Faris", pick:{t:"Tribute which monster?", o:b.field.map(function(x){ return {k:x, t:nm(x)}; })},
+        run:function(k){ take(b.field, k); toGY(k); fromHand("faris"); summon("faris", "ns"); }});
+    }
+    if (h.faris && !D.opt.faris_ss){
+      var fod = Object.keys(h).filter(function(x){ return DECK_HERO.indexOf(x) >= 0 && (x !== "faris" || h.faris > 1); });
+      if (fod.length) P.push({t:"Faris (discard a HERO)", pick:{t:"Discard which HERO?", o:fod.map(function(x){ return {k:x, t:nm(x), rec:x === "mist" && !D.opt.mist || x === "malicious"}; })},
+        run:function(k){ fromHand(k); toGY(k); fromHand("faris"); D.opt.faris_ss = true; summon("faris", "ss"); }});
+    }
+    if (b.back.indexOf("increase_t") >= 0 && !D.opt.inc_ss && heroesOnField().length) P.push({t:"Increase (tribute a HERO)", pick:{t:"Tribute which HERO?", o:heroesOnField().map(function(x){ return {k:x, t:nm(x), rec:x === "faris"}; })},
+      run:function(k){ take(b.field, k); toGY(k); take(b.back, "increase_t"); D.opt.inc_ss = true; summon("increase", "back"); }});
+    if (b.field.indexOf("vyon") >= 0 && !D.opt.vyon_poly){
+      var gyh = Object.keys(b.gy).filter(function(x){ return HERO.indexOf(x) >= 0; });
+      if (gyh.length) P.push({t:"Vyon: banish a HERO, add Polymerization", pick:{t:"Banish which HERO from your GY?", o:gyh.map(function(x){ return {k:x, t:nm(x), rec:["mist","neos","malicious"].indexOf(x) < 0}; })},
+        cost:function(k){ inc(b.gy, k, -1); inc(b.ban, k); D.opt.vyon_poly = true; }, run:function(){ inc(D.hand, "poly"); D.added.push("poly"); }, stop:"vyon_poly"});
+    }
+    if (b.gy.malicious) P.push({t:"Malicious: banish from GY, summon one from Deck", cost:function(){ inc(b.gy, "malicious", -1); inc(b.ban, "malicious"); }, run:function(){ summon("malicious", "deck"); }, stop:"malicious"});
+    if (h.poly) P.push({t:"Polymerization", fusion:{from:["hand","field"], results:["sunrise","rage","snw","trinity","dpe","dangerous","dystopia"]}, spend:"poly"});
+    if (h.mf) P.push({t:"Miracle Fusion", fusion:{from:["field","gy"], results:["sunrise","rage","snw"], banish:true}, spend:"mf"});
+    if (h.destiny && !D.opt.destiny) P.push({t:"Fusion Destiny", pick:{t:"Make which? (materials from your Deck)", o:[{k:"dpe", t:"DPE (Malicious + Malicious)", rec:true}, {k:"dangerous", t:"Dangerous (Malicious + Malicious)"}, {k:"dystopia", t:"Dystopia (Malicious + Malicious)"}]},
+      cost:function(){ fromHand("destiny"); inc(b.gy, "destiny"); D.opt.destiny = true; }, run:function(k){ inc(b.gy, "malicious", 2); D.locks.destiny = true; summon(k, "fusion"); }, stop:"destiny"});
+    if (h.ic && !D.opt.ic) P.push({t:"Instant Contact (1000 LP)", pick:{t:"Summon which (Level 7 or lower Elemental HERO)?", o:[{k:"fwing", t:"Flame Wingman", rec:true}, {k:"sunrise", t:"Sunrise"}]},
+      cost:function(){ fromHand("ic"); inc(b.gy, "ic"); D.opt.ic = true; D.lp.me = Math.max(0, D.lp.me - 1000); },
+      run:function(k){ var live = D.zones.neos === "field" || D.zones.neos === "gy"; var q = D.queue.length; summon(k, "ic"); if (!live) D.queue.length = q; }, stop:"ic"});
+    if (h.fc) P.push({t:"Set Favorite Contact", run:function(){ fromHand("fc"); b.back.push("fc_set"); b.fcTurn = D.n; }});
+    if (h.imperm) P.push({t:"Set Infinite Impermanence", run:function(){ fromHand("imperm"); b.back.push("imperm_set"); }});
+    if (b.field.length >= 2){
+      ["cross","driver","devicer"].forEach(function(x){ if (b.field.indexOf(x) < 0) P.push({t:"Link: " + nm(x), fusion:{from:["field"], results:[x], link:true}}); });
+    }
+    if (b.field.indexOf("dpe") >= 0 && !D.opt.dpe) P.push({t:"DPE: destroy 1 of yours + 1 card", pick:{t:"Which of your cards goes?", o:b.field.concat(b.back).filter(function(x){ return x !== "dpe"; }).map(function(x){ return {k:x, t:nm(x)}; }).concat([{k:"_none", t:"Something else"}])},
+      cost:function(){ D.opt.dpe = true; }, run:function(k){ if (k !== "_none"){ if (b.back.indexOf(k) >= 0) take(b.back, k); else { take(b.field, k); toGY(k); } } }, stop:"dpe"});
+    if (b.back.indexOf("fc_set") >= 0 && !D.opt.fc && b.fcTurn !== D.n) P.push({t:"Flipped Favorite Contact (on their turn)", fusion:{from:["hand","field","gy","ban"], results:["snw","dpe","sunrise","rage","dystopia","dangerous"]}, spendBack:"fc_set"});
+    return P;
+  }
+  function renderPlays(){
+    var b = B();
+    // status strip: subtle identifiers instead of inputs
+    var st = box(null); st.className = "dbox statusbox";
+    var row = nodes("div", "pills");
+    row.appendChild(nodes("span", "spill" + (D.ns ? " used" : ""), D.ns ? "Normal Summon used" : "Normal Summon open"));
+    LOCKS.forEach(function(l){ if (D.locks[l.k]) row.appendChild(nodes("span", "spill lock", "🔒 " + l.t)); });
+    st.appendChild(row);
+    function line(lbl, items){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": ")); p.appendChild(document.createTextNode(items.length ? items.join(", ") : "—")); st.appendChild(p); }
+    line("Field", b.field.map(function(x){ return dot(x) + nm(x); }));
+    line("Backrow", b.back.map(nm));
+    line("Hand", Object.keys(D.hand).filter(function(k){ return D.hand[k]; }).map(function(k){ return nm(k) + (D.hand[k] > 1 ? " ×" + D.hand[k] : ""); }));
+    var gyk = Object.keys(b.gy).filter(function(k){ return HERO.indexOf(k) >= 0; });
+    line("GY", gyk.map(function(k){ return nm(k) + (b.gy[k] > 1 ? " ×" + b.gy[k] : ""); }));
+    if (Object.keys(b.ban).length) line("Banished", Object.keys(b.ban).map(function(k){ return nm(k) + (b.ban[k] > 1 ? " ×" + b.ban[k] : ""); }));
+    var used = Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k] || k; });
+    if (used.length) st.appendChild(nodes("p", "usedline", "Used: " + used.join(" · ")));
+
+    // pending choice for a play (one more tap)
+    if (pending){
+      var pb = box(pending.title); pb.className = "dbox pendbox";
+      if (pending.pick){
+        var w = nodes("div", "togs");
+        pending.pick.forEach(function(o){
+          var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); bt.type = "button";
+          bt.addEventListener("click", function(){ var p = pending; pending = null; act(p.label + ": " + o.t, p.cost ? function(){ p.cost(o.k); } : null, function(){ p.run(o.k); }, p.stop); });
+          w.appendChild(bt);
+        });
+        pb.appendChild(w);
+      } else if (pending.mats){
+        pb.appendChild(nodes("p", "hint", RECIPES[pending.result].txt + ". Tap the materials."));
+        var w2 = nodes("div", "togs");
+        pending.pool.forEach(function(m, i){
+          var on = pending.sel.indexOf(i) >= 0;
+          var bt = nodes("button", "tog" + (on ? " on" : ""), dot(m.id) + nm(m.id) + " (" + m.from + ")"); bt.type = "button";
+          bt.setAttribute("aria-pressed", on ? "true" : "false");
+          bt.addEventListener("click", function(){ var j = pending.sel.indexOf(i); if (j >= 0) pending.sel.splice(j, 1); else if (pending.sel.length < RECIPES[pending.result].n) pending.sel.push(i); renderBody(); });
+          w2.appendChild(bt);
+        });
+        pb.appendChild(w2);
+        var mats = pending.sel.map(function(i){ return pending.pool[i].id; });
+        var ready = mats.length === RECIPES[pending.result].n && RECIPES[pending.result].ok(mats);
+        var go = nodes("button", "primary", (RECIPES[pending.result].link ? "Link Summon " : "Summon ") + nm(pending.result)); go.type = "button"; go.disabled = !ready;
+        go.addEventListener("click", function(){ var p = pending; pending = null; act(p.label + " → " + nm(p.result), null, function(){ p.finish(); }, null); });
+        pb.appendChild(go);
+        if (mats.length === RECIPES[pending.result].n && !ready) pb.appendChild(nodes("p", "hint warnline", "Those materials don't fit: " + RECIPES[pending.result].txt + "."));
+      } else if (pending.results){
+        var w3 = nodes("div", "togs");
+        pending.results.forEach(function(r){
+          var bt = nodes("button", "tog big", dot(r) + nm(r)); bt.type = "button";
+          bt.addEventListener("click", function(){ startMats(pending.play, r); });
+          w3.appendChild(bt);
+        });
+        pb.appendChild(w3);
+      }
+      var cx = nodes("button", "ghost", "Cancel"); cx.type = "button"; cx.addEventListener("click", function(){ pending = null; renderBody(); });
+      pb.appendChild(cx);
+    }
+
+    // triggered effects waiting on you
+    D.queue.forEach(function(k){
+      var T = TRIG[k]; if (!T) return;
+      var qb = box(T.t); qb.className = "dbox trigbox";
+      var w = nodes("div", "togs");
+      T.opts().forEach(function(o){
+        var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); bt.type = "button";
+        bt.addEventListener("click", function(){
+          act(T.t.split(":")[0] + ": " + o.t, null, function(){ take(D.queue, k); if (T.opt) D.opt[T.opt] = true; if (T.lock) D.locks[T.lock] = true; T.apply(o.k); });
+        });
+        w.appendChild(bt);
+      });
+      qb.appendChild(w);
+      var sw = nodes("div", "stoprow");
+      ["ash","imp","other"].forEach(function(by){
+        var s = nodes("button", "mini stopbtn s-" + by, by === "other" ? "Negated" : STOP_BY[by]); s.type = "button";
+        s.addEventListener("click", function(){ act(T.t.split(":")[0] + " — " + STOP_BY[by], null, function(){ take(D.queue, k); if (T.opt) D.opt[T.opt] = true; D.stops.push({k:T.opt || T.stopKey || k, by:by}); }); });
+        sw.appendChild(s);
+      });
+      var sk = nodes("button", "mini", "Skip"); sk.type = "button";
+      sk.addEventListener("click", function(){ act(T.t.split(":")[0] + " (skipped)", null, function(){ take(D.queue, k); }); });
+      sw.appendChild(sk);
+      qb.appendChild(sw);
+    });
+
+    // available plays
+    if (!pending){
+      var pl = box("Your plays"); pl.className = "dbox playbox";
+      var list = plays();
+      if (!list.length) pl.appendChild(nodes("p", "hint", "Nothing left to play from what's tracked. Use Manual tracking below for anything else."));
+      var w4 = nodes("div", "togs");
+      list.forEach(function(p){
+        var bt = nodes("button", "tog play", p.t); bt.type = "button";
+        bt.addEventListener("click", function(){
+          if (p.pick){ pending = {title:p.pick.t, pick:p.pick.o, cost:p.cost, run:p.run, label:p.t, stop:p.stop}; renderBody(); }
+          else if (p.fusion){ pending = {title:p.t + ": make which?", results:p.fusion.results, play:p}; if (p.fusion.results.length === 1) startMats(p, p.fusion.results[0]); else renderBody(); }
+          else act(p.t, p.cost, p.run, p.stop);
+        });
+        w4.appendChild(bt);
+      });
+      pl.appendChild(w4);
+    }
+
+    // last play: one-tap "got stopped"
+    var last = D.acts[D.acts.length - 1];
+    var lg = box(null); lg.className = "dbox actlog";
+    if (last){
+      var top = nodes("div", "stoptop");
+      top.appendChild(nodes("span", "stopnm", "Last: " + last.t));
+      if (last.stop){
+        ["ash","imp","other"].forEach(function(by){
+          var s = nodes("button", "mini stopbtn s-" + by, by === "other" ? "Negated" : STOP_BY[by]); s.type = "button";
+          s.title = "It got stopped: keep the costs, undo what it gave you";
+          s.addEventListener("click", function(){
+            var lbl = last.t + " — " + STOP_BY[by];
+            restore(last.mid, D.acts.slice()); D.stops.push({k:last.stop, by:by});
+            syncZones(); D.acts.push({t:lbl, before:last.before, mid:last.mid}); persist(); renderBody(); renderLP();
+          });
+          top.appendChild(s);
+        });
+      }
+      var un = nodes("button", "mini", "Undo"); un.type = "button";
+      un.addEventListener("click", function(){ var l = D.acts[D.acts.length - 1]; restore(l.before, D.acts.slice(0, -1)); pending = null; persist(); renderBody(); renderLP(); });
+      top.appendChild(un);
+      lg.appendChild(top);
+      if (D.acts.length > 1){
+        var det = nodes("details"); det.appendChild(nodes("summary", null, "This turn (" + D.acts.length + " plays)"));
+        var ol = nodes("ol", "actlist"); D.acts.forEach(function(a){ ol.appendChild(nodes("li", null, a.t)); });
+        det.appendChild(ol); lg.appendChild(det);
+      }
+    } else lg.appendChild(nodes("p", "hint", "Tap a play above. Everything else is tracked for you."));
+  }
+  function startMats(p, result){
+    var b = B(), pool = [];
+    var from = p.fusion.from;
+    if (from.indexOf("hand") >= 0) Object.keys(D.hand).forEach(function(k){ if (HERO.indexOf(k) >= 0) for (var i = 0; i < D.hand[k]; i++) pool.push({id:k, from:"hand"}); });
+    if (from.indexOf("field") >= 0) b.field.forEach(function(k){ pool.push({id:k, from:"field"}); });
+    if (from.indexOf("gy") >= 0) Object.keys(b.gy).forEach(function(k){ if (HERO.indexOf(k) >= 0) for (var i = 0; i < b.gy[k]; i++) pool.push({id:k, from:"GY"}); });
+    if (from.indexOf("ban") >= 0) Object.keys(b.ban).forEach(function(k){ if (HERO.indexOf(k) >= 0) for (var i = 0; i < b.ban[k]; i++) pool.push({id:k, from:"banished"}); });
+    var P = {title:p.t + " → " + nm(result), mats:true, pool:pool, sel:[], result:result, label:p.t, stop:p.stop};
+    P.finish = function(){
+      P.sel.map(function(i){ return P.pool[i]; }).forEach(function(m){
+        if (m.from === "hand") fromHand(m.id); else if (m.from === "field") take(b.field, m.id);
+        else if (m.from === "GY") inc(b.gy, m.id, -1); else if (m.from === "banished") inc(b.ban, m.id, -1);
+        if (p.fusion.banish) inc(b.ban, m.id);
+        else if (p.spendBack) { /* Favorite Contact: materials go to the bottom of the Deck */ }
+        else toGY(m.id);
+      });
+      if (p.spend){ fromHand(p.spend); inc(b.gy, p.spend); }
+      if (p.spendBack){ take(b.back, p.spendBack); inc(b.gy, "fc"); D.opt.fc = true; }
+      summon(result, p.fusion.link ? "link" : "fusion");
+    };
+    pending = P; renderBody();
+  }
+
   function renderMain(){
+    B(); syncZones();
+    renderPlays();
     var r = box(null);
-    var det = nodes("details", "planfold"); det.open = D.n === 1;
+    var det = nodes("details", "planfold"); det.open = D.n === 1 && !D.acts.length;
     det.appendChild(nodes("summary", null, "Best line for your current hand"));
     det.appendChild(document.getElementById("result"));
     r.appendChild(det);
     evaluate();
-    renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); renderZoneBox();
+    var mt = box(null); mt.className = "dbox manualtoggle";
+    var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
+    mb.addEventListener("click", function(){ D.showManual = !D.showManual; persist(); renderBody(); });
+    mt.appendChild(mb);
+    if (D.showManual){ renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); }
   }
 
   function reminders(){
@@ -1797,7 +2186,7 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
     if (D.zones.increase === "field") out.push("Increase is in your backrow, ready to restart the engine next turn.");
     if (D.opt.destiny) out.push("Fusion Destiny's monster is destroyed at the End Phase of the next turn.");
     if (D.opt.ic && ["gy","field"].indexOf(D.zones.neos) < 0) out.push("Neos wasn't on your field or in your GY, so the Instant Contact monster returns to the Extra Deck now.");
-    if (D.opt.rage_search && !D.opt.fc) out.push("Set the Favorite Contact you searched so you can flip it on their turn.");
+    if (D.opt.rage_search && !D.opt.fc && B().back.indexOf("fc_set") < 0) out.push("Set the Favorite Contact you searched so you can flip it on their turn.");
     if ((D.opt.rage_search || D.hand.fc) && D.zones.neos === "deck") out.push("Neos is still in your Deck, so Favorite Contact can't make Shining Neos Wingman. Backup: DPE from two Malicious in your GY or banished.");
     if (D.stops.length) out.push("You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time.");
     if (D.opt.mist) out.push("Your Shadow Mist effect for this turn is used. A Shadow Mist sent to the GY now won't search.");
@@ -1878,7 +2267,7 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
         opts:Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }),
         stops:D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }),
         lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note});
-      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null;
+      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null; D.ns = false; D.queue = []; D.acts = []; pending = null;
     }
     persist(); renderDuel(); window.scrollTo(0, 0);
     var m = document.querySelector(".center main"); if (m) m.scrollTop = 0;
