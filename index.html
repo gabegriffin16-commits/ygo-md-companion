@@ -380,6 +380,25 @@ body{
 .s-ash .stoptag{background:var(--red); color:#fff} .s-imp .stoptag{background:var(--sky); color:#10213a}
 .stopnm{flex:1; font-weight:700}
 .stoptip{margin:6px 0 0; color:var(--muted); font-size:.88rem}
+
+/* card image: keep it in layout and fade in (display:none + async decode could leave it unpainted) */
+.cd-image{position:relative}
+.cd-image[data-state] img{display:block !important; opacity:0; transition:opacity .18s ease}
+.cd-image[data-state="ready"] img{opacity:1}
+.cd-image figcaption{position:absolute; inset:0; display:grid; place-items:center; padding:12px}
+.cd-image[data-state="ready"] figcaption{display:none}
+@media (prefers-reduced-motion: reduce){ .cd-image[data-state] img{transition:none} }
+
+/* ---- counter guide ---- */
+.cg > h2{margin:6px 0 4px}
+.cg-sec{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:4px 12px 12px 4px; padding:10px 14px; margin-bottom:10px}
+.cg-sec h3{margin-bottom:4px; font-size:1rem}
+.cg-ashthis{border-left-color:var(--red)} .cg-ashthis h3{color:var(--red)}
+.cg-dontash{border-left-color:var(--muted)}
+.cg-maxxc{border-left-color:#B07A4A}
+.cg-also{border-left-color:var(--sky)}
+.cg-yourboard{border-left-color:var(--gold)} .cg-yourboard h3{color:var(--gold)}
+#cgPick{flex-wrap:wrap; overflow:visible}
 </style>
 </head>
 <body>
@@ -466,6 +485,12 @@ body{
     <h2>Playing around handtraps</h2>
     <div class="card"><ul class="notes" id="cpTips"></ul></div>
   </section>
+
+  <!-- COUNTER GUIDE -->
+  <section id="tab-counter" hidden aria-labelledby="t-counter">
+    <div class="filter" role="group" aria-label="Pick their deck" id="cgPick"></div>
+    <div id="cgList"></div>
+  </section>
 </main>
 
 <nav class="tabs" role="tablist" aria-label="Sections">
@@ -474,6 +499,7 @@ body{
     <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
     <button class="tab" role="tab" id="t-extra" aria-selected="false" aria-controls="tab-extra" data-tab="extra">Extra Deck</button>
     <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
+    <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
   </div>
 </nav>
 </div>
@@ -540,7 +566,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (localId){
       img.onload = function(){ if (img._tok === token) set("ready"); };
       img.onerror = function(){ if (img._tok === token) remote(); };
-      img.decoding = "async"; img.fetchPriority = "high"; img.alt = name; img.src = "images/" + localId + ".jpg";
+      img.fetchPriority = "high"; img.alt = name; img.src = "images/" + localId + ".jpg";
       return;
     }
     remote();
@@ -551,7 +577,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       if (!url){ set("missing", "No image found for " + name); return; }
       img.onload = function(){ if (img._tok === token) set("ready"); };
       img.onerror = function(){ if (img._tok === token) set("error", "Image failed to load"); };
-      img.decoding = "async"; img.referrerPolicy = "no-referrer";
+      img.referrerPolicy = "no-referrer";
       img.alt = card.name; img.src = url;
     }).catch(function(){ if (img._tok === token) set("error", "Couldn't reach YGOPRODeck. Check your connection."); });
     }
@@ -1187,6 +1213,73 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
   var ATTR_WORD_ST = {spell:"\u2726 SPELL", trap:"\u2726 TRAP"};
   paintDeck(); paintCard();
   if (window.YGO) window.YGO.preloadDeck(DECK.map(function(c){ return c.name; }));
+
+
+  // ---------- counter guide ----------
+  var COUNTERS = [
+    {id:"any", name:"Any deck", rules:true, sections:[
+      ["Ash this", ["The effect their whole hand depends on, not just the first one they activate. Ask: if this gets negated, can they still keep going?",
+        "A starter's search or Deck summon right after they've used their Normal Summon on it. They can't Normal Summon another starter."]],
+      ["Don't Ash", ["A small search early in the turn while they still hold a full hand. That's often bait to draw out your Ash."]],
+      ["Maxx \u201CC\u201D", ["Use it early: chain it to their first effect that's clearly building toward Special Summons.",
+        "Holding Maxx \u201CC\u201D and Ash? Play Maxx first. If they answer it with their own Ash, you still have yours."]],
+      ["Your board", ["DPE: destroy the monster that's about to make their big play, before its effect activates.",
+        "Favorite Contact: flip it once their key pieces are on the field, before their final payoff."]]
+    ]},
+    {id:"elf", name:"Elfnote Stardust", note:"Covers the Junk / Synchron variant too", sections:[
+      ["Ash this", ["1st: Elfnote Regina summoning an Elfnote from the Deck. It's their best starter and can summon itself on either turn.",
+        "2nd: Elfnote Lucina's search, which usually grabs Power Patron or Regina."]],
+      ["Don't Ash", ["Elfnote Tinia. She places a Continuous Spell from the Deck, and Ash can't stop placing."]],
+      ["Also", ["The deck is built to play through single handtraps. If they hold an extender they'll make Baronne de Fleur and negate you, so hit the first starter instead of waiting for a perfect moment.",
+        "Maxx \u201CC\u201D early in their combo forces them to choose between giving you cards and stopping.",
+        "Junk / Synchron version: same targets, but more ways to recover. Lean more on Maxx \u201CC\u201D and your board."]],
+      ["Your board", ["Baronne de Fleur can negate one effect per turn. Bait it with a cheap monster effect before your key play."]]
+    ]},
+    {id:"be", name:"Blue-Eyes", sections:[
+      ["Ash this", ["1st: Wishes for Eyes of Blue. One discard for two searches: a Level 1 LIGHT Tuner and a Spell/Trap that mentions Blue-Eyes White Dragon. Strong players hold Ash specifically for it.",
+        "2nd: Roar of the Blue-Eyed Dragons summoning Blue-Eyes White Dragon from the Deck."]],
+      ["Don't Ash", ["Sage with Eyes of Blue's Normal Summon search while Wishes could still be in their hand. It's the classic bait."]]
+    ]},
+    {id:"chim", name:"Chimera", note:"With Predaplant Dragostapelia", sections:[
+      ["Ash this", ["1st: Big-Winged Berfomet's search. It adds a Level 4 Beast and/or Chimera Fusion, two key pieces off one effect.",
+        "2nd: Mirror Swordknight tributing itself to summon from the Deck. That's usually how Berfomet arrives."]],
+      ["Don't Ash", ["Cornfield Coatl's discard search early in the turn, unless it's clearly their only starter."]],
+      ["Also", ["Disrupt before their Chimera hits the field. After that, Mirror Swordknight (monster effects) and Cornfield Coatl (targeting effects) can negate from the GY."]],
+      ["Your board", ["Going second, bait the Swordknight negate with a cheap monster effect like Stratos's search, then make your big play.",
+        "Shining Neos Wingman's destruction doesn't target, so Coatl can't stop it.",
+        "Predaplant Dragostapelia negates the effects of your monsters that have a Predator Counter. Use DPE's or Shining Neos Wingman's effects on monsters it hasn't marked, or clear Dragostapelia first."]]
+    ]},
+    {id:"gp", name:"Galaxy Photon", sections:[
+      ["Ash this", ["1st: Galaxy-Eyes Photon Dragon's search when it's Special Summoned (adds another Galaxy-Eyes Photon Dragon). Several of their lines fall apart here.",
+        "2nd: Galaxy Soldier's search when it's Special Summoned (adds a Galaxy monster)."]],
+      ["Your board", ["Number 90: Galaxy-Eyes Photon Lord negates one of your monster effects. Make it spend that on something cheap before your key play.",
+        "On your turn, Photon Lord can also pull a Photon or Galaxy card from their Deck. That's a solid Ash target on your turn."]]
+    ]}
+  ];
+  var cgSel = load("hbc-cg", "any");
+  function paintCounter(){
+    var pick = document.getElementById("cgPick"); pick.innerHTML = "";
+    COUNTERS.forEach(function(d){
+      var b = document.createElement("button"); b.type = "button"; b.textContent = d.name;
+      b.setAttribute("aria-pressed", d.id === cgSel ? "true" : "false");
+      b.addEventListener("click", function(){ cgSel = d.id; save("hbc-cg", cgSel); paintCounter(); });
+      pick.appendChild(b);
+    });
+    var list = document.getElementById("cgList"); list.innerHTML = "";
+    var d = COUNTERS.filter(function(x){ return x.id === cgSel; })[0] || COUNTERS[0];
+    var card = document.createElement("div"); card.className = "cg";
+    var h = document.createElement("h2"); h.textContent = d.name; card.appendChild(h);
+    if (d.note){ var n = document.createElement("p"); n.className = "hint"; n.textContent = d.note; card.appendChild(n); }
+    d.sections.forEach(function(s){
+      var box = document.createElement("div"); box.className = "cg-sec cg-" + s[0].toLowerCase().replace(/[^a-z]+/g, "");
+      var t = document.createElement("h3"); t.textContent = s[0]; box.appendChild(t);
+      var ul = document.createElement("ul"); ul.className = "notes";
+      s[1].forEach(function(x){ var li = document.createElement("li"); li.textContent = x; ul.appendChild(li); });
+      box.appendChild(ul); card.appendChild(box);
+    });
+    list.appendChild(card);
+  }
+  paintCounter();
 
   // ---------- duel flow ----------
   var DUEL_KEY = "hbc-duel";
