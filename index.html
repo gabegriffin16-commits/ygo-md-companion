@@ -225,7 +225,7 @@ section[hidden]{display:none}
   .pill.rar{color:var(--bg); border:0; font-weight:700; padding:3px 16px; letter-spacing:.08em}
   .pill.r-UR{color:#2A2340; background:linear-gradient(100deg,#F4A3A3,#F6CF8A,#EDE68E,#9EDDB2,#94CDEB,#B4A6E6,#EBAED9,#F4A3A3);
     background-size:220% 100%; animation:urShine 7s linear infinite; box-shadow:0 0 0 1px rgba(255,255,255,.35) inset}
-  .pill.r-SR{background:var(--gold)} .pill.r-R{background:var(--sky)} .pill.r-N{background:#8F8F9A; color:#1C1C24}
+  .pill.r-SR{background:#E0B85E; color:#2A2340} .pill.r-R{background:#86BEDB; color:#10213A} .pill.r-N{background:#8F8F9A; color:#1C1C24}
   .cd-block{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px 16px 10px; margin-bottom:12px}
   .side.right .cd-block .cd-sec{margin:0 0 6px; font-size:1rem}
   .side.right .cd-block .cd-list li{margin-bottom:5px}
@@ -540,7 +540,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (localId){
       img.onload = function(){ if (img._tok === token) set("ready"); };
       img.onerror = function(){ if (img._tok === token) remote(); };
-      img.decoding = "async"; img.alt = name; img.src = "images/" + localId + ".jpg";
+      img.decoding = "async"; img.fetchPriority = "high"; img.alt = name; img.src = "images/" + localId + ".jpg";
       return;
     }
     remote();
@@ -556,7 +556,26 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     }).catch(function(){ if (img._tok === token) set("error", "Couldn't reach YGOPRODeck. Check your connection."); });
     }
   }
-  window.YGO = {getCards:getCards, bindCardImage:bindCardImage, preloadDeck:function(n){ return getCards(n).catch(function(){}); }};
+  // Warm the browser cache with every card image (4 at a time), local folder first, YGOPRODeck as fallback.
+  function warmImages(names){
+    var list = names.map(apiName), i = 0;
+    function nextOne(){
+      if (i >= list.length) return;
+      var name = list[i++], id = window.CARD_IDS && window.CARD_IDS[name];
+      var done = function(){ setTimeout(nextOne, 0); };
+      var fallback = function(){
+        getCards([name]).then(function(m){
+          var u = getImageUrl(m.get(name.toLowerCase()), "full");
+          if (!u) return done();
+          var r = new Image(); r.onload = r.onerror = done; r.src = u;
+        }).catch(done);
+      };
+      if (!id) return fallback();
+      var im = new Image(); im.onload = done; im.onerror = fallback; im.src = "images/" + id + ".jpg";
+    }
+    for (var k = 0; k < 4; k++) nextOne();
+  }
+  window.YGO = {getCards:getCards, bindCardImage:bindCardImage, preloadDeck:function(n){ setTimeout(function(){ warmImages(n); }, 300); }};
 })();
 </script>
 <script>
