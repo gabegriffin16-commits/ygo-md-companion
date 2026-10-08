@@ -225,7 +225,7 @@ section[hidden]{display:none}
   .pill.rar{color:var(--bg); border:0; font-weight:700; padding:3px 16px; letter-spacing:.08em}
   .pill.r-UR{color:#2A2340; background:linear-gradient(100deg,#F4A3A3,#F6CF8A,#EDE68E,#9EDDB2,#94CDEB,#B4A6E6,#EBAED9,#F4A3A3);
     background-size:220% 100%; animation:urShine 7s linear infinite; box-shadow:0 0 0 1px rgba(255,255,255,.35) inset}
-  .pill.r-SR{background:var(--gold)} .pill.r-R{background:var(--sky)} .pill.r-N{background:#8F8F9A; color:#1C1C24}
+  .pill.r-SR{background:#E0B85E; color:#2A2340} .pill.r-R{background:#86BEDB; color:#10213A} .pill.r-N{background:#8F8F9A; color:#1C1C24}
   .cd-block{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px 16px 10px; margin-bottom:12px}
   .side.right .cd-block .cd-sec{margin:0 0 6px; font-size:1rem}
   .side.right .cd-block .cd-list li{margin-bottom:5px}
@@ -313,9 +313,141 @@ body{
 @keyframes ambientFlow{ from{background-position:0% 0%} to{background-position:100% 100%} }
 @keyframes ambientFlow2{ from{background-position:0 0, 0% 0%} to{background-position:0 0, 100% 100%} }
 @media (prefers-reduced-motion: reduce){ body, .side.left, .side.right{animation:none} }
+/* ---- duel flow ---- */
+.lpbar{position:sticky; top:0; z-index:5; display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:8px 0 10px; margin-bottom:4px;
+  background:linear-gradient(var(--bg) 80%, transparent)}
+.lpbar .turnlab{grid-column:1/-1; font:600 1rem var(--display); color:var(--gold)}
+.lpcol{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px}
+.lphead{display:flex; align-items:baseline; justify-content:space-between}
+.lphead .lab{font:600 .85rem var(--display); color:var(--muted)}
+.lpval{font:700 1.6rem var(--display); color:var(--ink)}
+.lpval.low{color:var(--red)}
+.lpbtns{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
+.mini{background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:5px 10px; font:600 .82rem var(--display); cursor:pointer}
+.mini:hover{border-color:var(--gold)}
+.lpin{width:84px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:5px 8px; font:600 .85rem var(--body)}
+.stepper{list-style:none; display:flex; gap:6px; padding:0; margin:6px 0 14px}
+.stepper li{flex:1; text-align:center; font:600 .85rem var(--display); padding:8px 4px; border-radius:10px; background:var(--panel); color:var(--muted); border:1px solid var(--line)}
+.stepper li.done{color:var(--ink)}
+.stepper li.cur{background:var(--gold); color:#1B1640; border-color:var(--gold)}
+.stepper li.skip{opacity:.45; text-decoration:line-through}
+.stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
+.primary{background:var(--gold); color:#1B1640; border:0; border-radius:10px; padding:10px 24px; font:700 .95rem var(--display); cursor:pointer}
+.ghost:disabled{opacity:.4; cursor:default}
+.dbox{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px}
+.dbox > h3{margin-bottom:8px; font-size:1rem}
+.dbox .seg{margin-bottom:8px}
+.dbox .result .plan{background:var(--bg)}
+.hrow{display:flex; align-items:center; gap:8px; padding:6px 0; border-top:1px solid var(--line)}
+.hrow:first-of-type{border-top:0}
+.hrow .nm{flex:1; font-weight:700}
+.addrow{display:flex; gap:8px; margin-top:10px}
+.addsel{flex:1; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:6px 8px; font:400 .9rem var(--body)}
+.togs{display:flex; flex-wrap:wrap; gap:6px}
+.tog{background:var(--bg); border:1px solid var(--line); color:var(--muted); border-radius:8px; padding:6px 10px; font:600 .82rem var(--body); cursor:pointer}
+.tog[aria-pressed="true"]{background:var(--panel2); color:var(--ink); border-color:var(--gold)}
+.tog.lock[aria-pressed="true"]{border-color:var(--red); background:color-mix(in srgb, var(--red) 18%, var(--panel))}
+.zrow{display:grid; grid-template-columns:100px 1fr; gap:6px 10px; align-items:center; padding:8px 0; border-top:1px solid var(--line)}
+.zrow:first-of-type{border-top:0}
+.znm{font-weight:700}
+.zseg{display:flex; flex-wrap:wrap; gap:4px}
+.zseg button{background:var(--bg); color:var(--muted); border:1px solid var(--line); border-radius:7px; padding:4px 9px; font:600 .78rem var(--display); cursor:pointer}
+.zseg button[aria-pressed="true"]{background:var(--gold); color:#1B1640; border-color:var(--gold)}
+.zhint{grid-column:2; color:var(--muted); font-size:.85rem}
+.lr{margin:0 0 4px; font-size:.92rem; color:var(--muted)}
+.lr b{color:var(--ink)}
+.dnote{width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:8px 10px; font:400 .92rem var(--body); resize:vertical}
+.loghead{display:flex; align-items:center; justify-content:space-between; margin-top:22px}
+.loghead h2{margin:0}
+.duellog{list-style:none; padding:0; margin:10px 0 0}
+.duellog li{background:var(--panel); border-left:4px solid var(--sky); border-radius:4px 12px 12px 4px; padding:10px 14px; margin-bottom:10px}
+.duellog li.empty{border-left-color:var(--line); color:var(--muted)}
+.duellog .lt{font:700 .95rem var(--display); margin-bottom:4px}
+.chip[aria-pressed="true"]{border-color:var(--gold); background:var(--panel2)}
+
+.planfold > summary{cursor:pointer; font:600 1rem var(--display); list-style:none; display:flex; justify-content:space-between; align-items:center}
+.planfold > summary::-webkit-details-marker{display:none}
+.planfold > summary::after{content:"Show"; font:600 .8rem var(--display); color:var(--gold)}
+.planfold[open] > summary::after{content:"Hide"}
+.planfold[open] > summary{margin-bottom:8px}
+
+.stopbtn.s-ash{border-color:var(--red)} .stopbtn.s-imp{border-color:var(--sky)} .stopbtn.s-other{border-color:var(--muted)}
+.stoplist{list-style:none; padding:0; margin:10px 0 0}
+.stoplist li{border-left:4px solid var(--muted); background:var(--bg); border-radius:4px 10px 10px 4px; padding:8px 12px; margin-bottom:8px}
+.stoplist li.s-ash{border-left-color:var(--red)} .stoplist li.s-imp{border-left-color:var(--sky)}
+.stoptop{display:flex; align-items:center; gap:8px}
+.stoptag{font:700 .75rem var(--display); border-radius:6px; padding:2px 8px; background:var(--panel2); color:var(--ink)}
+.s-ash .stoptag{background:var(--red); color:#fff} .s-imp .stoptag{background:var(--sky); color:#10213a}
+.stopnm{flex:1; font-weight:700}
+.stoptip{margin:6px 0 0; color:var(--muted); font-size:.88rem}
+
+/* card image: keep it in layout and fade in (display:none + async decode could leave it unpainted) */
+.cd-image{position:relative}
+.cd-image[data-state] img{display:block !important; opacity:0; transition:opacity .18s ease}
+.cd-image[data-state="ready"] img{opacity:1}
+.cd-image figcaption{position:absolute; inset:0; display:grid; place-items:center; padding:12px}
+.cd-image[data-state="ready"] figcaption{display:none}
+@media (prefers-reduced-motion: reduce){ .cd-image[data-state] img{transition:none} }
+
+/* ---- counter guide ---- */
+.cg > h2{margin:6px 0 4px}
+.cg-sec{background:var(--panel); border:1px solid var(--line); border-left:4px solid var(--line); border-radius:4px 12px 12px 4px; padding:10px 14px; margin-bottom:10px}
+.cg-sec h3{margin-bottom:4px; font-size:1rem}
+.cg-ashthis{border-left-color:var(--red)} .cg-ashthis h3{color:var(--red)}
+.cg-dontash{border-left-color:var(--muted)}
+.cg-maxxc{border-left-color:#B07A4A}
+.cg-also{border-left-color:var(--sky)}
+.cg-yourboard{border-left-color:var(--gold)} .cg-yourboard h3{color:var(--gold)}
+#cgPick{flex-wrap:wrap; overflow:visible}
+
+/* ambient motion v2: one GPU-friendly moving layer instead of repainting panel backgrounds */
+body{background:var(--bg) !important; animation:none !important}
+.ambient{position:fixed; inset:-25%; z-index:-1; pointer-events:none;
+  background:
+    radial-gradient(40% 35% at 20% 25%, color-mix(in srgb, var(--gold) 32%, transparent) 0%, transparent 70%),
+    radial-gradient(45% 40% at 80% 30%, color-mix(in srgb, var(--dark) 36%, transparent) 0%, transparent 70%),
+    radial-gradient(50% 45% at 55% 85%, color-mix(in srgb, var(--sky) 32%, transparent) 0%, transparent 70%);
+  animation:ambientDrift 18s ease-in-out infinite alternate; will-change:transform}
+@keyframes ambientDrift{
+  0%  {transform:translate3d(-6%,-4%,0) rotate(0deg)}
+  50% {transform:translate3d(5%,3%,0) rotate(5deg)}
+  100%{transform:translate3d(-2%,6%,0) rotate(-4deg)}
+}
+@media (min-width:1220px){
+  .side.left, .side.right{animation:none !important; background:color-mix(in srgb, var(--panel) 55%, transparent) !important}
+}
+@media (prefers-reduced-motion: reduce){ .ambient{animation:none} }
+/* give the card image its own layer so nothing behind it can blank it */
+.plate .cd-image{transform:translateZ(0); backface-visibility:hidden}
+.cg-imperm{border-left-color:var(--sky)}
+
+/* ---- any-card search + text card face ---- */
+.cdsearch{position:relative; margin:0 0 14px}
+.cdsearch input{width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:9px 12px; font:400 .95rem var(--body)}
+.cdsearch input:focus{outline:2px solid var(--gold); outline-offset:1px}
+.cdres{position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); list-style:none; margin:0; padding:4px; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 30px rgba(0,0,0,.3); max-height:360px; overflow-y:auto}
+.cdres button{width:100%; text-align:left; background:none; border:0; color:var(--ink); font:400 .92rem var(--body); padding:7px 10px; border-radius:7px; cursor:pointer}
+.cdres button:hover{background:var(--panel2)}
+.cdres .msg{color:var(--muted); font-size:.88rem; padding:7px 10px}
+.cardface{--cf1:#8A5A3C; --cf2:#C08A5E; border-radius:12px; padding:14px 16px; margin:2px 0 16px; color:#1E1A16;
+  background:linear-gradient(160deg, var(--cf2) 0%, var(--cf1) 100%); box-shadow:0 14px 34px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.18)}
+.cf-normal{--cf1:#B99A55; --cf2:#E3CB8A} .cf-fusion{--cf1:#6F558F; --cf2:#A68BC6} .cf-synchro{--cf1:#C9C9CE; --cf2:#F2F2F4}
+.cf-xyz{--cf1:#1E1E24; --cf2:#45454F; color:#EEE} .cf-link{--cf1:#2F5E8A; --cf2:#6E9CC6} .cf-ritual{--cf1:#4C77B5; --cf2:#8DB0DE}
+.cf-spell{--cf1:#2A7A6A; --cf2:#5DB3A0} .cf-trap{--cf1:#8A3F7C; --cf2:#C27BB3} .cf-token{--cf1:#8A8A8F; --cf2:#C2C2C6}
+.cf-xyz .cf-text, .cf-link .cf-text, .cf-spell .cf-text, .cf-trap .cf-text, .cf-fusion .cf-text{color:#1E1A16}
+.cf-top{display:flex; justify-content:space-between; align-items:flex-start; gap:10px}
+.cf-name{font:700 1.2rem/1.2 var(--display)}
+.cf-attr{flex:none; font:700 .75rem var(--display); letter-spacing:.05em; background:rgba(255,255,255,.55); color:#1E1A16; border-radius:999px; padding:3px 9px}
+.cf-level{display:inline-block; margin-top:8px; font:600 .85rem var(--display); color:#F2C94C; background:rgba(20,16,12,.55); border-radius:999px; padding:2px 10px; letter-spacing:.04em}
+.cf-xyz .cf-level{color:#F2C94C}
+.cf-type{margin-top:8px; font:700 .85rem var(--display)}
+.cf-text{margin-top:6px; background:rgba(255,255,255,.82); border-radius:8px; padding:10px 12px; font:400 .9rem/1.45 var(--body); white-space:pre-wrap}
+.cf-stats{margin-top:8px; text-align:right; font:700 .95rem var(--display)}
+.dbplate .cd-image[data-state="loading"]{display:none}
 </style>
 </head>
 <body>
+<div class="ambient" aria-hidden="true"></div>
 <div class="layout">
 <aside class="side left" id="deckPane" aria-label="Decklist"></aside>
 <div class="center">
@@ -338,14 +470,25 @@ body{
 
   <!-- HAND -->
   <section id="tab-hand" aria-labelledby="t-hand">
-    <div class="seg" role="group" aria-label="Turn order">
-      <button type="button" data-turn="first" aria-pressed="true">Going first</button>
-      <button type="button" data-turn="second" aria-pressed="false">Going second</button>
+    <div class="lpbar" id="lpBar"></div>
+    <ol class="stepper" id="stepper" aria-label="Duel steps"></ol>
+    <div id="stepBody"></div>
+    <div class="stepnav">
+      <button type="button" class="ghost" id="stepBack">Back</button>
+      <button type="button" class="primary" id="stepNext">Next</button>
     </div>
-    <p class="hint">Tap each card in your hand. Tap again for extra copies, up to what the deck runs; one more tap clears it.</p>
-    <div id="chipArea"></div>
-    <div class="actions"><button type="button" class="ghost" id="clearHand">Clear hand</button></div>
-    <div class="result" id="result" aria-live="polite"></div>
+    <div class="loghead"><h2>Duel log</h2><button type="button" class="ghost" id="newDuel">New duel</button></div>
+    <ol class="duellog" id="duelLog"></ol>
+    <div id="duelPark" hidden>
+      <div class="seg" role="group" aria-label="Turn order">
+        <button type="button" data-turn="first" aria-pressed="true">Going first</button>
+        <button type="button" data-turn="second" aria-pressed="false">Going second</button>
+      </div>
+      <p class="hint" id="openHint"></p>
+      <div id="chipArea"></div>
+      <div class="actions"><button type="button" class="ghost" id="clearHand">Clear hand</button></div>
+      <div class="result" id="result" aria-live="polite"></div>
+    </div>
   </section>
 
   <!-- LINES -->
@@ -388,14 +531,21 @@ body{
     <h2>Playing around handtraps</h2>
     <div class="card"><ul class="notes" id="cpTips"></ul></div>
   </section>
+
+  <!-- COUNTER GUIDE -->
+  <section id="tab-counter" hidden aria-labelledby="t-counter">
+    <div class="filter" role="group" aria-label="Pick their deck" id="cgPick"></div>
+    <div id="cgList"></div>
+  </section>
 </main>
 
 <nav class="tabs" role="tablist" aria-label="Sections">
   <div class="wrap">
-    <button class="tab" role="tab" id="t-hand" aria-selected="true" aria-controls="tab-hand" data-tab="hand">Hand</button>
+    <button class="tab" role="tab" id="t-hand" aria-selected="true" aria-controls="tab-hand" data-tab="hand">Duel</button>
     <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
     <button class="tab" role="tab" id="t-extra" aria-selected="false" aria-controls="tab-extra" data-tab="extra">Extra Deck</button>
     <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
+    <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
   </div>
 </nav>
 </div>
@@ -405,7 +555,7 @@ body{
 <script>
 /* YGOPRODeck card image client (inlined for local use). */
 /* Card IDs from YGOPRODeck, used to find images/<id>.jpg in the same folder as this page. */
-window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558127, "Destiny HERO - Dangerous": 30757127, "Destiny HERO - Denier": 16605586, "Destiny HERO - Destroyer Phoenix Enforcer": 60461804, "Destiny HERO - Dystopia": 90579153, "Destiny HERO - Malicious": 9411399, "E - Emergency Call": 213326, "Elemental HERO Blazeman": 63060238, "Elemental HERO Flame Wingman": 35809262, "Elemental HERO Flame Wingman - Infernal Rage": 93347961, "Elemental HERO Neos": 89943723, "Elemental HERO Shadow Mist": 50720316, "Elemental HERO Shining Neos Wingman": 56733747, "Elemental HERO Stratos": 40044918, "Elemental HERO Sunrise": 22908820, "Favorite Contact": 75047173, "Fusion Destiny": 52947044, "Instant Contact": 16169772, "Maxx \"C\"": 23434538, "Miracle Fusion": 45906428, "Polymerization": 24094653, "Vision HERO Faris": 18094166, "Vision HERO Increase": 22865492, "Vision HERO Trinity": 46759931, "Vision HERO Vyon": 27780618, "Xtra HERO Cross Crusader": 58004362, "Xtra HERO Infernal Devicer": 19324993, "Xtra HERO Wonder Driver": 1948619};
+window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045474, "A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558127, "Destiny HERO - Dangerous": 30757127, "Destiny HERO - Destroyer Phoenix Enforcer": 60461804, "Destiny HERO - Dystopia": 90579153, "Destiny HERO - Malicious": 9411399, "E - Emergency Call": 213326, "Elemental HERO Flame Wingman": 35809262, "Elemental HERO Flame Wingman - Infernal Rage": 93347961, "Elemental HERO Neos": 89943723, "Elemental HERO Shadow Mist": 50720316, "Elemental HERO Shining Neos Wingman": 56733747, "Elemental HERO Stratos": 40044918, "Elemental HERO Sunrise": 22908820, "Favorite Contact": 75047173, "Fusion Destiny": 52947044, "Instant Contact": 16169772, "Maxx \"C\"": 23434538, "Miracle Fusion": 45906428, "Polymerization": 24094653, "Vision HERO Faris": 18094166, "Vision HERO Increase": 22865492, "Vision HERO Trinity": 46759931, "Vision HERO Vyon": 27780618, "Xtra HERO Cross Crusader": 58004362, "Xtra HERO Infernal Devicer": 19324993, "Xtra HERO Wonder Driver": 1948619};
 (function(){
   "use strict";
   var API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
@@ -451,7 +601,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (!imgs || !imgs.length) return null;
     return size === "full" ? imgs[0].image_url : imgs[0].image_url_small;
   }
-  function bindCardImage(img, cardName, size){
+  function bindCardImage(img, cardName, size, onFail){
     if (!img) return;
     var fig = img.closest("[data-state]"), status = fig && fig.querySelector("[data-card-image-status]");
     function set(s, msg){ if (fig) fig.dataset.state = s; if (status) status.textContent = msg || ""; }
@@ -462,7 +612,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (localId){
       img.onload = function(){ if (img._tok === token) set("ready"); };
       img.onerror = function(){ if (img._tok === token) remote(); };
-      img.decoding = "async"; img.alt = name; img.src = "images/" + localId + ".jpg";
+      img.fetchPriority = "high"; img.alt = name; img.src = "images/" + localId + ".jpg";
       return;
     }
     remote();
@@ -470,15 +620,34 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     getCards([name]).then(function(m){
       if (img._tok !== token) return;
       var card = m.get(name.toLowerCase()), url = getImageUrl(card, size || "small");
-      if (!url){ set("missing", "No image found for " + name); return; }
+      if (!url){ set("missing", "No image found for " + name); if (onFail) onFail(); return; }
       img.onload = function(){ if (img._tok === token) set("ready"); };
-      img.onerror = function(){ if (img._tok === token) set("error", "Image failed to load"); };
-      img.decoding = "async"; img.referrerPolicy = "no-referrer";
+      img.onerror = function(){ if (img._tok === token){ set("error", "Image failed to load"); if (onFail) onFail(); } };
+      img.referrerPolicy = "no-referrer";
       img.alt = card.name; img.src = url;
-    }).catch(function(){ if (img._tok === token) set("error", "Couldn't reach YGOPRODeck. Check your connection."); });
+    }).catch(function(){ if (img._tok === token){ set("error", "Couldn't reach YGOPRODeck. Check your connection."); if (onFail) onFail(); } });
     }
   }
-  window.YGO = {getCards:getCards, bindCardImage:bindCardImage, preloadDeck:function(n){ return getCards(n).catch(function(){}); }};
+  // Warm the browser cache with every card image (4 at a time), local folder first, YGOPRODeck as fallback.
+  function warmImages(names){
+    var list = names.map(apiName), i = 0;
+    function nextOne(){
+      if (i >= list.length) return;
+      var name = list[i++], id = window.CARD_IDS && window.CARD_IDS[name];
+      var done = function(){ setTimeout(nextOne, 0); };
+      var fallback = function(){
+        getCards([name]).then(function(m){
+          var u = getImageUrl(m.get(name.toLowerCase()), "full");
+          if (!u) return done();
+          var r = new Image(); r.onload = r.onerror = done; r.src = u;
+        }).catch(done);
+      };
+      if (!id) return fallback();
+      var im = new Image(); im.onload = done; im.onerror = fallback; im.src = "images/" + id + ".jpg";
+    }
+    for (var k = 0; k < 4; k++) nextOne();
+  }
+  window.YGO = {getCards:getCards, bindCardImage:bindCardImage, preloadDeck:function(n){ setTimeout(function(){ warmImages(n); }, 300); }};
 })();
 </script>
 <script>
@@ -544,18 +713,18 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     {id:"mist", name:"Shadow Mist", hero:true, g:"Engine & fodder"},
     {id:"increase", name:"Increase", hero:true, g:"Engine & fodder"},
     {id:"malicious", name:"Malicious", hero:true, g:"Engine & fodder"},
-    {id:"denier", name:"Denier", hero:true, g:"Engine & fodder"},
     {id:"neos", name:"Neos", hero:true, g:"Engine & fodder"},
-    {id:"blazeman", name:"Blazeman", hero:true, g:"Engine & fodder"},
     {id:"poly", name:"Polymerization", g:"Fusion spells & traps"},
     {id:"ic", name:"Instant Contact", g:"Fusion spells & traps"},
     {id:"mf", name:"Miracle Fusion", g:"Fusion spells & traps"},
     {id:"fc", name:"Favorite Contact", g:"Fusion spells & traps"},
     {id:"ash", name:"Ash Blossom", g:"Handtraps"},
-    {id:"maxx", name:"Maxx \u201CC\u201D", g:"Handtraps"}
+    {id:"maxx", name:"Maxx \u201CC\u201D", g:"Handtraps"},
+    {id:"fuwalos", name:"Fuwalos", g:"Handtraps"},
+    {id:"imperm", name:"Imperm", g:"Handtraps"}
   ];
   // copies run in the deck; tapping past this clears the card
-  var MAX = {stratos:3, ahl:3, faris:3, destiny:3, ecall:3, vyon:3, mist:3, increase:2, malicious:3, denier:1, neos:2, blazeman:1, poly:2, ic:2, mf:1, fc:1, ash:3, maxx:1};
+  var MAX = {stratos:3, ahl:3, faris:3, destiny:3, ecall:3, vyon:3, mist:3, increase:2, malicious:3, neos:2, poly:2, ic:2, mf:1, fc:1, ash:3, maxx:1, fuwalos:1, imperm:1};
   var hand = load("hbc-hand", {});
   Object.keys(hand).forEach(function(k){ if (MAX[k] !== undefined && hand[k] > MAX[k]) hand[k] = MAX[k]; });
   var turn = load("hbc-turn", "first");
@@ -572,8 +741,9 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       b.innerHTML = '<span class="nm"></span><span class="n"></span>';
       b.querySelector(".nm").textContent = c.name;
       b.addEventListener("click", function(){
-        hand[c.id] = ((hand[c.id] || 0) + 1) % ((MAX[c.id] || 3) + 1);
-        save("hbc-hand", hand); paintChips(); evaluate();
+        D.hand[c.id] = ((D.hand[c.id] || 0) + 1) % ((MAX[c.id] || 3) + 1);
+        if (!D.hand[c.id]) delete D.hand[c.id];
+        syncGlobals(); persist(); paintChips(); evaluate(); updateOpeningCount();
       });
       wrap.appendChild(b);
     });
@@ -588,21 +758,22 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     });
   }
   document.querySelectorAll(".seg button").forEach(function(b){
-    b.addEventListener("click", function(){ turn = b.dataset.turn; save("hbc-turn", turn); paintTurn(); evaluate(); });
+    b.addEventListener("click", function(){ D.order = b.dataset.turn; syncGlobals(); persist(); paintTurn(); evaluate(); });
   });
   function paintTurn(){
     document.querySelectorAll(".seg button").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.turn === turn ? "true" : "false"); });
   }
-  document.getElementById("clearHand").addEventListener("click", function(){ hand = {}; save("hbc-hand", hand); paintChips(); evaluate(); });
+  document.getElementById("clearHand").addEventListener("click", function(){ D.hand = {}; syncGlobals(); persist(); paintChips(); evaluate(); updateOpeningCount(); });
 
   // ---------- shared line text ----------
   var CORE = [
     "Faris effect: place Increase from your Deck face-up in your backrow. You're locked to HERO Extra Deck monsters for the rest of the turn.",
     "Tribute Faris (not Stratos) to Special Summon Increase, then its effect summons Vyon from your Deck.",
-    "Vyon: send a HERO from Deck to GY. Shadow Mist gets you a search; Neos turns on Instant Contact.",
+    "Vyon: send a HERO from Deck to GY. If no Shadow Mist effect has been used this turn, dump Shadow Mist and have it search Neos. If one already searched (say, the Faris discard), dump Neos instead. Either way, Neos leaves the Deck for Favorite Contact later.",
     "Vyon: banish a HERO from your GY to add Polymerization. Keep Shadow Mist and Neos in the GY if you still need them.",
     "Polymerization: a non-DARK HERO (Stratos on the field, or Neos from your hand) + Increase into Sunrise, which searches Miracle Fusion. Keep Vyon on the field.",
     "Miracle Fusion: banish 2 Elemental HEROs with different Attributes from field or GY into Infernal Rage, which searches Favorite Contact. Set it for their turn.",
+    "Their turn: flip Favorite Contact. Neos (from hand, field, GY, or banished) + Infernal Rage into Shining Neos Wingman. If Neos is still in your Deck, it can make DPE from two Malicious in your GY or banished instead.",
     "Last: Fusion Destiny, Malicious + Malicious from Deck into Destroyer Phoenix Enforcer."
   ];
   var BREAKER = [
@@ -644,13 +815,13 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     "From your hand: Polymerization can use Neos (LIGHT) from your hand with Increase on the field.",
     "Skip the check: once Neos is in your GY, Instant Contact summons Sunrise directly with its effects working.",
     "For Infernal Rage: Miracle Fusion needs 2 Elemental HEROs. Shadow Mist in the GY is your DARK half; pair it with Stratos or Neos.",
-    "Non-DARK HEROs in this deck: Stratos (WIND), Neos (LIGHT), Blazeman (FIRE)."
+    "Non-DARK HEROs in this deck: Stratos (WIND) and Neos (LIGHT)."
   ], "alt"));
   document.getElementById("breakerLine").appendChild(planHTML("Shining Neos Wingman on your turn", BREAKER, "alt"));
   document.getElementById("brickLine").appendChild(planHTML("No starter in hand", BRICK, "warn"));
 
   // ---------- hand evaluation ----------
-  var FODDER = ["malicious","mist","increase","denier","neos","blazeman","vyon","stratos"];
+  var FODDER = ["malicious","mist","increase","neos","vyon","stratos"];
   var NAMES = {}; CARDS.forEach(function(c){ NAMES[c.id] = c.name; });
   function n(id){ return hand[id] || 0; }
 
@@ -678,7 +849,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (n("ahl")){
       var s = ["Activate A Hero Lives first, while you control no monsters. Pay half your LP and summon Stratos from your Deck."];
       if (n("faris")){
-        s.push("Stratos searches Shadow Mist. Discard it to Special Summon Faris, and Shadow Mist's GY effect searches another HERO.");
+        s.push("Stratos searches Shadow Mist. Discard it to Special Summon Faris, and Shadow Mist's GY effect searches Neos for Favorite Contact later. That's your one Shadow Mist effect this turn.");
       } else {
         s.push("Stratos searches Faris.");
         var f = bestFodder({});
@@ -691,7 +862,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       if (!n("stratos")) s2.push("E – Emergency Call: add Stratos.");
       if (n("faris")){
         s2.push("Normal Summon Stratos and search Shadow Mist.");
-        s2.push("Discard Shadow Mist to Special Summon Faris. Shadow Mist's GY effect searches another HERO.");
+        s2.push("Discard Shadow Mist to Special Summon Faris. Shadow Mist's GY effect searches Neos for Favorite Contact later. That's your one Shadow Mist effect this turn.");
         usesFaris = true;
       } else {
         s2.push("Normal Summon Stratos and search Faris.");
@@ -735,17 +906,19 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
 
     // notes
     if (usesFaris){
-      var nonDark = n("stratos") || n("ahl") || n("ecall") || n("neos") || n("blazeman");
+      var nonDark = n("stratos") || n("ahl") || n("ecall") || n("neos");
       if (!nonDark) notes.push("No non-DARK HERO in hand: have Vyon dump Shadow Mist to search Stratos, then Normal Summon it and fuse it with Increase for Sunrise.");
       notes.push("Fuse with Increase, not Vyon. Increase can come back from the GY, and Vyon searches Polymerization again next turn.");
     }
     if (n("malicious") && usesFaris) notes.push("Malicious is your best Faris discard: banish it from the GY later to summon another from your Deck.");
     if (n("increase") === 1 && usesFaris) notes.push("Increase in hand is fine. The other copy is still in your Deck for Faris.");
-    var ns = ["stratos","vyon","blazeman"].filter(function(id){ return n(id); });
+    var ns = ["stratos","vyon"].filter(function(id){ return n(id); });
     if (ns.length > 1) notes.push("Normal Summon conflict: " + ns.map(function(id){ return NAMES[id]; }).join(", ") + ". Stratos is usually the best use of it.");
     if (n("ahl") && (n("stratos") || n("faris"))) notes.push("Play A Hero Lives before anything else hits the field. It needs an empty board.");
     if (n("ic") && !n("neos")) notes.push("Instant Contact needs Neos on your field or in your GY, or its summon is negated and returns at the End Phase.");
     if (n("ash")) notes.push(turn === "first" ? "Hold Ash for their first search or Deck summon." : "Use Ash on their turn 1 search or Deck summon.");
+    if (n("fuwalos")) notes.push(turn === "first" ? "Fuwalos needs you to control no cards, so it's dead once your board is up. Hold it for later turns." : "Fuwalos: chain it to their first Deck or Extra Deck summon. At their End Phase you keep up to (cards they control + 6), so a big board for them means you keep more.");
+    if (n("imperm")) notes.push(turn === "first" ? "Set Imperm face-down this turn. You'll control cards after your combo, and it can only be activated from your hand if you control none." : "Imperm works from your hand on their turn 1. Save it for a monster that's about to make their big play or a negater like Baronne or Photon Lord.");
     if (n("maxx")) notes.push("Maxx \u201CC\u201D: chain it when they start special summoning. Best on their turn 1 if you're going second.");
     if (n("fc") && turn === "first") notes.push("Favorite Contact: set it now and flip it on their turn, after they commit monsters.");
 
@@ -877,7 +1050,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       notes:["Your best Normal Summon. Search Faris if you have a HERO to discard, otherwise Shadow Mist.","Your main non-DARK HERO. Tribute Faris for Increase and keep Stratos to pair with Increase for Sunrise.","A Hero Lives can summon it from the Deck, and its search still triggers.","Going second, the backrow destroy mode can clear a floodgate if you control other HEROs."]},
     {sec:"Monsters", id:"mist", n:3, name:"Elemental HERO Shadow Mist", attr:"dark", info:["Level 4","1000 / 1500","Warrior"],
       fx:["If Special Summoned: add a \u201CChange\u201D Quick-Play Spell from your Deck.","If sent to the GY: add a HERO from your Deck, except Shadow Mist.","You can only use one of these effects per turn, and only once."],
-      notes:["The best Faris discard and Vyon dump: it searches from the GY, which Imperm can't touch.","DARK Elemental HERO, so it pairs with a LIGHT one for Miracle Fusion into Infernal Rage.","With no Change spells in the deck, its Special Summon effect has nothing to grab, so the GY search stays available that turn."]},
+      notes:["The best Faris discard and Vyon dump: it searches from the GY, which Imperm can't touch.","Only one Shadow Mist effect per turn across all copies. If one already searched, a second dumped Shadow Mist won't.","Great way to stage Neos: search it so Favorite Contact can make Shining Neos Wingman.","DARK Elemental HERO, so it pairs with a LIGHT one for Miracle Fusion into Infernal Rage.","With no Change spells in the deck, its Special Summon effect has nothing to grab, so the GY search stays available that turn."]},
     {sec:"Monsters", id:"faris", n:3, name:"Vision HERO Faris", attr:"dark", info:["Level 5","1600 / 1800","Warrior"],
       fx:["Discard another HERO to Special Summon it from your hand.","When Normal or Special Summoned: place a Vision HERO (not Faris) from your Deck face-up in your backrow as a Continuous Trap. You can only summon HEROs from the Extra Deck for the rest of the turn.","Each effect once per turn."],
       notes:["Always place Increase. That's the whole engine.","Placing isn't adding, summoning, or sending, so Ash can't stop it. Imperm on Faris can.","It's Level 5, so a Normal Summon needs a Tribute. After A Hero Lives, you can tribute the Stratos it summoned.","DARK, like Vyon and Increase. Tribute Faris, not Stratos, to summon Increase."]},
@@ -890,21 +1063,22 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     {sec:"Monsters", id:"malicious", n:3, name:"Destiny HERO - Malicious", attr:"dark", info:["Level 6","800 / 800","Warrior"],
       fx:["Banish it from your GY to Special Summon another Malicious from your Deck."],
       notes:["Level 6 HERO + Destiny HERO: two copies from Deck make Destroyer Phoenix Enforcer with Fusion Destiny.","The best Faris discard when you don't need Shadow Mist's search.","Its GY summon is good Ash bait."]},
-    {sec:"Monsters", id:"denier", n:1, name:"Destiny HERO - Denier", attr:"dark", info:["Level 3","1100 / 600","Warrior"],
-      fx:["When Normal or Special Summoned: put a Destiny HERO from your Deck, GY, or banished cards on top of your Deck (once per turn).","Once per Duel: if you have another Destiny HERO on your field or in your GY, Special Summon it from your GY."],
-      notes:["Dystopia can burn for its ATK while it's in the GY, then Denier revives itself.","Extra Destiny HERO for Fusion Destiny and Cross Crusader."]},
     {sec:"Monsters", id:"neos", n:2, name:"Elemental HERO Neos", attr:"light", info:["Level 7","2500 / 2000","Normal Monster"],
       fx:["No effect."],
       notes:["Instant Contact needs it on your field or in your GY.","Material for Shining Neos Wingman, from hand, field, GY, or banished through Favorite Contact.","Making Infernal Rage with Neos turns on Infernal Rage's tribute effect."]},
-    {sec:"Monsters", id:"blazeman", n:1, name:"Elemental HERO Blazeman", attr:"fire", info:["Level 4","1200 / 1800","Warrior"],
-      fx:["When Normal or Special Summoned: add Polymerization from your Deck.","During your Main Phase: send an Elemental HERO (not Blazeman) from your Deck to the GY, and Blazeman takes its Attribute, ATK, and DEF for the turn. You can only Special Summon Fusion Monsters for the rest of the turn.","You can only use one of these effects per turn, and only once."],
-      notes:["A Level 4 target for Stratos, Shadow Mist, and A Hero Lives.","Pick one: the Polymerization search or the dump. Usually take the search.","The dump's lock blocks Faris, Increase, and Vyon, so only use it late."]},
     {sec:"Monsters", id:"ash", n:3, name:"Ash Blossom & Joyous Spring", attr:"fire", info:["Level 3","0 / 1800","Zombie","Tuner"],
       fx:["Discard it when your opponent activates an effect that adds from the Deck, summons from the Deck, or sends from the Deck to the GY: negate that effect. Once per turn."],
       notes:["Save it for their starter's search or Deck summon, not a random extender.","Check the Checkpoints tab for where theirs hits you."]},
     {sec:"Monsters", id:"maxx", n:1, name:"Maxx \u201CC\u201D", attr:"earth", info:["Level 2","500 / 200","Insect"],
       fx:["Quick Effect: send it from your hand to the GY. For the rest of the turn, draw a card each time your opponent Special Summons.","You can only use 1 Maxx \u201CC\u201D per turn."],
       notes:["Best on their first turn going second, as soon as they start special summoning."]},
+    {sec:"Monsters", id:"fuwalos", n:1, name:"Mulcharmy Fuwalos", attr:"wind", info:["Level 4","100 / 600","Winged Beast"],
+      fx:["Quick Effect, if you control no cards: discard it. For the rest of the turn, draw a card each time your opponent Special Summons from the Deck or Extra Deck.",
+        "At that End Phase, if your hand has more cards than (cards your opponent controls + 6), you randomly shuffle the extra cards back into the Deck.",
+        "You can only activate 1 other Mulcharmy effect the turn you use it."],
+      notes:["A going-second card. Going first, you'll control cards after your combo, so it's dead that turn.",
+        "Chain it to their first Deck or Extra Deck summon. Summons from hand or GY draw you nothing.",
+        "The bigger their board, the more cards you keep, so it punishes them for comboing hard."]},
     {sec:"Spells", id:"ahl", n:3, name:"A Hero Lives", info:["Normal Spell"],
       fx:["If you control no face-up monsters: pay half your LP to Special Summon a Level 4 or lower Elemental HERO from your Deck."],
       notes:["Play it before anything face-up hits the field. A face-down Set monster (like a Set Increase) doesn't stop it.","Usually summons Stratos, which still searches. Your Normal Summon stays open."]},
@@ -916,7 +1090,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       notes:["Usually grabs Stratos. Grab Shadow Mist or Neos when you need them.","Lead with it to bait Ash."]},
     {sec:"Spells", id:"poly", n:2, name:"Polymerization", info:["Normal Spell"],
       fx:["Fusion Summon using monsters from your hand or field as material."],
-      notes:["Vyon and Blazeman search it.","Wonder Driver can Set a used copy back from the GY."]},
+      notes:["Vyon searches it.","Wonder Driver can Set a used copy back from the GY."]},
     {sec:"Spells", id:"ic", n:2, name:"Instant Contact", info:["Normal Spell"],
       fx:["Pay 1000 LP: Special Summon a Level 7 or lower Elemental HERO or Neo-Spacian from your Extra Deck, ignoring its summoning conditions.","If Neos isn't on your field or in your GY, that monster can't attack, has its effects negated, and returns at the End Phase. One per turn."],
       notes:["Get Neos into the GY first.","Flame Wingman for Shining Neos Wingman, or Sunrise for its Miracle Fusion search.","Even negated, the monster is still a HERO body for tributes and materials."]},
@@ -925,7 +1099,15 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       notes:["Sunrise searches it, so one copy is enough.","Shadow Mist (DARK) + a LIGHT Elemental HERO into Infernal Rage."]},
     {sec:"Traps", id:"fc", n:1, name:"Favorite Contact", info:["Normal Trap"],
       fx:["Special Summon a Fusion Monster that lists a HERO as material, ignoring its summoning conditions, by putting its listed materials from your hand, field, GY, or banished cards on the bottom of the Deck. One per turn."],
-      notes:["Infernal Rage searches it. Set it for their turn.","Flip it mid-combo on their turn for Shining Neos Wingman after they commit monsters."]},
+      notes:["Infernal Rage searches it. Set it for their turn.","Flip it mid-combo on their turn for Shining Neos Wingman after they commit monsters. Neos must be in your hand, field, GY, or banished, not the Deck.","Not only for Shining Neos Wingman: it can make any Fusion that lists a HERO, like DPE from two Malicious in your GY or banished."]},
+    {sec:"Traps", id:"imperm", n:1, name:"Infinite Impermanence", info:["Normal Trap"],
+      fx:["Target 1 face-up monster your opponent controls: negate its effects until the end of the turn.",
+        "If it was Set before activation, other Spell/Trap effects in its column are also negated for the rest of the turn.",
+        "If you control no cards, you can activate it from your hand."],
+      notes:["Going first: set it, since you'll control cards after your combo.",
+        "Going second: activate it from your hand on their first turn.",
+        "Best targets: a monster about to make their big play, or a negater like Baronne de Fleur or Photon Lord.",
+        "It can't stop effects that start in the hand or GY."]},
     {sec:"Extra Deck", id:"dpe", n:1, name:"Destiny HERO - Destroyer Phoenix Enforcer", attr:"dark", info:["Level 8","2500 / 2100","Fusion"],
       fx:["Materials: a Level 6 or higher HERO + a Destiny HERO.","Your opponent's monsters lose 200 ATK for each HERO card in your GY.","Quick Effect: destroy 1 card you control and 1 card on the field.","If destroyed: during the next Standby Phase, Special Summon a Destiny HERO from your GY.","Each effect once per turn."],
       notes:["Your best end board. Save the Quick Effect for their turn.","Going second, pop their negater at the start of your Main Phase."]},
@@ -946,7 +1128,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       notes:["Fusion Destiny can make it from two Malicious.","Its ATK boost turns on Dystopia's destroy."]},
     {sec:"Extra Deck", id:"dystopia", n:1, name:"Destiny HERO - Dystopia", attr:"dark", info:["Level 8","2800 / 2400","Fusion"],
       fx:["Materials: 2 Destiny HEROs.","When Special Summoned: burn for the ATK of a Level 4 or lower Destiny HERO in your GY.","Quick Effect, if its ATK differs from its original: destroy a card on the field and reset its ATK.","Each effect once per turn."],
-      notes:["Pair with Dangerous to change its ATK.","Burn targets Denier in the GY."]},
+      notes:["Pair with Dangerous to change its ATK.","Its burn needs a Level 4 or lower Destiny HERO in your GY. With Denier cut, you usually won't have one, so treat it as a 2800 body with a destroy."]},
     {sec:"Extra Deck", id:"trinity", n:1, name:"Vision HERO Trinity", attr:"dark", info:["Level 8","2500 / 2000","Fusion"],
       fx:["Materials: 3 HEROs.","When Fusion Summoned, its ATK doubles to 5000 for the turn.","Can attack 3 times per Battle Phase, but can't attack directly."],
       notes:["Going second against 2 or 3 monsters you can beat."]},
@@ -999,7 +1181,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       });
     });
   }
-  var RARITY = {stratos:"UR",mist:"SR",faris:"UR",vyon:"UR",increase:"R",malicious:"SR",denier:"R",neos:"UR",blazeman:"R",ash:"UR",maxx:"UR",ahl:"UR",destiny:"R",ecall:"SR",poly:"N",ic:"SR",mf:"R",fc:"R",dpe:"UR",snw:"UR",rage:"UR",sunrise:"UR",fwing:"R",dangerous:"SR",dystopia:"SR",trinity:"UR",cross:"SR",driver:"R",devicer:"R"};
+  var RARITY = {stratos:"UR",mist:"SR",faris:"UR",vyon:"UR",increase:"R",malicious:"SR",neos:"UR",ash:"UR",maxx:"UR",fuwalos:"UR",imperm:"UR",ahl:"UR",destiny:"R",ecall:"SR",poly:"N",ic:"SR",mf:"R",fc:"R",dpe:"UR",snw:"UR",rage:"UR",sunrise:"UR",fwing:"R",dangerous:"SR",dystopia:"SR",trinity:"UR",cross:"SR",driver:"R",devicer:"R"};
   function parseInfo(info){
     var o = {level:null, link:null, atk:null, def:null, tags:[]};
     info.forEach(function(s){
@@ -1014,17 +1196,23 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
   }
   function mk(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function paintCard(){
+    if (typeof selected === "string" && selected.indexOf("db:") === 0){ paintDbCard(+selected.slice(3)); return; }
     var c = DECK.filter(function(x){ return x.id === selected; })[0] || DECK[0];
     var at = c.attr || (c.sec === "Spells" ? "spell" : (c.sec === "Traps" ? "trap" : null));
     var info = parseInfo(c.info);
     cardPane.innerHTML = "";
+    cardPane.appendChild(searchBar());
 
     var plate = mk("article", "plate" + (at ? " pa-" + at : ""));
     if (window.YGO){
       var fig = mk("figure", "cd-image"); fig.dataset.state = "empty";
       fig.innerHTML = '<img data-card-image alt="" width="421" height="614"><figcaption data-card-image-status></figcaption>';
       plate.appendChild(fig);
-      window.YGO.bindCardImage(fig.querySelector("[data-card-image]"), c.name, "full");
+      (function(fig, name){
+        window.YGO.bindCardImage(fig.querySelector("[data-card-image]"), name, "full", function(){
+          loadDB(function(db){ var hit = db && dbFind(name); if (hit && fig.isConnected) fig.replaceWith(cardFace(hit)); });
+        });
+      })(fig, c.name);
     }
     if (!window.YGO){
       // No card images in this version: show a soft frame-colored showcase instead.
@@ -1049,11 +1237,11 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (info.level) line.appendChild(mk("span", "stars", "\u2605".repeat(Math.min(info.level, 12)) + "  Level " + info.level));
     if (info.link) line.appendChild(mk("span", "stars", "Link-" + info.link));
     var TYPELINE = {stratos:"Warrior / Effect", mist:"Warrior / Effect", faris:"Warrior / Effect", vyon:"Warrior / Effect", increase:"Warrior / Effect",
-      malicious:"Warrior / Effect", denier:"Warrior / Effect", neos:"Warrior / Normal", blazeman:"Warrior / Effect", ash:"Zombie / Tuner / Effect", maxx:"Insect / Effect",
+      malicious:"Warrior / Effect", neos:"Warrior / Normal", ash:"Zombie / Tuner / Effect", maxx:"Insect / Effect", fuwalos:"Winged Beast / Effect",
       dpe:"Warrior / Fusion / Effect", snw:"Warrior / Fusion / Effect", rage:"Warrior / Fusion / Effect", sunrise:"Warrior / Fusion / Effect", fwing:"Warrior / Fusion / Effect",
       dangerous:"Warrior / Fusion / Effect", dystopia:"Warrior / Fusion / Effect", trinity:"Warrior / Fusion / Effect",
       cross:"Warrior / Link / Effect", driver:"Warrior / Link / Effect", devicer:"Fiend / Link / Effect"};
-    var TYPE_WORDS = ["Warrior","Fusion","Tuner","Zombie","Insect","Fiend","Normal Monster","Vision HERO","Destiny HERO"];
+    var TYPE_WORDS = ["Winged Beast","Warrior","Fusion","Tuner","Zombie","Insect","Fiend","Normal Monster","Vision HERO","Destiny HERO"];
     var typeText = TYPELINE[c.id] || info.tags.filter(function(x){ return /Spell|Trap/.test(x); }).join(" / ");
     if (typeText) line.appendChild(mk("span", "tags", typeText));
     info.tags.filter(function(x){ return TYPE_WORDS.indexOf(x) < 0 && !/Spell|Trap/.test(x); })
@@ -1086,10 +1274,626 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     cardPane.appendChild(mk("div", "cd-src", "Effects are summarized in plain words. Check the in-game card text for exact wording."));
   }
   var ATTR_WORD_ST = {spell:"\u2726 SPELL", trap:"\u2726 TRAP"};
+
+  // ---------- full card database (cards.json) + any-card search ----------
+  var DB = null, dbWaiters = null, dbByName = null;
+  function loadDB(cb){
+    if (DB) return cb(DB);
+    if (dbWaiters){ dbWaiters.push(cb); return; }
+    dbWaiters = [cb];
+    fetch("cards.json").then(function(r){ if (!r.ok) throw 0; return r.json(); }).then(function(j){
+      DB = j.cards; dbByName = {};
+      DB.forEach(function(x){ dbByName[x.n.toLowerCase()] = x; });
+    }).catch(function(){ DB = null; }).then(function(){
+      var w = dbWaiters; dbWaiters = null; w.forEach(function(f){ f(DB); });
+    });
+  }
+  function norm(s){ return s.toLowerCase().replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/–/g, "-"); }
+  function dbFind(name){ return dbByName && dbByName[norm(name)]; }
+  function dbSearch(q){
+    q = norm(q.trim()); if (q.length < 2 || !DB) return [];
+    var starts = [], has = [];
+    for (var i = 0; i < DB.length && starts.length < 10; i++){
+      var nm = DB[i].n.toLowerCase();
+      if (nm.indexOf(q) === 0) starts.push(DB[i]); else if (has.length < 10 && nm.indexOf(q) > 0) has.push(DB[i]);
+    }
+    return starts.concat(has).slice(0, 10);
+  }
+  var FRAME_NAME = {effect:"Effect", normal:"Normal", fusion:"Fusion", synchro:"Synchro", xyz:"Xyz", link:"Link", ritual:"Ritual", spell:"Spell", trap:"Trap", token:"Token", skill:"Skill"};
+  function frameOf(x){ var f = (x.f || "effect").split("_")[0]; return FRAME_NAME[f] ? f : "effect"; }
+  function cardFace(x){
+    var f = frameOf(x), isST = f === "spell" || f === "trap";
+    var face = mk("div", "cardface cf-" + f + ((x.f || "").indexOf("pendulum") >= 0 ? " cf-pend" : ""));
+    var top = mk("div", "cf-top");
+    top.appendChild(mk("span", "cf-name", x.n));
+    var aw = x.a ? x.a.toLowerCase() : null;
+    top.appendChild(mk("span", "cf-attr", isST ? (f === "spell" ? "SPELL" : "TRAP") : (aw && ATTR_DOT[aw] ? ATTR_DOT[aw] + " " : "") + (x.a || "")));
+    face.appendChild(top);
+    if (!isST){
+      var lvl = mk("div", "cf-level");
+      if (x.lk) lvl.textContent = "Link-" + x.lk + (x.lm ? "  ·  " + x.lm.join(", ") : "");
+      else if (x.lv != null) lvl.textContent = (f === "xyz" ? "☆".repeat(Math.min(x.lv, 13)) + "  Rank " : "★".repeat(Math.min(x.lv, 12)) + "  Level ") + x.lv;
+      face.appendChild(lvl);
+    }
+    var tl = isST ? ((x.r && x.r !== "Normal" ? x.r + " " : "Normal ") + (f === "spell" ? "Spell" : "Trap")) : "[" + (x.tl || [x.r, x.t]).join(" / ") + "]";
+    face.appendChild(mk("div", "cf-type", tl));
+    face.appendChild(mk("div", "cf-text", x.d));
+    if (!isST && x.atk != null){
+      face.appendChild(mk("div", "cf-stats", "ATK/" + (x.atk < 0 ? "?" : x.atk) + (x.lk ? "  LINK-" + x.lk : "  DEF/" + (x.def == null || x.def < 0 ? "?" : x.def))));
+    }
+    return face;
+  }
+  function searchBar(){
+    var wrap = mk("div", "cdsearch");
+    var inp = mk("input"); inp.type = "search"; inp.placeholder = "Look up any card…"; inp.setAttribute("aria-label", "Look up any card");
+    inp.autocomplete = "off";
+    var res = mk("ul", "cdres"); res.hidden = true;
+    wrap.appendChild(inp); wrap.appendChild(res);
+    function pick(x){ selected = "db:" + x.id; save("hbc-card", selected); paintDeck(); paintCard(); }
+    function show(){
+      var q = inp.value;
+      if (q.trim().length < 2){ res.hidden = true; return; }
+      loadDB(function(db){
+        res.innerHTML = "";
+        if (!db){ res.appendChild(mk("li", "msg", "Card search needs cards.json next to this page (it works on your GitHub site).")); res.hidden = false; return; }
+        if (inp.value !== q) return;
+        var hits = dbSearch(q);
+        if (!hits.length) res.appendChild(mk("li", "msg", "No card matches “" + q + "”."));
+        hits.forEach(function(x){
+          var li = mk("li"); var b = mk("button", null, x.n); b.type = "button";
+          b.addEventListener("mousedown", function(e){ e.preventDefault(); pick(x); });
+          li.appendChild(b); res.appendChild(li);
+        });
+        res.hidden = false;
+      });
+    }
+    inp.addEventListener("input", show);
+    inp.addEventListener("focus", function(){ loadDB(function(){}); if (inp.value) show(); });
+    inp.addEventListener("blur", function(){ setTimeout(function(){ res.hidden = true; }, 120); });
+    inp.addEventListener("keydown", function(e){
+      if (e.key === "Escape"){ inp.value = ""; res.hidden = true; }
+      if (e.key === "Enter"){ var first = res.querySelector("button"); if (first) first.dispatchEvent(new MouseEvent("mousedown")); }
+    });
+    return wrap;
+  }
+  function paintDbCard(id){
+    cardPane.innerHTML = "";
+    cardPane.appendChild(searchBar());
+    var holder = mk("div"); cardPane.appendChild(holder);
+    holder.appendChild(mk("p", "hint", "Loading card database…"));
+    loadDB(function(db){
+      holder.innerHTML = "";
+      var x = db && db.filter(function(c){ return c.id === id; })[0];
+      if (!x){ holder.appendChild(mk("p", "hint", db ? "That card isn't in the database." : "Card details need cards.json next to this page (it works on your GitHub site).")); return; }
+      var inDeck = DECK.filter(function(c){ return norm(c.name) === norm(x.n); })[0];
+      if (inDeck){ selected = inDeck.id; save("hbc-card", selected); paintDeck(); paintCard(); return; }
+      var plate = mk("article", "plate dbplate");
+      // Your own image if you've added one to the images folder, otherwise the text card face.
+      var fig = mk("figure", "cd-image"); fig.dataset.state = "loading";
+      var img = mk("img"); img.alt = x.n; img.width = 421; img.height = 614;
+      fig.appendChild(img); plate.appendChild(fig);
+      img.onload = function(){ fig.dataset.state = "ready"; };
+      img.onerror = function(){ if (fig.isConnected) fig.replaceWith(cardFace(x)); };
+      img.src = "images/" + x.id + ".jpg";
+      var meta = mk("div", "cd-meta");
+      if (x.md) meta.appendChild(mk("span", "pill rar r-" + x.md, x.md)); else meta.appendChild(mk("span", "pill", "Not in Master Duel"));
+      if (x.ar) meta.appendChild(mk("span", "pill", x.ar));
+      meta.appendChild(mk("span", "pill", "Not in your deck"));
+      plate.appendChild(meta);
+      holder.appendChild(plate);
+      holder.appendChild(mk("div", "cd-src", "Official card text from the YGOPRODeck database."));
+    });
+  }
   paintDeck(); paintCard();
   if (window.YGO) window.YGO.preloadDeck(DECK.map(function(c){ return c.name; }));
 
-  paintChips(); paintTurn(); evaluate();
+
+  // ---------- counter guide ----------
+  var COUNTERS = [
+    {id:"any", name:"Any deck", rules:true, sections:[
+      ["Ash this", ["The effect their whole hand depends on, not just the first one they activate. Ask: if this gets negated, can they still keep going?",
+        "A starter's search or Deck summon right after they've used their Normal Summon on it. They can't Normal Summon another starter."]],
+      ["Don't Ash", ["A small search early in the turn while they still hold a full hand. That's often bait to draw out your Ash."]],
+      ["Maxx \u201CC\u201D / Fuwalos", ["Use it early: chain it to their first effect that's clearly building toward Special Summons.",
+        "Holding Maxx \u201CC\u201D and Ash? Play Maxx first. If they answer it with their own Ash, you still have yours.",
+        "Fuwalos works the same way but only draws on Deck and Extra Deck summons, and only if you control no cards. Use it against Deck- and Extra Deck-heavy combos, Maxx \u201CC\u201D against hand and GY summons."]],
+      ["Imperm", ["Hold it for the monster that's about to make their big play, or a negater that would stop your turn. Going first, set it instead of holding it."]],
+      ["Your board", ["DPE: destroy the monster that's about to make their big play, before its effect activates.",
+        "Favorite Contact: flip it once their key pieces are on the field, before their final payoff."]]
+    ]},
+    {id:"elf", name:"Elfnote Stardust", note:"Covers the Junk / Synchron variant too", sections:[
+      ["Ash this", ["1st: Elfnote Regina summoning an Elfnote from the Deck. It's their best starter and can summon itself on either turn.",
+        "2nd: Elfnote Lucina's search, which usually grabs Power Patron or Regina."]],
+      ["Don't Ash", ["Elfnote Tinia. She places a Continuous Spell from the Deck, and Ash can't stop placing."]],
+      ["Also", ["The deck is built to play through single handtraps. If they hold an extender they'll make Baronne de Fleur and negate you, so hit the first starter instead of waiting for a perfect moment.",
+        "Maxx \u201CC\u201D early in their combo forces them to choose between giving you cards and stopping.",
+        "Junk / Synchron version: same targets, but more ways to recover. Lean more on Maxx \u201CC\u201D, Fuwalos, and your board.",
+        "Imperm: Baronne de Fleur once it's on the field, before you start your combo."]],
+      ["Your board", ["Baronne de Fleur can negate one effect per turn. Bait it with a cheap monster effect before your key play."]]
+    ]},
+    {id:"be", name:"Blue-Eyes", sections:[
+      ["Ash this", ["1st: Wishes for Eyes of Blue. One discard for two searches: a Level 1 LIGHT Tuner and a Spell/Trap that mentions Blue-Eyes White Dragon. Strong players hold Ash specifically for it.",
+        "2nd: Roar of the Blue-Eyed Dragons summoning Blue-Eyes White Dragon from the Deck."]],
+      ["Don't Ash", ["Sage with Eyes of Blue's Normal Summon search while Wishes could still be in their hand. It's the classic bait."]]
+    ]},
+    {id:"chim", name:"Chimera", note:"With Predaplant Dragostapelia", sections:[
+      ["Ash this", ["1st: Big-Winged Berfomet's search. It adds a Level 4 Beast and/or Chimera Fusion, two key pieces off one effect.",
+        "2nd: Mirror Swordknight tributing itself to summon from the Deck. That's usually how Berfomet arrives."]],
+      ["Don't Ash", ["Cornfield Coatl's discard search early in the turn, unless it's clearly their only starter."]],
+      ["Also", ["Disrupt before their Chimera hits the field. After that, Mirror Swordknight (monster effects) and Cornfield Coatl (targeting effects) can negate from the GY."]],
+      ["Your board", ["Going second, bait the Swordknight negate with a cheap monster effect like Stratos's search, then make your big play.",
+        "Shining Neos Wingman's destruction doesn't target, so Coatl can't stop it.",
+        "Predaplant Dragostapelia negates the effects of your monsters that have a Predator Counter. Use DPE's or Shining Neos Wingman's effects on monsters it hasn't marked, or clear Dragostapelia first."]]
+    ]},
+    {id:"gp", name:"Galaxy Photon", sections:[
+      ["Ash this", ["1st: Galaxy-Eyes Photon Dragon's search when it's Special Summoned (adds another Galaxy-Eyes Photon Dragon). Several of their lines fall apart here.",
+        "2nd: Galaxy Soldier's search when it's Special Summoned (adds a Galaxy monster)."]],
+      ["Your board", ["Number 90: Galaxy-Eyes Photon Lord negates one of your monster effects. Make it spend that on something cheap before your key play.",
+        "On your turn, Photon Lord can also pull a Photon or Galaxy card from their Deck. That's a solid Ash target on your turn.",
+        "Imperm Photon Lord at the start of your turn to shut off its negate before you combo.",
+        "Fuwalos is strong here: their Xyz summons all come from the Extra Deck."]]
+    ]}
+  ];
+  var cgSel = load("hbc-cg", "any");
+  function paintCounter(){
+    var pick = document.getElementById("cgPick"); pick.innerHTML = "";
+    COUNTERS.forEach(function(d){
+      var b = document.createElement("button"); b.type = "button"; b.textContent = d.name;
+      b.setAttribute("aria-pressed", d.id === cgSel ? "true" : "false");
+      b.addEventListener("click", function(){ cgSel = d.id; save("hbc-cg", cgSel); paintCounter(); });
+      pick.appendChild(b);
+    });
+    var list = document.getElementById("cgList"); list.innerHTML = "";
+    var d = COUNTERS.filter(function(x){ return x.id === cgSel; })[0] || COUNTERS[0];
+    var card = document.createElement("div"); card.className = "cg";
+    var h = document.createElement("h2"); h.textContent = d.name; card.appendChild(h);
+    if (d.note){ var n = document.createElement("p"); n.className = "hint"; n.textContent = d.note; card.appendChild(n); }
+    d.sections.forEach(function(s){
+      var box = document.createElement("div"); box.className = "cg-sec cg-" + s[0].toLowerCase().replace(/[^a-z]+/g, "").replace("maxxcfuwalos","maxxc");
+      var t = document.createElement("h3"); t.textContent = s[0]; box.appendChild(t);
+      var ul = document.createElement("ul"); ul.className = "notes";
+      s[1].forEach(function(x){ var li = document.createElement("li"); li.textContent = x; ul.appendChild(li); });
+      box.appendChild(ul); card.appendChild(box);
+    });
+    list.appendChild(card);
+  }
+  paintCounter();
+
+  // ---------- duel flow ----------
+  var DUEL_KEY = "hbc-duel";
+  var PHASES = ["setup","opening","draw","main","end"];
+  var PH_LABEL = {setup:"Setup", opening:"Opening hand", draw:"Draw", main:"Main", end:"End"};
+  var OPTS = [
+    {g:"Engine", items:[
+      {k:"faris_ss", t:"Faris: summon from hand"},
+      {k:"faris_place", t:"Faris: place Vision HERO", lock:"faris"},
+      {k:"inc_ss", t:"Increase: summon from backrow"},
+      {k:"inc_vision", t:"Increase: summon Vision HERO"},
+      {k:"inc_place", t:"Increase: back to backrow"},
+      {k:"vyon_dump", t:"Vyon: dump a HERO"},
+      {k:"vyon_poly", t:"Vyon: Polymerization search"},
+      {k:"mist", t:"Shadow Mist: its one effect"}
+    ]},
+    {g:"Spells & traps", items:[
+      {k:"destiny", t:"Fusion Destiny", lock:"destiny"},
+      {k:"ic", t:"Instant Contact"},
+      {k:"fc", t:"Favorite Contact"}
+    ]},
+    {g:"Extra Deck", items:[
+      {k:"sunrise_search", t:"Sunrise: Miracle Fusion search"},
+      {k:"sunrise_destroy", t:"Sunrise: destroy on attack"},
+      {k:"rage_search", t:"Infernal Rage: Favorite search"},
+      {k:"rage_tribute", t:"Infernal Rage: tribute summon"},
+      {k:"snw", t:"Shining Neos Wingman: destroy"},
+      {k:"dpe", t:"DPE: Quick Effect destroy"},
+      {k:"dangerous", t:"Dangerous: Quick Effect"},
+      {k:"dystopia_burn", t:"Dystopia: burn"},
+      {k:"dystopia_destroy", t:"Dystopia: destroy"},
+      {k:"cross_revive", t:"Cross Crusader: revive", lock:"hero"},
+      {k:"cross_search", t:"Cross Crusader: search", lock:"hero"},
+      {k:"driver", t:"Wonder Driver: Set a Fusion spell"},
+      {k:"devicer", t:"Infernal Devicer: add materials", lock:"hero"}
+    ]},
+    {g:"Handtraps", items:[
+      {k:"ash", t:"Ash Blossom"},
+      {k:"maxx", t:"Maxx \u201CC\u201D"},
+      {k:"fuwalos", t:"Mulcharmy Fuwalos"},
+      {k:"imperm", t:"Infinite Impermanence"}
+    ]}
+  ];
+  var OPT_LABEL = {}; OPTS.forEach(function(g){ g.items.forEach(function(i){ OPT_LABEL[i.k] = i.t; }); });
+  var LOCKS = [
+    {k:"faris", t:"Extra Deck: HERO monsters only", src:"Faris"},
+    {k:"destiny", t:"Special Summons: DARK HEROs only", src:"Fusion Destiny"},
+    {k:"hero", t:"Special Summons: HEROs only", src:"Cross Crusader / Infernal Devicer"}
+  ];
+  var ZONES = [
+    {k:"neos", t:"Neos", hints:{deck:"Vyon can dump it; Shadow Mist or E-Call can search it.", hand:"Polymerization material for Shining Neos Wingman.", field:"Instant Contact summons keep their effects.", gy:"Instant Contact summons keep their effects.", banished:"Favorite Contact can still use it, but Instant Contact needs it on the field or in the GY."}},
+    {k:"mist", t:"Shadow Mist", hints:{deck:"Vyon can dump it to search a HERO.", hand:"Best Faris discard: it searches when it hits the GY.", field:"Not doing much there. Fusion material or Faris tribute.", gy:"Your DARK half for Miracle Fusion into Infernal Rage.", banished:"Used up. Find another DARK Elemental HERO for Miracle Fusion."}},
+    {k:"increase", t:"Increase", hints:{deck:"Faris can place it in your backrow.", hand:"Good Faris discard fodder.", field:"In the backrow: tribute a HERO in your Main Phase to summon it, then pull Vyon.", gy:"If you take damage, it returns to your backrow for next turn.", banished:"Gone for this duel."}}
+  ];
+  var ZONE_OPTS = [["deck","Deck"],["hand","Hand"],["field","Field / backrow"],["gy","GY"],["banished","Banished"]];
+
+  function freshDuel(order){
+    return {order: order || "first", phase:"setup", n:1, lp:{me:8000, opp:8000}, hand:{}, opening:null, drew:null,
+      used:[], added:[], stops:[], opt:{}, locks:{}, perDuel:{}, zones:{neos:"deck", mist:"deck", increase:"deck"}, note:"", log:[]};
+  }
+  var D = load(DUEL_KEY, null);
+  if (!D || !D.phase || !D.zones) D = freshDuel(turn);
+  if (!D.stops) D.stops = [];
+  var hist = [];
+  function syncGlobals(){ hand = D.hand; turn = D.order; }
+  function persist(){ save(DUEL_KEY, D); }
+  function duelTurnNo(){ return D.order === "first" ? 2 * D.n - 1 : 2 * D.n; }
+  function handCount(o){ return Object.keys(o).reduce(function(a,k){ return a + (o[k] || 0); }, 0); }
+  function handList(o){
+    var parts = Object.keys(o).filter(function(k){ return o[k]; }).map(function(k){ return NAMES[k] + (o[k] > 1 ? " \u00D7" + o[k] : ""); });
+    return parts.length ? parts.join(", ") : "none";
+  }
+  function nodes(tag, cls, text){ var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+  var stepBody = document.getElementById("stepBody");
+  var park = document.getElementById("duelPark");
+  function parkAll(){
+    park.appendChild(park.querySelector(".seg") || document.querySelector("#tab-hand .seg"));
+    ["openHint","chipArea","result"].forEach(function(id){ park.appendChild(document.getElementById(id)); });
+    park.appendChild(document.getElementById("clearHand").parentNode);
+  }
+  function box(title){ var b = nodes("div", "dbox"); if (title) b.appendChild(nodes("h3", null, title)); stepBody.appendChild(b); return b; }
+
+  function updateOpeningCount(){
+    var hint = document.getElementById("openHint");
+    if (!hint) return;
+    var c = handCount(D.hand);
+    hint.textContent = "Tap the 5 cards you opened with (" + c + " of 5). Tap again for extra copies." +
+      (D.order === "second" ? " Your first draw comes next." : "");
+  }
+
+  function renderLP(){
+    var bar = document.getElementById("lpBar"); bar.innerHTML = "";
+    var lab = nodes("div", "turnlab", D.phase === "setup" || D.phase === "opening" ? "Before the duel" :
+      "Your turn " + D.n + " (duel turn " + duelTurnNo() + ")");
+    bar.appendChild(lab);
+    [["me","You"],["opp","Opponent"]].forEach(function(w){
+      var col = nodes("div", "lpcol");
+      var head = nodes("div", "lphead");
+      head.appendChild(nodes("span", "lab", w[1]));
+      var v = nodes("span", "lpval" + (D.lp[w[0]] <= 2000 ? " low" : ""), String(D.lp[w[0]]));
+      head.appendChild(v); col.appendChild(head);
+      var btns = nodes("div", "lpbtns");
+      function setLP(x){ D.lp[w[0]] = Math.max(0, Math.round(x)); persist(); renderLP(); }
+      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = w[0] === "me" ? "Instant Contact cost or 1000 damage" : "1000 damage";
+      b1.addEventListener("click", function(){ setLP(D.lp[w[0]] - 1000); }); btns.appendChild(b1);
+      if (w[0] === "me"){
+        var bh = nodes("button", "mini", "Half"); bh.type = "button"; bh.title = "A Hero Lives cost";
+        bh.addEventListener("click", function(){ setLP(Math.floor(D.lp.me / 2)); }); btns.appendChild(bh);
+      }
+      var inp = nodes("input", "lpin"); inp.type = "number"; inp.step = "100"; inp.min = "0"; inp.placeholder = "Amount";
+      inp.setAttribute("aria-label", w[1] + " LP amount");
+      var bm = nodes("button", "mini", "\u2212"); bm.type = "button"; bm.setAttribute("aria-label", "Subtract from " + w[1] + " LP");
+      var bp = nodes("button", "mini", "+"); bp.type = "button"; bp.setAttribute("aria-label", "Add to " + w[1] + " LP");
+      bm.addEventListener("click", function(){ var a = +inp.value; if (a) setLP(D.lp[w[0]] - a); });
+      bp.addEventListener("click", function(){ var a = +inp.value; if (a) setLP(D.lp[w[0]] + a); });
+      btns.appendChild(inp); btns.appendChild(bm); btns.appendChild(bp);
+      col.appendChild(btns); bar.appendChild(col);
+    });
+  }
+
+  function renderStepper(){
+    var st = document.getElementById("stepper"); st.innerHTML = "";
+    var list = D.n === 1 ? PHASES : ["draw","main","end"];
+    var idx = PHASES.indexOf(D.phase);
+    list.forEach(function(p){
+      var li = nodes("li", null, PH_LABEL[p]);
+      var pi = PHASES.indexOf(p);
+      var skipped = p === "draw" && D.n === 1 && D.order === "first";
+      if (skipped) li.className = "skip";
+      else if (p === D.phase){ li.className = "cur"; li.setAttribute("aria-current", "step"); }
+      else if (pi < idx) li.className = "done";
+      if (skipped) li.title = "No draw on the first turn when going first";
+      st.appendChild(li);
+    });
+  }
+
+  function renderSetup(){
+    var b = box("Who goes first?");
+    b.appendChild(park.querySelector(".seg") || document.querySelector("#duelPark .seg"));
+    b.appendChild(nodes("p", "hint", "Both players start at 8000 LP. Your opponent's turns are skipped; use the LP bar any time to log damage."));
+  }
+
+  function renderOpening(){
+    var b = box("Your opening hand");
+    b.appendChild(document.getElementById("openHint"));
+    b.appendChild(document.getElementById("chipArea"));
+    b.appendChild(document.getElementById("clearHand").parentNode);
+    updateOpeningCount();
+    var r = box("Best line for this hand");
+    r.appendChild(document.getElementById("result"));
+    paintChips(); evaluate();
+  }
+
+  function renderDraw(){
+    var b = box(D.n === 1 ? "Your first draw" : "What did you draw?");
+    var wrap = nodes("div", "chips");
+    CARDS.forEach(function(c){
+      var btn = nodes("button", "chip", c.name); btn.type = "button";
+      btn.setAttribute("aria-pressed", D.drew === c.id ? "true" : "false");
+      if (D.drew === c.id) btn.dataset.n = "1";
+      btn.addEventListener("click", function(){ D.drew = D.drew === c.id ? null : c.id; persist(); renderBody(); });
+      wrap.appendChild(btn);
+    });
+    b.appendChild(wrap);
+    b.appendChild(nodes("p", "hint", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Pick the card, or press Next to skip."));
+  }
+
+  function renderHandBox(){
+    var b = box("Your hand (" + handCount(D.hand) + ")");
+    var ids = Object.keys(D.hand).filter(function(k){ return D.hand[k]; });
+    if (!ids.length) b.appendChild(nodes("p", "hint", "Your hand is empty."));
+    ids.forEach(function(k){
+      var row = nodes("div", "hrow");
+      row.appendChild(nodes("span", "nm", NAMES[k] + (D.hand[k] > 1 ? " \u00D7" + D.hand[k] : "")));
+      var u = nodes("button", "mini", "Used"); u.type = "button";
+      u.title = "Played, discarded, or used as material from your hand";
+      u.addEventListener("click", function(){ D.hand[k]--; if (!D.hand[k]) delete D.hand[k]; D.used.push(k); persist(); renderBody(); });
+      row.appendChild(u); b.appendChild(row);
+    });
+    var add = nodes("div", "addrow");
+    var sel = nodes("select", "addsel"); sel.setAttribute("aria-label", "Card added to hand");
+    sel.appendChild(nodes("option", null, "Card searched or added\u2026")).value = "";
+    CARDS.forEach(function(c){ var o = nodes("option", null, c.name); o.value = c.id; sel.appendChild(o); });
+    var ab = nodes("button", "mini", "Add to hand"); ab.type = "button";
+    ab.addEventListener("click", function(){ if (!sel.value) return; D.hand[sel.value] = (D.hand[sel.value] || 0) + 1; D.added.push(sel.value); persist(); renderBody(); });
+    add.appendChild(sel); add.appendChild(ab); b.appendChild(add);
+    if (D.used.length || D.added.length){
+      b.appendChild(nodes("p", "hint", (D.added.length ? "Added this turn: " + D.added.map(function(k){ return NAMES[k]; }).join(", ") + ". " : "") +
+        (D.used.length ? "Used this turn: " + D.used.map(function(k){ return NAMES[k]; }).join(", ") + "." : "")));
+    }
+  }
+
+  function renderOptBox(){
+    var b = box("Once per turn: used this turn");
+    OPTS.forEach(function(g){
+      b.appendChild(nodes("div", "group-label", g.g));
+      var w = nodes("div", "togs");
+      g.items.forEach(function(i){
+        var t = nodes("button", "tog", (D.opt[i.k] ? "\u2713 " : "") + i.t); t.type = "button";
+        t.setAttribute("aria-pressed", D.opt[i.k] ? "true" : "false");
+        t.addEventListener("click", function(){
+          D.opt[i.k] = !D.opt[i.k];
+          if (D.opt[i.k] && i.lock) D.locks[i.lock] = true;
+          persist(); renderBody();
+        });
+        w.appendChild(t);
+      });
+      b.appendChild(w);
+    });
+
+  }
+
+  function renderLockBox(){
+    var b = box("Active locks this turn");
+    var w = nodes("div", "togs");
+    LOCKS.forEach(function(l){
+      var t = nodes("button", "tog lock", l.t); t.type = "button"; t.title = "From " + l.src;
+      t.setAttribute("aria-pressed", D.locks[l.k] ? "true" : "false");
+      t.addEventListener("click", function(){ D.locks[l.k] = !D.locks[l.k]; persist(); renderBody(); });
+      w.appendChild(t);
+    });
+    b.appendChild(w);
+    var on = LOCKS.filter(function(l){ return D.locks[l.k]; });
+    b.appendChild(nodes("p", "hint", on.length ? "Locked by: " + on.map(function(l){ return l.src; }).join(", ") + ". These clear when you end the turn." :
+      "No locks yet. They turn on automatically when you mark Faris, Fusion Destiny, Cross Crusader, or Infernal Devicer above."));
+  }
+
+  function renderZoneBox(){
+    var b = box("Key cards");
+    ZONES.forEach(function(z){
+      var row = nodes("div", "zrow");
+      row.appendChild(nodes("span", "znm", z.t));
+      var seg = nodes("div", "zseg");
+      ZONE_OPTS.forEach(function(o){
+        var btn = nodes("button", null, o[1]); btn.type = "button";
+        btn.setAttribute("aria-pressed", D.zones[z.k] === o[0] ? "true" : "false");
+        btn.addEventListener("click", function(){ D.zones[z.k] = o[0]; persist(); renderBody(); });
+        seg.appendChild(btn);
+      });
+      row.appendChild(seg);
+      row.appendChild(nodes("span", "zhint", z.hints[D.zones[z.k]]));
+      b.appendChild(row);
+    });
+  }
+
+
+  // ---------- negations ----------
+  var STOP_EXTRA = [
+    {k:"stratos", t:"Stratos: search"},
+    {k:"ahl", t:"A Hero Lives"},
+    {k:"ecall", t:"E-Call"},
+    {k:"malicious", t:"Malicious: summon from Deck"},
+    {k:"poly", t:"Polymerization"},
+    {k:"mf", t:"Miracle Fusion"}
+  ];
+  var STOP_LABEL = {}; Object.keys(OPT_LABEL).forEach(function(k){ STOP_LABEL[k] = OPT_LABEL[k]; });
+  STOP_EXTRA.forEach(function(i){ STOP_LABEL[i.k] = i.t; });
+  // Which handtraps can actually hit each effect (for a gentle double-check).
+  var NOT_ASH = ["faris_ss","faris_place","inc_ss","inc_place","ic","fc","poly","mf","sunrise_destroy","snw","dpe","dystopia_burn","dystopia_destroy","cross_revive","driver","ash","maxx"];
+  var NOT_IMP = ["destiny","ic","fc","poly","mf","ahl","ecall","mist","malicious","inc_place","ash","maxx"];
+  var STOP_BY = {ash:"Ash", imp:"Imperm", other:"Negated"};
+  var STOP_TIP = {
+    inc_vision:"No Vyon this turn. Normal Summon what you can, get Malicious bodies out, and save Polymerization for next turn.",
+    vyon_poly:"No Polymerization search. Use Instant Contact or Fusion Destiny if you have them, or hold what's on board.",
+    vyon_dump:"No dump. Stage Neos another way (Shadow Mist's search or E-Call) before you rely on Favorite Contact.",
+    stratos:"If you hold Faris and a HERO to discard, the engine still runs. Otherwise set up for next turn.",
+    faris_place:"No Increase placed. Normal Summon Vyon if you have it, or switch to Fusion Destiny.",
+    faris_ss:"Faris didn't land. Use your Normal Summon on Stratos or Vyon instead.",
+    destiny:"No Fusion Destiny monster. Build the Elemental line instead: Sunrise into Infernal Rage.",
+    mist:"No Shadow Mist search this turn. Use Vyon's dump on Neos to stage Favorite Contact.",
+    rage_search:"No Favorite Contact. Keep Infernal Rage as a Wingman for Polymerization into Shining Neos Wingman next turn.",
+    sunrise_search:"No Miracle Fusion. Polymerization or Instant Contact can still reach a Wingman.",
+    fc:"Favorite Contact is gone. Keep DPE or Dangerous up to interrupt instead.",
+    snw:"Shining Neos Wingman is still a 3100+ body that can't be destroyed by effects. Swing with it.",
+    dpe:"DPE's Quick Effect is spent. If it gets destroyed, it still brings back a Destiny HERO next Standby Phase.",
+    ahl:"The LP is paid, but your Normal Summon is still open.",
+    ic:"Instant Contact is spent for the turn. Fall back to Polymerization or Miracle Fusion.",
+    malicious:"The Malicious stays banished. You can still use the other copies later."
+  };
+
+  function renderStopBox(){
+    var b = box("They fucked me.");
+    var row = nodes("div", "addrow");
+    var sel = nodes("select", "addsel stopsel"); sel.setAttribute("aria-label", "Effect that got stopped");
+    sel.appendChild(nodes("option", null, "Which effect got stopped\u2026")).value = "";
+    STOP_EXTRA.concat([]).forEach(function(i){ var o = nodes("option", null, i.t); o.value = i.k; sel.appendChild(o); });
+    OPTS.forEach(function(g){
+      var og = document.createElement("optgroup"); og.label = g.g;
+      g.items.forEach(function(i){ var o = nodes("option", null, i.t); o.value = i.k; og.appendChild(o); });
+      sel.appendChild(og);
+    });
+    row.appendChild(sel);
+    ["ash","imp","other"].forEach(function(by){
+      var btn = nodes("button", "mini stopbtn s-" + by, by === "other" ? "Other negate" : STOP_BY[by]); btn.type = "button";
+      btn.addEventListener("click", function(){
+        if (!sel.value) { sel.focus(); return; }
+        D.stops.push({k: sel.value, by: by});
+        if (OPT_LABEL[sel.value]) D.opt[sel.value] = true;
+        persist(); renderBody();
+      });
+      row.appendChild(btn);
+    });
+    b.appendChild(row);
+    if (!D.stops.length){ b.appendChild(nodes("p", "hint", "Pick the effect, then tap what hit it. A negated effect still counts as used for the turn.")); return; }
+    var ul = nodes("ul", "stoplist");
+    D.stops.forEach(function(s, i){
+      var li = nodes("li", "s-" + s.by);
+      var top = nodes("div", "stoptop");
+      top.appendChild(nodes("span", "stoptag", STOP_BY[s.by]));
+      top.appendChild(nodes("span", "stopnm", STOP_LABEL[s.k] || s.k));
+      var x = nodes("button", "mini", "Undo"); x.type = "button"; x.setAttribute("aria-label", "Remove this entry");
+      x.addEventListener("click", function(){ D.stops.splice(i, 1); persist(); renderBody(); });
+      top.appendChild(x); li.appendChild(top);
+      var tip = STOP_TIP[s.k] || "That effect is spent for this turn. Check the Lines tab for another route.";
+      if (s.by === "ash" && NOT_ASH.indexOf(s.k) >= 0) tip = "Heads up: Ash can't normally hit this effect. Double-check what they used. " + tip;
+      if (s.by === "imp" && NOT_IMP.indexOf(s.k) >= 0) tip = "Heads up: Imperm only hits monster effects on the field. Double-check what they used. " + tip;
+      li.appendChild(nodes("p", "stoptip", tip));
+      ul.appendChild(li);
+    });
+    b.appendChild(ul);
+  }
+
+  function renderMain(){
+    var r = box(null);
+    var det = nodes("details", "planfold"); det.open = D.n === 1;
+    det.appendChild(nodes("summary", null, "Best line for your current hand"));
+    det.appendChild(document.getElementById("result"));
+    r.appendChild(det);
+    evaluate();
+    renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); renderZoneBox();
+  }
+
+  function reminders(){
+    var out = [];
+    if (D.zones.increase === "gy") out.push("Increase is in your GY. If you take damage on their turn, move it to Field / backrow next turn.");
+    if (D.zones.increase === "field") out.push("Increase is in your backrow, ready to restart the engine next turn.");
+    if (D.opt.destiny) out.push("Fusion Destiny's monster is destroyed at the End Phase of the next turn.");
+    if (D.opt.ic && ["gy","field"].indexOf(D.zones.neos) < 0) out.push("Neos wasn't on your field or in your GY, so the Instant Contact monster returns to the Extra Deck now.");
+    if (D.opt.rage_search && !D.opt.fc) out.push("Set the Favorite Contact you searched so you can flip it on their turn.");
+    if ((D.opt.rage_search || D.hand.fc) && D.zones.neos === "deck") out.push("Neos is still in your Deck, so Favorite Contact can't make Shining Neos Wingman. Backup: DPE from two Malicious in your GY or banished.");
+    if (D.stops.length) out.push("You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time.");
+    if (D.opt.mist) out.push("Your Shadow Mist effect for this turn is used. A Shadow Mist sent to the GY now won't search.");
+    if (D.opt.destiny && !D.opt.dpe) out.push("If you made DPE, its Quick Effect is ready for their turn.");
+    return out;
+  }
+
+  function renderEnd(){
+    var b = box("End of your turn " + D.n);
+    var rows = [
+      ["Hand now", handList(D.hand)],
+      ["Used", D.used.length ? D.used.map(function(k){ return NAMES[k]; }).join(", ") : "nothing tracked"],
+      ["Added", D.added.length ? D.added.map(function(k){ return NAMES[k]; }).join(", ") : "nothing tracked"],
+      ["They fucked me", D.stops.length ? D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }).join(", ") : "nothing"],
+      ["Once-per-turns", Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }).join(", ") || "none marked"],
+      ["LP", "You " + D.lp.me + ", opponent " + D.lp.opp]
+    ];
+    rows.forEach(function(r){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, r[0] + ": ")); p.appendChild(document.createTextNode(r[1])); b.appendChild(p); });
+    var rem = reminders();
+    if (rem.length){
+      var rb = box("Before you pass");
+      var ul = nodes("ul", "notes"); rem.forEach(function(t){ ul.appendChild(nodes("li", null, t)); }); rb.appendChild(ul);
+    }
+    var nb = box("Note for the log");
+    var ta = nodes("textarea", "dnote"); ta.rows = 2; ta.placeholder = "Anything worth remembering (their key cards, what got stopped)";
+    ta.value = D.note || "";
+    ta.addEventListener("input", function(){ D.note = ta.value; persist(); });
+    nb.appendChild(ta);
+  }
+
+  function renderBody(){
+    parkAll();
+    stepBody.innerHTML = "";
+    syncGlobals();
+    if (D.phase === "setup") renderSetup();
+    else if (D.phase === "opening") renderOpening();
+    else if (D.phase === "draw") renderDraw();
+    else if (D.phase === "main") renderMain();
+    else renderEnd();
+    paintTurn();
+  }
+
+  function renderLog(){
+    var ol = document.getElementById("duelLog"); ol.innerHTML = "";
+    if (!D.log.length){ ol.appendChild(nodes("li", "empty", "Finished turns show up here.")); return; }
+    D.log.forEach(function(e){
+      var li = nodes("li");
+      li.appendChild(nodes("div", "lt", "Your turn " + e.n + " (duel turn " + e.t + ")"));
+      var rows = [];
+      if (e.opening) rows.push(["Opened", e.opening]);
+      if (e.drew) rows.push(["Drew", NAMES[e.drew]]);
+      if (e.used.length) rows.push(["Used", e.used.map(function(k){ return NAMES[k]; }).join(", ")]);
+      if (e.added.length) rows.push(["Added", e.added.map(function(k){ return NAMES[k]; }).join(", ")]);
+      if (e.stops && e.stops.length) rows.push(["They fucked me", e.stops.join(", ")]);
+      if (e.opts.length) rows.push(["Once-per-turns", e.opts.join(", ")]);
+      rows.push(["LP after", "You " + e.lp.me + ", opponent " + e.lp.opp]);
+      if (e.note) rows.push(["Note", e.note]);
+      rows.forEach(function(r){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, r[0] + ": ")); p.appendChild(document.createTextNode(r[1])); li.appendChild(p); });
+      ol.appendChild(li);
+    });
+  }
+
+  function renderDuel(){
+    renderLP(); renderStepper(); renderBody(); renderLog();
+    var nx = document.getElementById("stepNext");
+    nx.textContent = D.phase === "setup" ? "Start duel" : D.phase === "end" ? "End turn" : "Next";
+    document.getElementById("stepBack").disabled = !hist.length;
+  }
+
+  document.getElementById("stepNext").addEventListener("click", function(){
+    hist.push(JSON.stringify(D)); if (hist.length > 60) hist.shift();
+    if (D.phase === "setup") D.phase = "opening";
+    else if (D.phase === "opening"){ D.opening = handList(D.hand); D.phase = D.order === "second" ? "draw" : "main"; }
+    else if (D.phase === "draw"){ if (D.drew) D.hand[D.drew] = (D.hand[D.drew] || 0) + 1; D.phase = "main"; }
+    else if (D.phase === "main") D.phase = "end";
+    else {
+      D.log.push({n:D.n, t:duelTurnNo(), opening:D.opening, drew:D.drew, used:D.used.slice(), added:D.added.slice(),
+        opts:Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }),
+        stops:D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }),
+        lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note});
+      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null;
+    }
+    persist(); renderDuel(); window.scrollTo(0, 0);
+    var m = document.querySelector(".center main"); if (m) m.scrollTop = 0;
+  });
+  document.getElementById("stepBack").addEventListener("click", function(){
+    if (!hist.length) return;
+    D = JSON.parse(hist.pop()); persist(); renderDuel();
+  });
+  document.getElementById("newDuel").addEventListener("click", function(){
+    if (!confirm("Start a new duel? This clears the current duel and its log.")) return;
+    D = freshDuel(D.order); hist = []; persist(); renderDuel();
+  });
+
+  syncGlobals(); paintChips(); paintTurn(); renderDuel();
+
 })();
 </script>
 </body>
