@@ -404,6 +404,8 @@ body{
 
 <script>
 /* YGOPRODeck card image client (inlined for local use). */
+/* Card IDs from YGOPRODeck, used to find images/<id>.jpg in the same folder as this page. */
+window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558127, "Destiny HERO - Dangerous": 30757127, "Destiny HERO - Denier": 16605586, "Destiny HERO - Destroyer Phoenix Enforcer": 60461804, "Destiny HERO - Dystopia": 90579153, "Destiny HERO - Malicious": 9411399, "E - Emergency Call": 213326, "Elemental HERO Blazeman": 63060238, "Elemental HERO Flame Wingman": 35809262, "Elemental HERO Flame Wingman - Infernal Rage": 93347961, "Elemental HERO Neos": 89943723, "Elemental HERO Shadow Mist": 50720316, "Elemental HERO Shining Neos Wingman": 56733747, "Elemental HERO Stratos": 40044918, "Elemental HERO Sunrise": 22908820, "Favorite Contact": 75047173, "Fusion Destiny": 52947044, "Instant Contact": 16169772, "Maxx \"C\"": 23434538, "Miracle Fusion": 45906428, "Polymerization": 24094653, "Vision HERO Faris": 18094166, "Vision HERO Increase": 22865492, "Vision HERO Trinity": 46759931, "Vision HERO Vyon": 27780618, "Xtra HERO Cross Crusader": 58004362, "Xtra HERO Infernal Devicer": 19324993, "Xtra HERO Wonder Driver": 1948619};
 (function(){
   "use strict";
   var API_URL = "https://db.ygoprodeck.com/api/v7/cardinfo.php";
@@ -456,6 +458,15 @@ body{
     var token = {}; img._tok = token;
     img.removeAttribute("src"); img.alt = ""; set("loading", "Loading card image");
     var name = apiName(cardName);
+    var localId = window.CARD_IDS && window.CARD_IDS[name];
+    if (localId){
+      img.onload = function(){ if (img._tok === token) set("ready"); };
+      img.onerror = function(){ if (img._tok === token) remote(); };
+      img.decoding = "async"; img.alt = name; img.src = "images/" + localId + ".jpg";
+      return;
+    }
+    remote();
+    function remote(){
     getCards([name]).then(function(m){
       if (img._tok !== token) return;
       var card = m.get(name.toLowerCase()), url = getImageUrl(card, size || "small");
@@ -465,6 +476,7 @@ body{
       img.decoding = "async"; img.referrerPolicy = "no-referrer";
       img.alt = card.name; img.src = url;
     }).catch(function(){ if (img._tok === token) set("error", "Couldn't reach YGOPRODeck. Check your connection."); });
+    }
   }
   window.YGO = {getCards:getCards, bindCardImage:bindCardImage, preloadDeck:function(n){ return getCards(n).catch(function(){}); }};
 })();
