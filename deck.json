@@ -1,0 +1,521 @@
+{
+ "name": "Omni HERO",
+ "main": [
+  {
+   "id": "stratos",
+   "name": "Elemental HERO Stratos",
+   "n": 3,
+   "short": "Stratos",
+   "summary": [
+    "When it's Normal or Special Summoned, pick one: destroy Spells/Traps up to the number of other HEROs you control, or add a HERO from your Deck to your hand."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Your best Normal Summon. Search Faris if you have a HERO to discard, otherwise Shadow Mist.",
+    "Your main non-DARK HERO. Tribute Faris for Increase and keep Stratos to pair with Increase for Sunrise.",
+    "A Hero Lives can summon it from the Deck, and its search still triggers.",
+    "Going second, the backrow destroy mode can clear a floodgate if you control other HEROs."
+   ]
+  },
+  {
+   "id": "mist",
+   "name": "Elemental HERO Shadow Mist",
+   "n": 3,
+   "short": "Shadow Mist",
+   "summary": [
+    "If Special Summoned: add a “Change” Quick-Play Spell from your Deck.",
+    "If sent to the GY: add a HERO from your Deck, except Shadow Mist.",
+    "You can only use one of these effects per turn, and only once."
+   ],
+   "group": "Engine & fodder",
+   "notes": [
+    "The best Faris discard and Vyon dump: it searches from the GY, which Imperm can't touch.",
+    "Only one Shadow Mist effect per turn across all copies. If one already searched, a second dumped Shadow Mist won't.",
+    "Great way to stage Neos: search it so Favorite Contact can make Shining Neos Wingman.",
+    "DARK Elemental HERO, so it pairs with a LIGHT one for Miracle Fusion into Infernal Rage.",
+    "With no Change spells in the deck, its Special Summon effect has nothing to grab, so the GY search stays available that turn."
+   ]
+  },
+  {
+   "id": "faris",
+   "name": "Vision HERO Faris",
+   "n": 3,
+   "short": "Faris",
+   "summary": [
+    "Discard another HERO to Special Summon it from your hand.",
+    "When Normal or Special Summoned: place a Vision HERO (not Faris) from your Deck face-up in your backrow as a Continuous Trap. You can only summon HEROs from the Extra Deck for the rest of the turn.",
+    "Each effect once per turn."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Always place Increase. That's the whole engine.",
+    "Placing isn't adding, summoning, or sending, so Ash can't stop it. Imperm on Faris can.",
+    "It's Level 5, so a Normal Summon needs a Tribute. After A Hero Lives, you can tribute the Stratos it summoned.",
+    "DARK, like Vyon and Increase. Tribute Faris, not Stratos, to summon Increase."
+   ]
+  },
+  {
+   "id": "vyon",
+   "name": "Vision HERO Vyon",
+   "n": 3,
+   "short": "Vyon",
+   "summary": [
+    "When Normal or Special Summoned: send a HERO from your Deck to the GY (once per turn).",
+    "Once per turn: banish a HERO from your GY to add Polymerization from your Deck."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Usually comes from Increase, so it doesn't use your Normal Summon.",
+    "Keep it on the field instead of using it as material. Its Polymerization search works again every turn while it's out.",
+    "Dump Shadow Mist for a search (often Stratos as your non-DARK HERO), or Neos to turn on Instant Contact.",
+    "Don't banish the Shadow Mist or Neos you still need for Miracle Fusion or Favorite Contact."
+   ]
+  },
+  {
+   "id": "increase",
+   "name": "Vision HERO Increase",
+   "n": 2,
+   "short": "Increase",
+   "summary": [
+    "If you take battle or effect damage while it's in your GY: place it in your backrow as a Continuous Trap.",
+    "During the Main Phase while it's a Continuous Trap: Tribute a HERO to Special Summon it.",
+    "When Special Summoned from the backrow: Special Summon a Level 4 or lower Vision HERO from your Deck.",
+    "Each effect once per turn."
+   ],
+   "group": "Engine & fodder",
+   "notes": [
+    "Run 2 so Faris always has one left in the Deck.",
+    "Use it as Fusion material instead of Vyon. In the GY, it returns to your backrow when you take damage, and next turn you tribute Vyon to restart the engine.",
+    "A copy in hand is perfect Faris discard fodder.",
+    "Going first with no starter, set it. If it's destroyed and you take damage, it returns to your backrow ready to go."
+   ]
+  },
+  {
+   "id": "malicious",
+   "name": "Destiny HERO - Malicious",
+   "n": 3,
+   "short": "Malicious",
+   "summary": [
+    "Banish it from your GY to Special Summon another Malicious from your Deck."
+   ],
+   "group": "Engine & fodder",
+   "notes": [
+    "Level 6 HERO + Destiny HERO: two copies from Deck make Destroyer Phoenix Enforcer with Fusion Destiny.",
+    "The best Faris discard when you don't need Shadow Mist's search.",
+    "Its GY summon is good Ash bait."
+   ]
+  },
+  {
+   "id": "neos",
+   "name": "Elemental HERO Neos",
+   "n": 2,
+   "short": "Neos",
+   "summary": [
+    "No effect."
+   ],
+   "group": "Engine & fodder",
+   "notes": [
+    "Instant Contact needs it on your field or in your GY.",
+    "Material for Shining Neos Wingman, from hand, field, GY, or banished through Favorite Contact.",
+    "Making Infernal Rage with Neos turns on Infernal Rage's tribute effect."
+   ]
+  },
+  {
+   "id": "ash",
+   "name": "Ash Blossom & Joyous Spring",
+   "n": 3,
+   "short": "Ash Blossom",
+   "summary": [
+    "Discard it when your opponent activates an effect that adds from the Deck, summons from the Deck, or sends from the Deck to the GY: negate that effect. Once per turn."
+   ],
+   "group": "Handtraps",
+   "notes": [
+    "Save it for their starter's search or Deck summon, not a random extender.",
+    "Check the Checkpoints tab for where theirs hits you."
+   ]
+  },
+  {
+   "id": "maxx",
+   "name": "Maxx \"C\"",
+   "n": 1,
+   "short": "Maxx “C”",
+   "summary": [
+    "Quick Effect: send it from your hand to the GY. For the rest of the turn, draw a card each time your opponent Special Summons.",
+    "You can only use 1 Maxx “C” per turn."
+   ],
+   "group": "Handtraps",
+   "notes": [
+    "Best on their first turn going second, as soon as they start special summoning."
+   ]
+  },
+  {
+   "id": "fuwalos",
+   "name": "Mulcharmy Fuwalos",
+   "n": 1,
+   "short": "Fuwalos",
+   "summary": [
+    "Quick Effect, if you control no cards: discard it. For the rest of the turn, draw a card each time your opponent Special Summons from the Deck or Extra Deck.",
+    "At that End Phase, if your hand has more cards than (cards your opponent controls + 6), you randomly shuffle the extra cards back into the Deck.",
+    "You can only activate 1 other Mulcharmy effect the turn you use it."
+   ],
+   "group": "Handtraps",
+   "notes": [
+    "A going-second card. Going first, you'll control cards after your combo, so it's dead that turn.",
+    "Chain it to their first Deck or Extra Deck summon. Summons from hand or GY draw you nothing.",
+    "The bigger their board, the more cards you keep, so it punishes them for comboing hard."
+   ]
+  },
+  {
+   "id": "ahl",
+   "name": "A Hero Lives",
+   "n": 3,
+   "short": "A Hero Lives",
+   "summary": [
+    "If you control no face-up monsters: pay half your LP to Special Summon a Level 4 or lower Elemental HERO from your Deck."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Play it before anything face-up hits the field. A face-down Set monster (like a Set Increase) doesn't stop it.",
+    "Usually summons Stratos, which still searches. Your Normal Summon stays open."
+   ]
+  },
+  {
+   "id": "destiny",
+   "name": "Fusion Destiny",
+   "n": 3,
+   "short": "Fusion Destiny",
+   "summary": [
+    "Fusion Summon a Fusion Monster that lists a Destiny HERO as material, using monsters from your hand or Deck. It's destroyed during the End Phase of the next turn.",
+    "After it resolves, you can only Special Summon DARK HEROs for the rest of the turn.",
+    "Only 1 Fusion Destiny per turn."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Malicious + Malicious from Deck makes Destroyer Phoenix Enforcer.",
+    "Play it last, after your Sunrise, Infernal Rage, and Shining Neos Wingman.",
+    "Using Deck materials makes it Ash-able, so protect it."
+   ]
+  },
+  {
+   "id": "ecall",
+   "name": "E - Emergency Call",
+   "n": 3,
+   "short": "E-Call",
+   "summary": [
+    "Add an Elemental HERO from your Deck to your hand."
+   ],
+   "group": "Starters",
+   "notes": [
+    "Usually grabs Stratos. Grab Shadow Mist or Neos when you need them.",
+    "Lead with it to bait Ash."
+   ]
+  },
+  {
+   "id": "poly",
+   "name": "Polymerization",
+   "n": 2,
+   "short": "Polymerization",
+   "summary": [
+    "Fusion Summon using monsters from your hand or field as material."
+   ],
+   "group": "Fusion spells & traps",
+   "notes": [
+    "Vyon searches it.",
+    "Wonder Driver can Set a used copy back from the GY."
+   ]
+  },
+  {
+   "id": "ic",
+   "name": "Instant Contact",
+   "n": 2,
+   "short": "Instant Contact",
+   "summary": [
+    "Pay 1000 LP: Special Summon a Level 7 or lower Elemental HERO or Neo-Spacian from your Extra Deck, ignoring its summoning conditions.",
+    "If Neos isn't on your field or in your GY, that monster can't attack, has its effects negated, and returns at the End Phase. One per turn."
+   ],
+   "group": "Fusion spells & traps",
+   "notes": [
+    "Get Neos into the GY first.",
+    "Flame Wingman for Shining Neos Wingman, or Sunrise for its Miracle Fusion search.",
+    "Even negated, the monster is still a HERO body for tributes and materials."
+   ]
+  },
+  {
+   "id": "mf",
+   "name": "Miracle Fusion",
+   "n": 1,
+   "short": "Miracle Fusion",
+   "summary": [
+    "Fusion Summon an Elemental HERO Fusion Monster by banishing materials from your field or GY."
+   ],
+   "group": "Fusion spells & traps",
+   "notes": [
+    "Sunrise searches it, so one copy is enough.",
+    "Shadow Mist (DARK) + Stratos (WIND) or Neos (LIGHT) into Infernal Rage. Both materials must be Elemental HEROs with different Attributes."
+   ]
+  },
+  {
+   "id": "fc",
+   "name": "Favorite Contact",
+   "n": 1,
+   "short": "Favorite Contact",
+   "summary": [
+    "Special Summon a Fusion Monster that lists a HERO as material, ignoring its summoning conditions, by putting its listed materials from your hand, field, GY, or banished cards on the bottom of the Deck. One per turn."
+   ],
+   "group": "Fusion spells & traps",
+   "notes": [
+    "Infernal Rage searches it. Set it for their turn.",
+    "Flip it mid-combo on their turn for Shining Neos Wingman after they commit monsters. Neos must be in your hand, field, GY, or banished, not the Deck.",
+    "Not only for Shining Neos Wingman: it can make any Fusion that lists a HERO, like DPE from two Malicious in your GY or banished."
+   ]
+  },
+  {
+   "id": "imperm",
+   "name": "Infinite Impermanence",
+   "n": 1,
+   "short": "Imperm",
+   "summary": [
+    "Target 1 face-up monster your opponent controls: negate its effects until the end of the turn.",
+    "If it was Set before activation, other Spell/Trap effects in its column are also negated for the rest of the turn.",
+    "If you control no cards, you can activate it from your hand."
+   ],
+   "group": "Handtraps",
+   "notes": [
+    "Going first: set it, since you'll control cards after your combo.",
+    "Going second: activate it from your hand on their first turn.",
+    "Best targets: a monster about to make their big play, or a negater like Baronne de Fleur or Photon Lord.",
+    "It can't stop effects that start in the hand or GY."
+   ]
+  }
+ ],
+ "extra": [
+  {
+   "id": "dpe",
+   "name": "Destiny HERO - Destroyer Phoenix Enforcer",
+   "n": 1,
+   "short": "DPE",
+   "summary": [
+    "Materials: a Level 6 or higher HERO + a Destiny HERO.",
+    "Your opponent's monsters lose 200 ATK for each HERO card in your GY.",
+    "Quick Effect: destroy 1 card you control and 1 card on the field.",
+    "If destroyed: during the next Standby Phase, Special Summon a Destiny HERO from your GY.",
+    "Each effect once per turn."
+   ],
+   "notes": [
+    "Your best end board. Save the Quick Effect for their turn.",
+    "Going second, pop their negater at the start of your Main Phase."
+   ],
+   "role": [
+    "end",
+    "break"
+   ],
+   "when": "Going first as your end board, or at the start of your turn going second.",
+   "why": "Quick Effect: destroy 1 of your cards and 1 card on the field. Comes back with a Destiny HERO from the GY if destroyed."
+  },
+  {
+   "id": "snw",
+   "name": "Elemental HERO Shining Neos Wingman",
+   "n": 2,
+   "short": "Shining Neos Wingman",
+   "summary": [
+    "Materials: Neos + a Wingman Fusion Monster. Must be Fusion Summoned.",
+    "Gains 300 ATK for each monster in your GY and can't be destroyed by card effects.",
+    "When Special Summoned: destroy your opponent's cards up to the number of different Attributes on the field (once per turn).",
+    "Burns for a destroyed monster's original ATK when it wins a battle."
+   ],
+   "notes": [
+    "Favorite Contact on their turn, or Polymerization going second.",
+    "More Attributes on the field means more destruction."
+   ],
+   "role": [
+    "end",
+    "break"
+   ],
+   "when": "On their turn through Favorite Contact, or on your turn with Polymerization before attacking.",
+   "why": "Destroys their cards up to the number of different Attributes on the field. Can't be destroyed by card effects."
+  },
+  {
+   "id": "rage",
+   "name": "Elemental HERO Flame Wingman - Infernal Rage",
+   "n": 2,
+   "short": "Infernal Rage",
+   "summary": [
+    "Materials: 2 Elemental HEROs with different Attributes.",
+    "When Special Summoned: add a “Favorite” card from your Deck or GY.",
+    "If made with a Normal Monster: Tribute it to Special Summon a Level 7 or lower Elemental HERO that can't be Normal Summoned from your Deck or Extra Deck.",
+    "Each effect once per turn."
+   ],
+   "notes": [
+    "Make it to search Favorite Contact.",
+    "It counts as a Wingman for Shining Neos Wingman."
+   ],
+   "role": [
+    "bridge"
+   ],
+   "when": "Whenever you can make it, mainly to search Favorite Contact.",
+   "why": "Counts as a Wingman. If made with Neos (a Normal Monster), it can tribute itself to summon a Level 7 or lower Elemental HERO that can't be Normal Summoned from your Deck or Extra Deck, like Sunrise or Flame Wingman."
+  },
+  {
+   "id": "sunrise",
+   "name": "Elemental HERO Sunrise",
+   "n": 2,
+   "short": "Sunrise",
+   "summary": [
+    "Materials: 2 HEROs with different Attributes.",
+    "Your monsters gain 200 ATK for each different Attribute you control.",
+    "When Special Summoned: add Miracle Fusion from your Deck.",
+    "When another of your HEROs is involved in an attack: destroy a card on the field."
+   ],
+   "notes": [
+    "Your easiest Fusion and your bridge to Infernal Rage.",
+    "Attack with a smaller HERO first to trigger its destroy."
+   ],
+   "role": [
+    "bridge",
+    "break"
+   ],
+   "when": "Early in the combo when Polymerization is your only Fusion, or going second against one key card.",
+   "why": "Searches Miracle Fusion. Destroys a card when another of your HEROs attacks."
+  },
+  {
+   "id": "fwing",
+   "name": "Elemental HERO Flame Wingman",
+   "n": 2,
+   "short": "Flame Wingman",
+   "materials": "Instant Contact target (Level 6). Its real materials are Avian + Burstinatrix.",
+   "summary": [
+    "Materials: Elemental HERO Avian + Elemental HERO Burstinatrix (not in this deck). Must be Fusion Summoned and can't be Special Summoned any other way, but Instant Contact and Favorite Contact ignore that.",
+    "When it destroys a monster by battle and sends it to the GY: burn for that monster's ATK."
+   ],
+   "notes": [
+    "Instant Contact target once Neos is in place.",
+    "A Wingman for Shining Neos Wingman without spending a Fusion spell."
+   ],
+   "role": [
+    "bridge"
+   ],
+   "when": "Once Neos is on your field or in your GY.",
+   "why": "A Wingman for Shining Neos Wingman without spending a Fusion spell."
+  },
+  {
+   "id": "dangerous",
+   "name": "Destiny HERO - Dangerous",
+   "n": 1,
+   "short": "Dangerous",
+   "summary": [
+    "Materials: a Destiny HERO + a DARK Effect Monster.",
+    "Quick Effect: discard a card to send a Destiny HERO from your hand or Deck to the GY. Your Destiny HEROs gain 200 ATK for each Destiny HERO in your GY this turn. Once per turn."
+   ],
+   "notes": [
+    "Fusion Destiny can make it from two Malicious.",
+    "Its ATK boost turns on Dystopia's destroy."
+   ],
+   "role": [
+    "end",
+    "break"
+   ],
+   "when": "From Fusion Destiny next to DPE, or with Dystopia going second.",
+   "why": "Quick Effect: discard to dump a Destiny HERO and pump your Destiny HEROs. Turns on Dystopia's destroy."
+  },
+  {
+   "id": "dystopia",
+   "name": "Destiny HERO - Dystopia",
+   "n": 1,
+   "short": "Dystopia",
+   "summary": [
+    "Materials: 2 Destiny HEROs.",
+    "When Special Summoned: burn for the ATK of a Level 4 or lower Destiny HERO in your GY.",
+    "Quick Effect, if its ATK differs from its original: destroy a card on the field and reset its ATK.",
+    "Each effect once per turn."
+   ],
+   "notes": [
+    "Pair with Dangerous to change its ATK.",
+    "Its burn needs a Level 4 or lower Destiny HERO in your GY. With Denier cut, you usually won't have one, so treat it as a 2800 body with a destroy."
+   ],
+   "role": [
+    "break"
+   ],
+   "when": "Going second for an extra destroy once Dangerous changes its ATK. Its burn needs a Level 4 or lower Destiny HERO, which this deck no longer runs.",
+   "why": "Burns for a Level 4 or lower Destiny HERO's ATK. Destroys a card once its ATK has changed."
+  },
+  {
+   "id": "trinity",
+   "name": "Vision HERO Trinity",
+   "n": 1,
+   "short": "Trinity",
+   "summary": [
+    "Materials: 3 HEROs.",
+    "When Fusion Summoned, its ATK doubles to 5000 for the turn.",
+    "Can attack 3 times per Battle Phase, but can't attack directly."
+   ],
+   "notes": [
+    "Going second against 2 or 3 monsters you can beat."
+   ],
+   "role": [
+    "break"
+   ],
+   "when": "Going second against 2 or 3 monsters you can beat.",
+   "why": "Double ATK on Fusion Summon and 3 attacks. It can't attack directly."
+  },
+  {
+   "id": "cross",
+   "name": "Xtra HERO Cross Crusader",
+   "n": 1,
+   "short": "Cross Crusader",
+   "summary": [
+    "Materials: 2 Warrior monsters.",
+    "When Link Summoned: Special Summon a Destiny HERO from your GY.",
+    "Tribute a Destiny HERO: add a HERO with a different name from your Deck.",
+    "Each effect once per turn. Only HERO special summons the turn you use either."
+   ],
+   "notes": [
+    "Turns 2 spare bodies into Malicious plus a fresh search when your combo stalls."
+   ],
+   "role": [
+    "bridge"
+   ],
+   "when": "When the combo stalls with 2 spare Warriors and a Destiny HERO in the GY.",
+   "why": "Revives a Destiny HERO, then tributes one to search a HERO. HERO-only lock."
+  },
+  {
+   "id": "driver",
+   "name": "Xtra HERO Wonder Driver",
+   "n": 1,
+   "short": "Wonder Driver",
+   "summary": [
+    "Materials: 2 HEROs.",
+    "When a HERO is Normal or Special Summoned to a zone it points to: Set a Polymerization, Fusion, or Change spell from your GY. Once per turn.",
+    "If it's destroyed by battle, or by an opponent's card effect, and sent to the GY: Special Summon a HERO from your hand."
+   ],
+   "notes": [
+    "Turns one Polymerization into two.",
+    "If they destroy it, it replaces itself with a HERO from your hand."
+   ],
+   "role": [
+    "bridge"
+   ],
+   "when": "After using Polymerization when more HERO summons are coming.",
+   "why": "Sets a used Polymerization or a spell with “Fusion” in its name (Miracle Fusion, Fusion Destiny) from your GY when a HERO lands in a zone it points to."
+  },
+  {
+   "id": "devicer",
+   "name": "Xtra HERO Infernal Devicer",
+   "n": 1,
+   "short": "Infernal Devicer",
+   "summary": [
+    "Materials: 2 HEROs.",
+    "When Link Summoned: reveal a HERO Fusion and add up to 2 of its named materials with different names from your Deck. Only HERO special summons that turn. Once per turn.",
+    "Fiend monsters it points to gain ATK/DEF equal to their Level x 100."
+   ],
+   "notes": [
+    "Reveal Shining Neos Wingman to add Neos.",
+    "Your weakest Extra Deck card. First cut when you get Dark Law back."
+   ],
+   "role": [
+    "bridge"
+   ],
+   "when": "Only when you need Neos in hand and have 2 spare HEROs.",
+   "why": "Reveal Shining Neos Wingman to add Neos. Your weakest pick; first cut for Dark Law."
+  }
+ ]
+}

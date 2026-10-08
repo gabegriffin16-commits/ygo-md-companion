@@ -1,0 +1,31 @@
+name: Refresh card database
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"   # Mondays, early morning US time
+  workflow_dispatch:        # "Run workflow" button on the Actions tab
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download the latest card data
+        run: python update_card_db.py
+      - name: Commit cards.json if it changed
+        run: |
+          if git diff --quiet -- cards.json; then
+            echo "No card changes this week."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add cards.json
+          git commit -m "Refresh cards.json from YGOPRODeck"
+          git push

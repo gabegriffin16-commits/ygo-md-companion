@@ -1,0 +1,611 @@
+{
+ "_readme": "Card behaviors for the play engine. Keys match the ids in deck.json. Filters are checked against the official card data in cards.json (hero, elemental, vision, destiny, monster, spell, trap, fusion, normal, effect, levelMin, levelMax, attr, race, name, nameHas, materialHas, notSelf). 'do' is add, send, place, summon, mark, destroyOwn, or fusion. 'from' is deck, extra, gy, hand, field, or ban. 'short' is the label in the once-per-turn list. 'trackOnly' effects (like on-attack destroys) are tracked and can be marked stopped but don't show up as plays. Locks: 'allow' is the filter for what you can still Special Summon while the lock is on; 'extraOnly' means it only limits summons from the Extra Deck.",
+ "locks": {
+  "faris": {
+   "text": "Extra Deck: HERO monsters only",
+   "allow": {
+    "hero": true
+   },
+   "extraOnly": true
+  },
+  "destiny": {
+   "text": "Special Summons: DARK HEROs only",
+   "allow": {
+    "hero": true,
+    "attr": "DARK"
+   }
+  },
+  "hero": {
+   "text": "Special Summons: HEROs only",
+   "allow": {
+    "hero": true
+   }
+  }
+ },
+ "cards": {
+  "stratos": {
+   "onSummon": {
+    "label": "Stratos: add a HERO monster or destroy Spells/Traps",
+    "do": "add",
+    "from": "deck",
+    "filter": {
+     "hero": true,
+     "monster": true
+    },
+    "alt": "Destroy Spells/Traps instead",
+    "recommend": [
+     "faris",
+     "mist"
+    ],
+    "stopTip": "If you hold Faris and a HERO to discard, the engine still runs. Otherwise set up for next turn."
+   }
+  },
+  "mist": {
+   "onSentToGY": {
+    "opt": "mist",
+    "label": "Shadow Mist (sent to GY): add a HERO, not Shadow Mist",
+    "do": "add",
+    "from": "deck",
+    "filter": {
+     "hero": true,
+     "monster": true,
+     "notSelf": true
+    },
+    "recommend": [
+     "neos"
+    ],
+    "stopTip": "No Shadow Mist search this turn. Use Vyon's dump on Neos to stage Favorite Contact.",
+    "short": "Shadow Mist: its one effect"
+   }
+  },
+  "faris": {
+   "summonProc": {
+    "opt": "faris_ss",
+    "label": "Faris (discard a HERO)",
+    "from": "hand",
+    "cost": {
+     "discard": {
+      "hero": true,
+      "monster": true
+     }
+    },
+    "recommend": [
+     {
+      "id": "mist",
+      "unlessOpt": "mist"
+     },
+     "malicious"
+    ],
+    "stopTip": "Faris didn't land. Use your Normal Summon on Stratos or Vyon instead.",
+    "short": "Faris: summon from hand"
+   },
+   "onSummon": {
+    "opt": "faris_place",
+    "label": "Faris: place a Vision HERO in your backrow",
+    "do": "place",
+    "from": "deck",
+    "filter": {
+     "vision": true,
+     "monster": true,
+     "notSelf": true
+    },
+    "lock": "faris",
+    "recommend": [
+     "increase"
+    ],
+    "stopTip": "No Increase placed. Normal Summon Vyon if you have it, or switch to Fusion Destiny.",
+    "short": "Faris: place Vision HERO"
+   }
+  },
+  "vyon": {
+   "onSummon": {
+    "opt": "vyon_dump",
+    "label": "Vyon: send a HERO from your Deck to the GY",
+    "do": "send",
+    "from": "deck",
+    "filter": {
+     "hero": true,
+     "monster": true
+    },
+    "recommend": [
+     {
+      "id": "mist",
+      "unlessOpt": "mist"
+     },
+     {
+      "id": "neos",
+      "ifOpt": "mist"
+     }
+    ],
+    "stopTip": "No dump. Stage Neos another way (Shadow Mist's search or E-Call) before you rely on Favorite Contact.",
+    "short": "Vyon: dump a HERO"
+   },
+   "ignition": [
+    {
+     "opt": "vyon_poly",
+     "label": "Vyon: banish a HERO from GY, add Polymerization",
+     "cost": {
+      "banish": {
+       "hero": true
+      }
+     },
+     "keep": [
+      "mist",
+      "neos",
+      "malicious"
+     ],
+     "do": "add",
+     "from": "deck",
+     "filter": {
+      "name": "Polymerization"
+     },
+     "stopTip": "No Polymerization search. Use Instant Contact or Fusion Destiny if you have them, or hold what's on board.",
+     "short": "Vyon: Polymerization search"
+    }
+   ]
+  },
+  "increase": {
+   "summonProc": {
+    "opt": "inc_ss",
+    "label": "Increase (tribute a HERO)",
+    "from": "backrow",
+    "cost": {
+     "tribute": {
+      "hero": true
+     }
+    },
+    "recommend": [
+     "faris"
+    ],
+    "short": "Increase: summon from backrow"
+   },
+   "onSummon": {
+    "if": "fromBackrow",
+    "opt": "inc_vision",
+    "label": "Increase: Special Summon a Level 4 or lower Vision HERO from your Deck",
+    "do": "summon",
+    "from": "deck",
+    "filter": {
+     "vision": true,
+     "monster": true,
+     "levelMax": 4
+    },
+    "recommend": [
+     "vyon"
+    ],
+    "stopTip": "No Vyon this turn. Normal Summon what you can, get Malicious bodies out, and save Polymerization for next turn.",
+    "short": "Increase: summon Vision HERO"
+   },
+   "inGY": {
+    "opt": "inc_place",
+    "label": "Increase: back to backrow (you took damage)",
+    "short": "Increase: back to backrow"
+   }
+  },
+  "malicious": {
+   "gyEffect": {
+    "label": "Malicious: banish from GY, summon one from Deck",
+    "cost": "banishSelf",
+    "do": "summon",
+    "from": "deck",
+    "filter": {
+     "name": "Destiny HERO - Malicious"
+    },
+    "stopTip": "The Malicious stays banished. You can still use the other copies later."
+   }
+  },
+  "ash": {
+   "handtrap": "Ash Blossom"
+  },
+  "maxx": {
+   "handtrap": "Maxx “C”"
+  },
+  "fuwalos": {
+   "handtrap": "Mulcharmy Fuwalos"
+  },
+  "imperm": {
+   "handtrap": "Infinite Impermanence",
+   "set": true
+  },
+  "ahl": {
+   "spell": {
+    "label": "A Hero Lives",
+    "cond": "noFaceUpMonsters",
+    "cost": {
+     "lp": "half"
+    },
+    "do": "summon",
+    "from": "deck",
+    "filter": {
+     "elemental": true,
+     "monster": true,
+     "levelMax": 4
+    },
+    "recommend": [
+     "stratos"
+    ],
+    "stopTip": "The LP is paid, but your Normal Summon is still open."
+   }
+  },
+  "ecall": {
+   "spell": {
+    "label": "E-Call",
+    "do": "add",
+    "from": "deck",
+    "filter": {
+     "elemental": true,
+     "monster": true
+    },
+    "recommend": [
+     "stratos"
+    ]
+   }
+  },
+  "poly": {
+   "spell": {
+    "label": "Polymerization",
+    "do": "fusion",
+    "from": [
+     "hand",
+     "field"
+    ]
+   }
+  },
+  "mf": {
+   "spell": {
+    "label": "Miracle Fusion",
+    "do": "fusion",
+    "from": [
+     "field",
+     "gy"
+    ],
+    "banish": true,
+    "results": {
+     "elemental": true
+    }
+   }
+  },
+  "destiny": {
+   "spell": {
+    "opt": "destiny",
+    "label": "Fusion Destiny",
+    "do": "fusion",
+    "from": [
+     "hand",
+     "deck"
+    ],
+    "results": {
+     "materialHas": "Destiny HERO"
+    },
+    "lockAfter": "destiny",
+    "stopTip": "No Fusion Destiny monster. Build the Elemental line instead: Sunrise into Infernal Rage."
+   }
+  },
+  "ic": {
+   "spell": {
+    "opt": "ic",
+    "label": "Instant Contact (1000 LP)",
+    "cost": {
+     "lp": -1000
+    },
+    "do": "summon",
+    "from": "extra",
+    "filter": {
+     "elemental": true,
+     "levelMax": 7
+    },
+    "negatedUnless": {
+     "name": "Elemental HERO Neos",
+     "in": [
+      "field",
+      "gy"
+     ]
+    },
+    "recommend": [
+     "fwing"
+    ],
+    "stopTip": "Instant Contact is spent for the turn. Fall back to Polymerization or Miracle Fusion.",
+    "short": "Instant Contact"
+   }
+  },
+  "fc": {
+   "trap": {
+    "opt": "fc",
+    "label": "Favorite Contact",
+    "do": "fusion",
+    "from": [
+     "hand",
+     "field",
+     "gy",
+     "ban"
+    ],
+    "toDeck": true,
+    "results": {
+     "materialHas": "HERO"
+    },
+    "stopTip": "Favorite Contact is gone. Keep DPE or Dangerous up to interrupt instead."
+   }
+  },
+  "dpe": {
+   "materials": {
+    "slots": [
+     {
+      "hero": true,
+      "levelMin": 6
+     },
+     {
+      "destiny": true
+     }
+    ]
+   },
+   "ignition": [
+    {
+     "opt": "dpe",
+     "label": "DPE: destroy 1 of yours + 1 card",
+     "do": "destroyOwn",
+     "stopTip": "DPE's Quick Effect is spent. If it gets destroyed, it still brings back a Destiny HERO next Standby Phase.",
+     "short": "DPE: Quick Effect destroy"
+    }
+   ]
+  },
+  "snw": {
+   "materials": {
+    "slots": [
+     {
+      "name": "Elemental HERO Neos"
+     },
+     {
+      "nameHas": "Wingman",
+      "fusion": true
+     }
+    ]
+   },
+   "onSummon": {
+    "opt": "snw",
+    "label": "Shining Neos Wingman: destroy their cards",
+    "do": "mark",
+    "markLabel": "Destroyed",
+    "stopTip": "Shining Neos Wingman is still a 3100+ body that can't be destroyed by effects. Swing with it.",
+    "short": "Shining Neos Wingman: destroy"
+   }
+  },
+  "rage": {
+   "materials": {
+    "count": 2,
+    "each": {
+     "elemental": true
+    },
+    "differentAttributes": true
+   },
+   "onSummon": {
+    "opt": "rage_search",
+    "label": "Infernal Rage: add a “Favorite” card",
+    "do": "add",
+    "from": [
+     "deck",
+     "gy"
+    ],
+    "filter": {
+     "nameHas": "Favorite"
+    },
+    "stopTip": "No Favorite Contact. Keep Infernal Rage as a Wingman for Polymerization into Shining Neos Wingman next turn.",
+    "short": "Infernal Rage: Favorite search"
+   },
+   "ignition": [
+    {
+     "opt": "rage_tribute",
+     "label": "Infernal Rage: tribute it, summon an Elemental HERO",
+     "cond": "madeWithNormal",
+     "cost": "tributeSelf",
+     "do": "summon",
+     "from": [
+      "deck",
+      "extra"
+     ],
+     "filter": {
+      "elemental": true,
+      "levelMax": 7,
+      "fusion": true
+     },
+     "short": "Infernal Rage: tribute summon"
+    }
+   ]
+  },
+  "sunrise": {
+   "materials": {
+    "count": 2,
+    "each": {
+     "hero": true
+    },
+    "differentAttributes": true
+   },
+   "onSummon": {
+    "opt": "sunrise_search",
+    "label": "Sunrise: add Miracle Fusion",
+    "do": "add",
+    "from": "deck",
+    "filter": {
+     "name": "Miracle Fusion"
+    },
+    "stopTip": "No Miracle Fusion. Polymerization or Instant Contact can still reach a Wingman.",
+    "short": "Sunrise: Miracle Fusion search"
+   },
+   "ignition": [
+    {
+     "opt": "sunrise_destroy",
+     "label": "Sunrise: destroy a card (on attack)",
+     "do": "mark",
+     "short": "Sunrise: destroy on attack",
+     "trackOnly": true
+    }
+   ]
+  },
+  "fwing": {
+   "materials": {
+    "slots": [
+     {
+      "name": "Elemental HERO Avian"
+     },
+     {
+      "name": "Elemental HERO Burstinatrix"
+     }
+    ]
+   }
+  },
+  "dangerous": {
+   "materials": {
+    "slots": [
+     {
+      "destiny": true
+     },
+     {
+      "attr": "DARK",
+      "effect": true
+     }
+    ]
+   },
+   "ignition": [
+    {
+     "opt": "dangerous",
+     "label": "Dangerous: discard 1, send a Destiny HERO to the GY",
+     "cost": {
+      "discard": {}
+     },
+     "do": "send",
+     "from": [
+      "hand",
+      "deck"
+     ],
+     "filter": {
+      "destiny": true,
+      "monster": true
+     },
+     "short": "Dangerous: Quick Effect"
+    }
+   ]
+  },
+  "dystopia": {
+   "materials": {
+    "count": 2,
+    "each": {
+     "destiny": true
+    }
+   },
+   "onSummon": {
+    "opt": "dystopia_burn",
+    "label": "Dystopia: burn for a Level 4 or lower Destiny HERO in your GY",
+    "do": "mark",
+    "from": "gy",
+    "filter": {
+     "destiny": true,
+     "levelMax": 4
+    },
+    "short": "Dystopia: burn"
+   },
+   "ignition": [
+    {
+     "opt": "dystopia_destroy",
+     "label": "Dystopia: destroy a card (its ATK changed)",
+     "do": "mark",
+     "short": "Dystopia: destroy",
+     "trackOnly": true
+    }
+   ]
+  },
+  "trinity": {
+   "materials": {
+    "count": 3,
+    "each": {
+     "hero": true
+    }
+   }
+  },
+  "cross": {
+   "link": true,
+   "materials": {
+    "count": 2,
+    "each": {
+     "race": "Warrior"
+    }
+   },
+   "onSummon": {
+    "if": "link",
+    "opt": "cross_revive",
+    "lock": "hero",
+    "label": "Cross Crusader: revive a Destiny HERO",
+    "do": "summon",
+    "from": "gy",
+    "filter": {
+     "destiny": true,
+     "monster": true
+    },
+    "short": "Cross Crusader: revive"
+   },
+   "ignition": [
+    {
+     "opt": "cross_search",
+     "lock": "hero",
+     "label": "Cross Crusader: tribute a Destiny HERO, add a HERO",
+     "cost": {
+      "tribute": {
+       "destiny": true
+      }
+     },
+     "do": "add",
+     "from": "deck",
+     "filter": {
+      "hero": true,
+      "monster": true
+     },
+     "short": "Cross Crusader: search"
+    }
+   ]
+  },
+  "driver": {
+   "link": true,
+   "materials": {
+    "count": 2,
+    "each": {
+     "hero": true
+    }
+   },
+   "ignition": [
+    {
+     "opt": "driver",
+     "label": "Wonder Driver: Set a Polymerization or Fusion spell from GY",
+     "do": "add",
+     "from": "gy",
+     "filter": {
+      "spell": true,
+      "nameHas": [
+       "Polymerization",
+       "Fusion"
+      ]
+     },
+     "short": "Wonder Driver: Set a Fusion spell"
+    }
+   ]
+  },
+  "devicer": {
+   "link": true,
+   "materials": {
+    "count": 2,
+    "each": {
+     "hero": true
+    }
+   },
+   "onSummon": {
+    "if": "link",
+    "opt": "devicer",
+    "lock": "hero",
+    "label": "Infernal Devicer: add Neos (reveal Shining Neos Wingman)",
+    "do": "add",
+    "from": "deck",
+    "filter": {
+     "name": "Elemental HERO Neos"
+    },
+    "short": "Infernal Devicer: add materials"
+   }
+  }
+ }
+}
