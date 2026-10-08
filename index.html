@@ -370,6 +370,16 @@ body{
 .planfold > summary::after{content:"Show"; font:600 .8rem var(--display); color:var(--gold)}
 .planfold[open] > summary::after{content:"Hide"}
 .planfold[open] > summary{margin-bottom:8px}
+
+.stopbtn.s-ash{border-color:var(--red)} .stopbtn.s-imp{border-color:var(--sky)} .stopbtn.s-other{border-color:var(--muted)}
+.stoplist{list-style:none; padding:0; margin:10px 0 0}
+.stoplist li{border-left:4px solid var(--muted); background:var(--bg); border-radius:4px 10px 10px 4px; padding:8px 12px; margin-bottom:8px}
+.stoplist li.s-ash{border-left-color:var(--red)} .stoplist li.s-imp{border-left-color:var(--sky)}
+.stoptop{display:flex; align-items:center; gap:8px}
+.stoptag{font:700 .75rem var(--display); border-radius:6px; padding:2px 8px; background:var(--panel2); color:var(--ink)}
+.s-ash .stoptag{background:var(--red); color:#fff} .s-imp .stoptag{background:var(--sky); color:#10213a}
+.stopnm{flex:1; font-weight:700}
+.stoptip{margin:6px 0 0; color:var(--muted); font-size:.88rem}
 </style>
 </head>
 <body>
@@ -1217,10 +1227,11 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
 
   function freshDuel(order){
     return {order: order || "first", phase:"setup", n:1, lp:{me:8000, opp:8000}, hand:{}, opening:null, drew:null,
-      used:[], added:[], opt:{}, locks:{}, perDuel:{}, zones:{neos:"deck", mist:"deck", increase:"deck"}, note:"", log:[]};
+      used:[], added:[], stops:[], opt:{}, locks:{}, perDuel:{}, zones:{neos:"deck", mist:"deck", increase:"deck"}, note:"", log:[]};
   }
   var D = load(DUEL_KEY, null);
   if (!D || !D.phase || !D.zones) D = freshDuel(turn);
+  if (!D.stops) D.stops = [];
   var hist = [];
   function syncGlobals(){ hand = D.hand; turn = D.order; }
   function persist(){ save(DUEL_KEY, D); }
@@ -1409,6 +1420,83 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     });
   }
 
+
+  // ---------- negations ----------
+  var STOP_EXTRA = [
+    {k:"stratos", t:"Stratos: search"},
+    {k:"ahl", t:"A Hero Lives"},
+    {k:"ecall", t:"E-Call"},
+    {k:"malicious", t:"Malicious: summon from Deck"},
+    {k:"poly", t:"Polymerization"},
+    {k:"mf", t:"Miracle Fusion"}
+  ];
+  var STOP_LABEL = {}; Object.keys(OPT_LABEL).forEach(function(k){ STOP_LABEL[k] = OPT_LABEL[k]; });
+  STOP_EXTRA.forEach(function(i){ STOP_LABEL[i.k] = i.t; });
+  // Which handtraps can actually hit each effect (for a gentle double-check).
+  var NOT_ASH = ["faris_ss","faris_place","inc_ss","inc_place","ic","fc","poly","mf","sunrise_destroy","snw","dpe","dystopia_burn","dystopia_destroy","cross_revive","driver","ash","maxx"];
+  var NOT_IMP = ["destiny","ic","fc","poly","mf","ahl","ecall","mist","malicious","inc_place","ash","maxx"];
+  var STOP_BY = {ash:"Ash", imp:"Imperm", other:"Negated"};
+  var STOP_TIP = {
+    inc_vision:"No Vyon this turn. Normal Summon what you can, get Malicious bodies out, and save Polymerization for next turn.",
+    vyon_poly:"No Polymerization search. Use Instant Contact or Fusion Destiny if you have them, or hold what's on board.",
+    vyon_dump:"No dump. Stage Neos another way (Shadow Mist's search or E-Call) before you rely on Favorite Contact.",
+    stratos:"If you hold Faris and a HERO to discard, the engine still runs. Otherwise set up for next turn.",
+    faris_place:"No Increase placed. Normal Summon Vyon if you have it, or switch to Fusion Destiny.",
+    faris_ss:"Faris didn't land. Use your Normal Summon on Stratos or Vyon instead.",
+    destiny:"No Fusion Destiny monster. Build the Elemental line instead: Sunrise into Infernal Rage.",
+    mist:"No Shadow Mist search this turn. Use Vyon's dump on Neos to stage Favorite Contact.",
+    rage_search:"No Favorite Contact. Keep Infernal Rage as a Wingman for Polymerization into Shining Neos Wingman next turn.",
+    sunrise_search:"No Miracle Fusion. Polymerization or Instant Contact can still reach a Wingman.",
+    fc:"Favorite Contact is gone. Keep DPE or Dangerous up to interrupt instead.",
+    snw:"Shining Neos Wingman is still a 3100+ body that can't be destroyed by effects. Swing with it.",
+    dpe:"DPE's Quick Effect is spent. If it gets destroyed, it still brings back a Destiny HERO next Standby Phase.",
+    ahl:"The LP is paid, but your Normal Summon is still open.",
+    ic:"Instant Contact is spent for the turn. Fall back to Polymerization or Miracle Fusion.",
+    malicious:"The Malicious stays banished. You can still use the other copies later."
+  };
+
+  function renderStopBox(){
+    var b = box("They fucked me.");
+    var row = nodes("div", "addrow");
+    var sel = nodes("select", "addsel stopsel"); sel.setAttribute("aria-label", "Effect that got stopped");
+    sel.appendChild(nodes("option", null, "Which effect got stopped\u2026")).value = "";
+    STOP_EXTRA.concat([]).forEach(function(i){ var o = nodes("option", null, i.t); o.value = i.k; sel.appendChild(o); });
+    OPTS.forEach(function(g){
+      var og = document.createElement("optgroup"); og.label = g.g;
+      g.items.forEach(function(i){ var o = nodes("option", null, i.t); o.value = i.k; og.appendChild(o); });
+      sel.appendChild(og);
+    });
+    row.appendChild(sel);
+    ["ash","imp","other"].forEach(function(by){
+      var btn = nodes("button", "mini stopbtn s-" + by, by === "other" ? "Other negate" : STOP_BY[by]); btn.type = "button";
+      btn.addEventListener("click", function(){
+        if (!sel.value) { sel.focus(); return; }
+        D.stops.push({k: sel.value, by: by});
+        if (OPT_LABEL[sel.value]) D.opt[sel.value] = true;
+        persist(); renderBody();
+      });
+      row.appendChild(btn);
+    });
+    b.appendChild(row);
+    if (!D.stops.length){ b.appendChild(nodes("p", "hint", "Pick the effect, then tap what hit it. A negated effect still counts as used for the turn.")); return; }
+    var ul = nodes("ul", "stoplist");
+    D.stops.forEach(function(s, i){
+      var li = nodes("li", "s-" + s.by);
+      var top = nodes("div", "stoptop");
+      top.appendChild(nodes("span", "stoptag", STOP_BY[s.by]));
+      top.appendChild(nodes("span", "stopnm", STOP_LABEL[s.k] || s.k));
+      var x = nodes("button", "mini", "Undo"); x.type = "button"; x.setAttribute("aria-label", "Remove this entry");
+      x.addEventListener("click", function(){ D.stops.splice(i, 1); persist(); renderBody(); });
+      top.appendChild(x); li.appendChild(top);
+      var tip = STOP_TIP[s.k] || "That effect is spent for this turn. Check the Lines tab for another route.";
+      if (s.by === "ash" && NOT_ASH.indexOf(s.k) >= 0) tip = "Heads up: Ash can't normally hit this effect. Double-check what they used. " + tip;
+      if (s.by === "imp" && NOT_IMP.indexOf(s.k) >= 0) tip = "Heads up: Imperm only hits monster effects on the field. Double-check what they used. " + tip;
+      li.appendChild(nodes("p", "stoptip", tip));
+      ul.appendChild(li);
+    });
+    b.appendChild(ul);
+  }
+
   function renderMain(){
     var r = box(null);
     var det = nodes("details", "planfold"); det.open = D.n === 1;
@@ -1416,7 +1504,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     det.appendChild(document.getElementById("result"));
     r.appendChild(det);
     evaluate();
-    renderHandBox(); renderOptBox(); renderLockBox(); renderZoneBox();
+    renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); renderZoneBox();
   }
 
   function reminders(){
@@ -1427,6 +1515,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     if (D.opt.ic && ["gy","field"].indexOf(D.zones.neos) < 0) out.push("Neos wasn't on your field or in your GY, so the Instant Contact monster returns to the Extra Deck now.");
     if (D.opt.rage_search && !D.opt.fc) out.push("Set the Favorite Contact you searched so you can flip it on their turn.");
     if ((D.opt.rage_search || D.hand.fc) && D.zones.neos === "deck") out.push("Neos is still in your Deck, so Favorite Contact can't make Shining Neos Wingman. Backup: DPE from two Malicious in your GY or banished.");
+    if (D.stops.length) out.push("You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time.");
     if (D.opt.mist) out.push("Your Shadow Mist effect for this turn is used. A Shadow Mist sent to the GY now won't search.");
     if (D.opt.destiny && !D.opt.dpe) out.push("If you made DPE, its Quick Effect is ready for their turn.");
     return out;
@@ -1438,6 +1527,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       ["Hand now", handList(D.hand)],
       ["Used", D.used.length ? D.used.map(function(k){ return NAMES[k]; }).join(", ") : "nothing tracked"],
       ["Added", D.added.length ? D.added.map(function(k){ return NAMES[k]; }).join(", ") : "nothing tracked"],
+      ["They fucked me", D.stops.length ? D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }).join(", ") : "nothing"],
       ["Once-per-turns", Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }).join(", ") || "none marked"],
       ["LP", "You " + D.lp.me + ", opponent " + D.lp.opp]
     ];
@@ -1477,6 +1567,7 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
       if (e.drew) rows.push(["Drew", NAMES[e.drew]]);
       if (e.used.length) rows.push(["Used", e.used.map(function(k){ return NAMES[k]; }).join(", ")]);
       if (e.added.length) rows.push(["Added", e.added.map(function(k){ return NAMES[k]; }).join(", ")]);
+      if (e.stops && e.stops.length) rows.push(["They fucked me", e.stops.join(", ")]);
       if (e.opts.length) rows.push(["Once-per-turns", e.opts.join(", ")]);
       rows.push(["LP after", "You " + e.lp.me + ", opponent " + e.lp.opp]);
       if (e.note) rows.push(["Note", e.note]);
@@ -1501,8 +1592,9 @@ window.CARD_IDS = {"A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558
     else {
       D.log.push({n:D.n, t:duelTurnNo(), opening:D.opening, drew:D.drew, used:D.used.slice(), added:D.added.slice(),
         opts:Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }),
+        stops:D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }),
         lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note});
-      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null;
+      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null;
     }
     persist(); renderDuel(); window.scrollTo(0, 0);
     var m = document.querySelector(".center main"); if (m) m.scrollTop = 0;
