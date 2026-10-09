@@ -900,6 +900,12 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
   .bibox{flex-direction:column} .bibox img{width:60%; align-self:center}
   .bldgrid{grid-template-columns:repeat(auto-fill, minmax(84px, 1fr))}
 }
+.blddeck{display:flex !important; flex-direction:column; overflow:hidden !important; padding:0 !important}
+.blddecklist{flex:1; min-height:0; overflow:auto; padding:10px}
+.bldnotes{flex:none; border-top:1px solid var(--line); padding:8px 10px 10px; display:flex; flex-direction:column; gap:4px; background:color-mix(in srgb, var(--panel2) 50%, var(--panel))}
+.bldnotes textarea{width:100%; height:120px; min-height:60px; max-height:45vh; resize:vertical; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:8px 10px; font:500 .86rem/1.4 var(--body)}
+.bldnotes textarea:focus{outline:none; border-color:var(--gold)}
+.mynotes p{white-space:pre-wrap; margin:0}
 </style>
 </head>
 <body>
@@ -1435,10 +1441,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // ---------- compact (overlay-friendly) mode ----------
   var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
   function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact";
+    // The Deck / Find drawers belong to the narrow layout; the full layout has them as side columns.
+    if (!compact && window.innerWidth >= 1220 && typeof closeFind === "function") closeFind();
     // In the desktop app the window follows along: compact docks to a side, full fills the monitor.
     if (window.overlayApp && window.overlayApp.layout) window.overlayApp.layout(compact ? "compact" : "full"); }
   document.getElementById("compactBtn").addEventListener("click", function(){ compact = !compact; save("hbc-compact", compact); paintCompact(); });
   paintCompact();
+  window.addEventListener("resize", function(){ if (!compact && window.innerWidth >= 1220) closeFind(); });
 
   // ---------- tabs ----------
   var tabs = document.querySelectorAll(".tab");
@@ -1754,7 +1763,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   if (!HEROMODE){
     var noLines = '<div class="dbox nolines"><h3>No lines written for ' + PILOT_NAME.replace(/[<>&]/g, "") + ' yet</h3><p class="hint">Combo lines, checkpoints and bait order are written per deck. Ask Claude to write them for this deck and they\'ll show up here. Until then the Duel tab still reads your hand, draws, turns and LP, and Manual tracking covers the rest.</p></div>';
-    document.getElementById("tab-lines").innerHTML = noLines;
+    var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim();
+    document.getElementById("tab-lines").innerHTML = (myNotes ? '<div class="dbox mynotes"><h3>Your notes</h3><p></p></div>' : "") + noLines;
+    if (myNotes) document.querySelector("#tab-lines .mynotes p").textContent = myNotes;
     document.getElementById("tab-check").innerHTML = noLines;
   }
   // ---------- desktop panes: decklist + card details ----------
@@ -3319,16 +3330,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           '<div class="bldgrid"></div>' +
           '<div class="bldpager"></div>' +
         '</section>' +
-        '<section class="blddeck"></section>' +
+        '<section class="blddeck"><div class="blddecklist"></div><div class="bldnotes"><label class="fhead" for="bldNotes">Deck notes</label><textarea id="bldNotes" placeholder="Combo lines, side plans, matchup reminders\u2026 These show in the Lines tab while you pilot this deck."></textarea></div></section>' +
       '</div>' +
       '<div class="bldinfo" hidden></div>';
     document.body.appendChild(root);
     document.documentElement.classList.add("building");
     var $ = function(s){ return root.querySelector(s); };
-    var nameIn = $(".bldname"), stat = $(".bldstat"), grid = $(".bldgrid"), pager = $(".bldpager"), list = $(".blddeck"),
+    var nameIn = $(".bldname"), stat = $(".bldstat"), grid = $(".bldgrid"), pager = $(".bldpager"), list = $(".blddecklist"),
         q = $(".bldq input"), fpanel = $(".bldfilters"), fbtn = $(".bldfbtn"), info = $(".bldinfo");
     nameIn.value = deck.name || "";
     nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
+    var notesIn = $(".bldnotes textarea"); notesIn.value = deck.notes || "";
+    notesIn.addEventListener("input", function(){ deck.notes = notesIn.value; dirty = true; });
 
     // ---- deck edits ----
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
