@@ -55,9 +55,12 @@ function send(cmd) {
   win.webContents.executeJavaScript(`window.dispatchEvent(new CustomEvent("overlay-cmd",{detail:${JSON.stringify(cmd)}}))`).catch(() => {});
 }
 
+// Fade mode: the page reports when the pointer is over see-through background, and clicks there go to the game.
+let passthrough = false;
+function applyMouse() { if (win) win.setIgnoreMouseEvents(!!settings.clickThrough || passthrough, { forward: true }); }
 function applyClickThrough() {
   if (!win) return;
-  win.setIgnoreMouseEvents(!!settings.clickThrough, { forward: true });
+  applyMouse();
   win.webContents.executeJavaScript(`document.documentElement.classList.toggle("ov-locked", ${!!settings.clickThrough})`).catch(() => {});
   buildTrayMenu();
 }
@@ -140,6 +143,7 @@ function createWindow() {
   win.setAlwaysOnTop(true, "screen-saver"); // stay above a borderless-windowed game
   win.setOpacity(settings.opacity);
   win.once("ready-to-show", () => { win.showInactive(); applyClickThrough(); setTimeout(syncHotkeysToVisibility, 50); });
+  win.webContents.on("did-start-loading", () => { if (passthrough) { passthrough = false; applyMouse(); } });   // a reload never leaves clicks passing through
   win.webContents.on("did-finish-load", overlayChrome);
   if (process.env.OMNI_TEST_SHOT) win.webContents.on("did-finish-load", () => setTimeout(() => {
     win.webContents.capturePage().then(img => fs.writeFileSync(process.env.OMNI_TEST_SHOT, img.toPNG()));
@@ -341,6 +345,7 @@ ipcMain.on("update:install", () => installUpdate());
 ipcMain.on("update:check", () => checkUpdate(true));
 ipcMain.handle("app:version", () => app.getVersion());
 ipcMain.handle("settings:get", () => settingsSnapshot());
+ipcMain.on("mouse:passthrough", (e, on) => { on = !!on; if (on !== passthrough) { passthrough = on; applyMouse(); } });
 ipcMain.on("settings:set", (e, { key, value }) => {
   if (key === "opacity") setOpacity(Number(value) || settings.opacity);
   else if (key === "reader") setReader(!!value);

@@ -1432,6 +1432,11 @@ html.authing #ovBar #ovLeft .thememenu{display:none}
 #ovBar .themepop .tbub, #ovBar .themepop .bgchip{width:16px; height:16px}
 /* top bar: solid theme color (no fade into the background); the red locked state still wins */
 html:not(.ov-locked) #ovBar{background:var(--panel) !important; box-shadow:inset 0 -1px 0 var(--line)}
+/* tab banner: no card behind the tab pill; the pill itself carries the panel color */
+html header.top, html.compact header.top, html.fadebg header.top{background:none !important; box-shadow:none !important; border:0 !important; padding:0 !important; animation:none !important}
+header.top nav.tabs .wrap{background:var(--panel) !important; border:1px solid var(--line) !important; box-shadow:0 6px 18px rgba(0,0,0,.14)}
+html.fadebg header.top nav.tabs .wrap{background:color-mix(in srgb, var(--panel) 70%, transparent) !important}
+html.cloud:not(.in-overlay) header.top .hdrside{padding:0 2px}
 </style>
 </head>
 <body>
@@ -2038,7 +2043,28 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   fadeItem.type = "button"; fadeItem.className = "fadeitem fadetog"; fadeItem.id = "fadeBtn"; fadeItem.setAttribute("role", "switch");
   fadeItem.innerHTML = '<span>Fade</span><span class="sw" aria-hidden="true"></span>';
   fadeItem.title = "Calms the moving background so buttons stand out";
-  fadeItem.addEventListener("click", function(){ fadeBg = !fadeBg; save("hbc-fade", fadeBg); paintSwatches(); });
+  fadeItem.addEventListener("click", function(){ fadeBg = !fadeBg; save("hbc-fade", fadeBg); paintSwatches(); if (!fadeBg) setPass(false); });
+  // Fade mode in the desktop app: empty, see-through areas let clicks fall through to the game;
+  // anything with content (buttons, cards, text, menus) stays clickable.
+  var PASS_SEL = "html, body, .ambient, .layout, .center, .center > main, main > section, #usersView, header.top, .hdrside, .stepnav, .loghead, #deckPane, #cardPane";
+  var passOn = false, passQueued = null;
+  function setPass(on){ on = !!on; if (on === passOn) return; passOn = on; if (window.overlayApp && overlayApp.setPassthrough) overlayApp.setPassthrough(on); }
+  function isPass(el){
+    var h = document.documentElement;
+    if (!el || !el.matches || !h.classList.contains("fadebg")) return false;
+    if (h.classList.contains("building") || h.classList.contains("authing")) return false;
+    if (el.closest("#ovBar, .themepop, .setpop, .deckmenu, .bldinfo, #findClose, #drawerSwap")) return false;
+    if ((el.id === "deckPane" && h.classList.contains("deckopen")) || (el.id === "cardPane" && h.classList.contains("findopen"))) return false;
+    return el.matches(PASS_SEL);
+  }
+  if (window.overlayApp && overlayApp.setPassthrough){
+    overlayApp.setPassthrough(false);
+    document.addEventListener("mousemove", function(e){
+      passQueued = e.target;
+      requestAnimationFrame(function(){ if (passQueued){ setPass(isPass(passQueued)); passQueued = null; } });
+    }, {passive:true});
+    document.addEventListener("mouseleave", function(){ setPass(false); });
+  }
   document.getElementById("themeMenu").after(fadeItem);
   // Manual mode (desktop app only): brings back the buttons the screen reader normally covers.
   var manualMode = !!load("hbc-manual", false);

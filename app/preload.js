@@ -14,5 +14,6 @@ contextBridge.exposeInMainWorld("overlayApp", {
   checkUpdate: () => ipcRenderer.send("update:check"),
   version: () => ipcRenderer.invoke("app:version"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
-  setSetting: (key, value) => ipcRenderer.send("settings:set", { key, value })
+  setSetting: (key, value) => ipcRenderer.send("settings:set", { key, value }),
+  setPassthrough: (on) => ipcRenderer.send("mouse:passthrough", !!on)
 });
