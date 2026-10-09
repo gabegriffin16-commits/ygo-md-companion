@@ -960,12 +960,12 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bldsort option{background:var(--panel); color:var(--ink)}
 .softrar{--rc:#B5B5BE}
 .sr-SR{--rc:#E0B85E} .sr-R{--rc:#86BEDB} .sr-N{--rc:#B5B5BE} .sr-UR{--rc:#b9a5f2}
-.pill.softrar{display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--rc) 14%, transparent) !important; color:color-mix(in srgb, var(--rc) 70%, var(--ink)) !important;
+.pill.softrar{display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--rc) 14%, transparent) !important; color:color-mix(in srgb, var(--rc) 50%, var(--ink)) !important;
   border:1px solid color-mix(in srgb, var(--rc) 50%, transparent) !important; border-radius:999px; padding:2px 10px; font:600 .76rem var(--display); letter-spacing:.02em}
 .pill.softrar::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--rc); flex:none}
 .pill.softrar.sr-UR::before{background:linear-gradient(135deg,#f6b3d8,#b9a5f2,#9fd8f3,#b6f0c2)}
 .pill.softrar.sr-UR{border-image:none; border-color:color-mix(in srgb, #b9a5f2 55%, transparent) !important}
-.pill.softrar.sr-UR{color:color-mix(in srgb, #9a82e0 50%, var(--ink)) !important}
+.pill.softrar.sr-UR{color:color-mix(in srgb, #8a70d8 35%, var(--ink)) !important}
 .pill.softtag{display:inline-flex; align-items:center; background:color-mix(in srgb, var(--muted) 10%, transparent); color:var(--muted); border:1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius:999px; padding:2px 10px; font:600 .76rem var(--display)}
 /* ---- softer, minimal pass: tinted outline pills, hairline accents ---- */
 .b{border-radius:999px; padding:2px 9px; font:600 .72rem var(--display); border:1px solid transparent}
@@ -985,6 +985,12 @@ header.top{border-bottom:0; box-shadow:inset 0 -1px 0 color-mix(in srgb, var(--g
 .adot{display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--ad, var(--muted)); vertical-align:middle}
 .adot.ad-fire{--ad:var(--fire)} .adot.ad-wind{--ad:var(--wind)} .adot.ad-light{--ad:var(--light)} .adot.ad-dark{--ad:var(--dark)}
 .adot.ad-earth{--ad:#A8865E} .adot.ad-water{--ad:#5C9BD6} .adot.ad-divine{--ad:#D9C27A}
+.plate-attr .adot, .cf-attr .adot, .zcard .adot, .tog .adot{margin-right:6px; vertical-align:1px}
+.adot.big{width:56px; height:56px; box-shadow:0 0 0 6px color-mix(in srgb, var(--ad) 25%, transparent), 0 8px 20px rgba(0,0,0,.3)}
+.card.attr{border-left-width:2px; border-radius:12px}
+.duellog li, .stoplist li{border-left-width:2px; border-radius:12px}
+.pendbox, .trigbox{border-left-width:2px}
+.baithint, .vstips{border-left-width:2px}
 </style>
 </head>
 <body>
@@ -1850,6 +1856,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // ---------- desktop panes: decklist + card details ----------
   // Effects are summarized in plain words; check the in-game text for exact wording.
   var ATTR_DOT = {fire:"\uD83D\uDD34", wind:"\uD83D\uDFE2", light:"\uD83D\uDFE1", dark:"\uD83D\uDFE3", earth:"\uD83D\uDFE4"};
+  // Flat colored dot for an Attribute (replaces the emoji circles).
+  window.attrDot = function(a, cls){ var e = document.createElement("i"); e.className = "adot ad-" + String(a || "").toLowerCase() + (cls ? " " + cls : ""); return e; };
   var ATTR_WORD = {fire:"FIRE", wind:"WIND", light:"LIGHT", dark:"DARK", earth:"EARTH"};
   var deckPane = document.getElementById("deckPane");
   var cardPane = document.getElementById("cardPane");
@@ -1939,7 +1947,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         (info.link ? "link" : (F[c.id].fusion ? "fusion" : (F[c.id].normal ? "normal" : "effect")));
       var FRAME_LABEL = {spell:"Spell Card", trap:"Trap Card", link:"Link Monster", fusion:"Fusion Monster", normal:"Normal Monster", effect:"Effect Monster"};
       var art = mk("div", "plate-art fr-" + frame);
-      art.appendChild(mk("span", "art-attr", (at === "spell" || at === "trap") ? "\u2726" : ATTR_DOT[at]));
+      if (at === "spell" || at === "trap") art.appendChild(mk("span", "art-attr", "\u2726")); else { var aa = mk("span", "art-attr"); aa.appendChild(attrDot(at, "big")); art.appendChild(aa); }
       art.appendChild(mk("span", "art-type", FRAME_LABEL[frame]));
       plate.appendChild(art);
     }
@@ -1947,7 +1955,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     head.appendChild(mk("h2", "cd-title", c.name));
     if (at){
       var badge = mk("span", "plate-attr");
-      badge.textContent = (at === "spell" || at === "trap") ? ATTR_WORD_ST[at] : ATTR_DOT[at] + " " + ATTR_WORD[at];
+      if (at === "spell" || at === "trap") badge.textContent = ATTR_WORD_ST[at]; else { badge.appendChild(attrDot(at)); badge.appendChild(document.createTextNode(ATTR_WORD[at])); }
       head.appendChild(badge);
     }
     plate.appendChild(head);
@@ -2027,7 +2035,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var top = mk("div", "cf-top");
     top.appendChild(mk("span", "cf-name", x.n));
     var aw = x.a ? x.a.toLowerCase() : null;
-    top.appendChild(mk("span", "cf-attr", isST ? (f === "spell" ? "SPELL" : "TRAP") : (aw && ATTR_DOT[aw] ? ATTR_DOT[aw] + " " : "") + (x.a || "")));
+    var cfa = mk("span", "cf-attr", isST ? (f === "spell" ? "SPELL" : "TRAP") : (x.a || "")); if (!isST && aw) cfa.insertBefore(attrDot(aw), cfa.firstChild); top.appendChild(cfa);
     face.appendChild(top);
     if (!isST){
       var lvl = mk("div", "cf-level");
@@ -2572,7 +2580,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (m && F[m[1]]) return F[m[1]].short + (m[2] === "t" ? " (backrow)" : " (set)");
     return (F[id] && F[id].short) || NAMES[id] || id;
   }
-  var dot = function(id){ var a = F[id] && F[id].attr; return a && ATTR_DOT[a.toLowerCase()] ? ATTR_DOT[a.toLowerCase()] + " " : ""; };
+  var dotFor = function(el, id){ var a = F[id] && F[id].attr; if (a) el.insertBefore(attrDot(a), el.firstChild); return el; };
   var SRC_LABEL = {deck:"Deck", extra:"Extra Deck", gy:"GY", hand:"hand", field:"field", ban:"banished"};
   function uniq(a){ return a.filter(function(x, i){ return a.indexOf(x) === i; }); }
   function B(){ if (!D.board) D.board = {field:[], back:[], gy:{}, ban:{}}; if (D.ns === undefined) D.ns = false; if (!D.queue) D.queue = []; if (!D.acts) D.acts = [];
@@ -2762,7 +2770,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var pool = poolFrom(srcs);
     results = results.filter(function(id){ return canMake(R[id].materials, pool); });
     if (!results.length){ pending = {title:label, pick:[], onPick:null, empty:"No Fusion Monster can be made from what's available."}; renderBody(); return; }
-    setPick(label + ": make which?", results.map(function(id){ return {k:id, t:dot(id) + nm(id)}; }), function(o){
+    setPick(label + ": make which?", results.map(function(id){ return {k:id, t:nm(id), dot:id}; }), function(o){
       var res = o.k, m = R[res].materials;
       var fits = function(p){ return m.slots ? m.slots.some(function(s){ return match(s, F[p.id]); }) : match(m.each, F[p.id]); };
       setMulti(label + " → " + nm(res), matsText(res) + ". Tap the materials.", poolFrom(srcs).filter(fits), matCount(m),
@@ -2910,7 +2918,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": "));
       if (!items.length) p.appendChild(document.createTextNode("\u2014"));
       items.forEach(function(x, i){
-        var bt = nodes("button", "zcard", (back ? "" : dot(x)) + nm(x)); bt.type = "button";
+        var bt = nodes("button", "zcard", nm(x)); if (!back) dotFor(bt, x); bt.type = "button";
         bt.title = "Tap if your opponent destroyed, bounced, or banished it";
         bt.addEventListener("click", function(){ removedByOpp(x, back); });
         p.appendChild(bt);
@@ -2931,7 +2939,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (pending.pick){
         var w = nodes("div", "togs");
         pending.pick.forEach(function(o){
-          var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); bt.type = "button";
+          var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); if (o.dot) dotFor(bt, o.dot); bt.type = "button";
           bt.addEventListener("click", function(){ var p = pending; pending = null; p.onPick(o); });
           w.appendChild(bt);
         });
@@ -2941,7 +2949,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var w2 = nodes("div", "togs");
         pending.pool.forEach(function(m, i){
           var on = pending.sel.indexOf(i) >= 0;
-          var bt = nodes("button", "tog" + (on ? " on" : ""), dot(m.id) + nm(m.id) + " (" + SRC_LABEL[m.from] + ")"); bt.type = "button";
+          var bt = dotFor(nodes("button", "tog" + (on ? " on" : ""), nm(m.id) + " (" + SRC_LABEL[m.from] + ")"), m.id); bt.type = "button";
           bt.setAttribute("aria-pressed", on ? "true" : "false");
           bt.addEventListener("click", function(){ var j = pending.sel.indexOf(i); if (j >= 0) pending.sel.splice(j, 1); else if (pending.sel.length < pending.need) pending.sel.push(i); renderBody(); });
           w2.appendChild(bt);
@@ -2963,7 +2971,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var qb = box(e.label); qb.className = "dbox trigbox";
       var w = nodes("div", "togs"), short = e.label.split(":")[0];
       choicesFor(e, q.id).forEach(function(o){
-        var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); bt.type = "button";
+        var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); if (o.dot) dotFor(bt, o.dot); bt.type = "button";
         bt.addEventListener("click", function(){
           act(short + ": " + o.t, null, function(){
             D.queue = D.queue.filter(function(x){ return !(x.id === q.id && x.kind === q.kind); });
