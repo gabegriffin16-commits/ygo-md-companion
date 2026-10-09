@@ -153,12 +153,38 @@ const ACTIONS = {
   find: () => { if (!win) return; if (settings.clickThrough) { settings.clickThrough = false; applyClickThrough(); } win.show(); win.focus(); send("find"); }
 };
 let failedKeys = [];
+// Mouse buttons (middle, back, forward, with or without Ctrl/Alt/Shift) can't go through globalShortcut,
+// so a small global input hook watches for them. Left and right click are never bound.
+const MOUSE_RE = /^((Control|Alt|Shift|Super)\+)*Mouse[345]$/;
+let uio = null, mouseMap = {}, mousePaused = false;
+function mouseCombo(e) {
+  const m = []; if (e.ctrlKey) m.push("Control"); if (e.altKey) m.push("Alt"); if (e.shiftKey) m.push("Shift"); if (e.metaKey) m.push("Super");
+  return m.concat(["Mouse" + e.button]).join("+").toLowerCase();
+}
+function startMouse() {
+  if (uio) return true;
+  try {
+    const { uIOhook } = require("uiohook-napi");
+    uIOhook.on("mousedown", e => {
+      if (mousePaused || e.button < 3) return;
+      const a = mouseMap[mouseCombo(e)];
+      if (a && ACTIONS[a]) ACTIONS[a]();
+    });
+    uIOhook.start(); uio = uIOhook; return true;
+  } catch (err) { if (process.env.OMNI_DEBUG) console.log("[mouse] hook failed", err.message); return false; }
+}
+function stopMouse() { if (uio) { try { uio.stop(); } catch {} uio = null; } }
+function prettyKey(a) {
+  return String(a || "").replace(/Control/g, "Ctrl").replace(/Mouse3/, "Middle click").replace(/Mouse4/, "Mouse back").replace(/Mouse5/, "Mouse forward").replace(/\+/g, "+");
+}
 function registerHotkeys() {
-  globalShortcut.unregisterAll(); failedKeys = [];
+  globalShortcut.unregisterAll(); failedKeys = []; mouseMap = {};
   for (const [action, accel] of Object.entries(settings.hotkeys)) {
     if (!accel || !ACTIONS[action]) continue;
+    if (MOUSE_RE.test(accel)) { mouseMap[accel.toLowerCase()] = action; continue; }
     try { if (!globalShortcut.register(accel, ACTIONS[action])) failedKeys.push(accel); } catch { failedKeys.push(accel); }
   }
+  if (Object.keys(mouseMap).length) { if (!startMouse()) failedKeys.push("mouse buttons"); }
   buildTrayMenu();
 }
 
@@ -168,8 +194,8 @@ function buildTrayMenu() {
   const pct = Math.round(settings.opacity * 100);
   tray.setToolTip("Master Duel Companion App" + (failedKeys.length ? ` (hotkeys in use elsewhere: ${failedKeys.join(", ")})` : ""));
   tray.setContextMenu(Menu.buildFromTemplate([
-    { label: `Show / hide  (${k.toggle})`, click: toggleVisible },
-    { label: `Click-through lock  (${k.clickThrough})`, type: "checkbox", checked: !!settings.clickThrough, click: ACTIONS.clickThrough },
+    { label: `Show / hide  (${prettyKey(k.toggle)})`, click: toggleVisible },
+    { label: `Click-through lock  (${prettyKey(k.clickThrough)})`, type: "checkbox", checked: !!settings.clickThrough, click: ACTIONS.clickThrough },
     { label: `Opacity: ${pct}%`, submenu: [100, 90, 80, 70, 60, 50].map(v => ({ label: v + "%", type: "radio", checked: pct === v, click: () => setOpacity(v / 100) })) },
     { type: "separator" },
     { label: "Use online version (always current)", type: "radio", checked: settings.source !== "local", click: () => { settings.source = "online"; saveSettings(); loadPage(); buildTrayMenu(); } },
@@ -185,9 +211,9 @@ function buildTrayMenu() {
       { label: "Always", type: "radio", checked: settings.coverTaskbar === "always", click: () => setCover("always") },
       { label: "Never", type: "radio", checked: settings.coverTaskbar === "never", click: () => setCover("never") } ] },
     { label: "Reset position (compact, right side)", click: () => { settings.layout = { mode: settings.layout.mode, side: "right", display: -1 }; saveSettings(); if (settings.layout.mode === "full") send("compact"); else applyLayout(); } },
-    { label: `Full view / compact  (${k.expand})`, click: () => send("compact") },
-    { label: `Snap left  (${k.snapLeft})`, click: () => snap("left") },
-    { label: `Snap right  (${k.snapRight})`, click: () => snap("right") },
+    { label: `Full view / compact  (${prettyKey(k.expand)})`, click: () => send("compact") },
+    { label: `Snap left  (${prettyKey(k.snapLeft)})`, click: () => snap("left") },
+    { label: `Snap right  (${prettyKey(k.snapRight)})`, click: () => snap("right") },
     { label: "Hotkeys…", click: openHotkeys },
     { type: "separator" },
     update ? { label: `Update to v${update.version}`, click: installUpdate } : { label: `Check for updates (v${app.getVersion()})`, click: () => checkUpdate(true) },
@@ -481,7 +507,7 @@ async function openHotkeys() {
   if (hkWin) return;
   const b = win ? win.getBounds() : { x: 100, y: 100, width: 540 };
   hkWin = new BrowserWindow({
-    width: 520, height: 640, x: Math.max(0, b.x + Math.round((b.width - 520) / 2)), y: b.y + 40,
+    width: 520, height: 760, x: Math.max(0, b.x + Math.round((b.width - 520) / 2)), y: b.y + 40,
     frame: false, resizable: false, alwaysOnTop: true, backgroundColor: /^#[0-9a-f]{6}$/i.test(th) ? th : "#0A1630", title: "Overlay Hotkeys", icon: path.join(__dirname, "icon.ico"),
     webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, "preload.js") }
   });
@@ -500,13 +526,18 @@ ipcMain.handle("hk:theme", async () => {
 ipcMain.on("snap", (e, side) => snap(side === "left" ? "left" : "right"));
 ipcMain.on("layout", (e, mode) => setMode(mode));
 ipcMain.on("hk:close", () => { if (hkWin) hkWin.close(); });
-ipcMain.on("hk:capture", (e, on) => { if (on) globalShortcut.unregisterAll(); else registerHotkeys(); }); // pause hotkeys while recording one
+ipcMain.on("hk:capture", (e, on) => { mousePaused = !!on; if (on) globalShortcut.unregisterAll(); else registerHotkeys(); }); // pause hotkeys while recording one
 ipcMain.handle("hk:get", () => settings.hotkeys);
 ipcMain.handle("hk:reset", () => { settings.hotkeys = Object.assign({}, DEFAULT_HOTKEYS); saveSettings(); registerHotkeys(); return settings.hotkeys; });
 ipcMain.handle("hk:set", (e, { action, accel }) => {
   if (!DEFAULT_HOTKEYS[action]) return { ok: false, msg: "Unknown action." };
   const clash = Object.keys(settings.hotkeys).find(a => a !== action && settings.hotkeys[a] && settings.hotkeys[a].toLowerCase() === accel.toLowerCase());
   if (clash) return { ok: false, msg: "That combo is already used for another overlay action." };
+  if (MOUSE_RE.test(accel)) {
+    if (!startMouse()) return { ok: false, msg: "Mouse buttons couldn't be hooked on this PC. Use a key combo instead." };
+    settings.hotkeys[action] = accel; saveSettings(); registerHotkeys();
+    return { ok: true, hotkeys: settings.hotkeys };
+  }
   globalShortcut.unregisterAll();
   let ok = false;
   try { ok = globalShortcut.register(accel, () => {}); } catch { ok = false; }
@@ -536,6 +567,6 @@ else {
     registerHotkeys();
   });
   app.on("before-quit", () => { quitting = true; stopFgWatch(); });
-  app.on("will-quit", () => { globalShortcut.unregisterAll(); stopFgWatch(); });
+  app.on("will-quit", () => { globalShortcut.unregisterAll(); stopFgWatch(); stopMouse(); });
   app.on("window-all-closed", () => app.quit());
 }

@@ -1,7 +1,7 @@
 {
   "name": "master-duel-companion",
   "productName": "Master Duel Companion App",
-  "version": "1.8.2",
+  "version": "1.9.0",
   "description": "Always-on-top Master Duel companion overlay with global hotkeys and a hand reader.",
   "main": "main.js",
   "author": "Gabe",
@@ -53,7 +53,9 @@
       "node_modules/webidl-conversions/**",
       "node_modules/whatwg-url/**",
       "node_modules/zlibjs/**",
-      "tess-worker.js"
+      "tess-worker.js",
+      "node_modules/uiohook-napi/**",
+      "node_modules/node-gyp-build/**"
     ],
     "win": {
       "target": "portable",
@@ -62,11 +64,13 @@
     },
     "portable": {
       "artifactName": "MasterDuelCompanion.exe"
-    }
+    },
+    "npmRebuild": false
   },
   "dependencies": {
     "@tesseract.js-data/eng": "^1.0.0",
-    "tesseract.js": "^5.1.1"
+    "tesseract.js": "^5.1.1",
+    "uiohook-napi": "^1.5.5"
   },
   "repository": "https://github.com/gabegriffin16-commits/ygo-md-companion"
 }

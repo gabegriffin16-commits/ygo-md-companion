@@ -11,7 +11,9 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--gold) 45%,transparent);border-radius:9px}::-webkit-scrollbar-track{background:transparent}
 .hint{color:var(--muted);font-size:12.5px;margin:0 0 12px}
 .row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
-.row:first-of-type{border-top:0}
+.grp{margin:18px 0 2px;padding-top:12px;border-top:2px solid var(--line);font:700 11px "Segoe UI",sans-serif;letter-spacing:.12em;text-transform:uppercase;color:var(--gold)}
+.grp:first-child{margin-top:0;padding-top:0;border-top:0}
+.grp + .row{border-top:0}
 .lab{font-weight:600}.lab small{display:block;color:var(--muted);font-weight:400;font-size:12px}
 .key{min-width:150px;text-align:center;font:600 12.5px Consolas,monospace;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
 .key.cap{border-color:var(--gold);color:var(--gold);animation:pulse 1s ease-in-out infinite}
@@ -25,7 +27,7 @@ button:hover{border-color:var(--gold)}
 <body>
 <div class="bar"><b>Overlay hotkeys</b><button class="x" id="close" title="Close">✕</button></div>
 <div class="wrap">
-  <p class="hint">Click <b>Change</b>, then press the new key combo. Use at least one of Ctrl, Alt, or Shift (F-keys work alone). Esc cancels. Changes save instantly.</p>
+  <p class="hint">Click <b>Change</b>, then press the new key combo or click a mouse button. Keys need Ctrl, Alt, or Shift (F-keys work alone). Mouse buttons can be middle click, back or forward, with or without Ctrl/Alt/Shift. Esc cancels. Changes save instantly.</p>
   <div id="list"></div>
   <div class="msg" id="msg"></div>
   <div class="foot"><button id="reset">Reset to defaults</button><button id="done">Done</button></div>
@@ -55,16 +57,26 @@ function keyName(e){
   if (/^F\d{1,2}$/.test(c)) return c;
   return CODE[c] || null;
 }
-function pretty(a){ return (a || "—").replace(/Control/g,"Ctrl").replace(/\+/g," + ").replace("Super","Win"); }
+function pretty(a){ return (a || "—").replace(/Control/g,"Ctrl").replace("Mouse3","Middle click").replace("Mouse4","Mouse back").replace("Mouse5","Mouse forward").replace(/\+/g," + ").replace("Super","Win"); }
+const GROUPS = [
+  ["Overlay window", ["toggle","clickThrough","opacityUp","opacityDown","compact","expand","snapLeft","snapRight"]],
+  ["Duel", ["next","undo","find"]],
+  ["Mark a stop", ["ash","imp","neg"]]
+];
 let hk = {}, capturing = null;
 const list = document.getElementById("list"), msg = document.getElementById("msg");
 function say(t, cls){ msg.textContent = t; msg.className = "msg " + (cls || ""); }
 function render(){
   list.innerHTML = "";
-  Object.keys(LABELS).forEach(a => {
+  const seen = new Set(), order = [];
+  GROUPS.forEach(g => { order.push({ head: g[0] }); g[1].forEach(a => { if (LABELS[a]) { order.push(a); seen.add(a); } }); });
+  const rest = Object.keys(LABELS).filter(a => !seen.has(a));
+  if (rest.length){ order.push({ head: "Other" }); rest.forEach(a => order.push(a)); }
+  order.forEach(a => {
+    if (typeof a === "object"){ const h = document.createElement("div"); h.className = "grp"; h.textContent = a.head; list.appendChild(h); return; }
     const r = document.createElement("div"); r.className = "row";
     const l = document.createElement("div"); l.className = "lab"; l.innerHTML = LABELS[a][0] + (LABELS[a][1] ? "<small>" + LABELS[a][1] + "</small>" : "");
-    const k = document.createElement("div"); k.className = "key" + (capturing === a ? " cap" : ""); k.textContent = capturing === a ? "Press keys…" : pretty(hk[a]);
+    const k = document.createElement("div"); k.className = "key" + (capturing === a ? " cap" : ""); k.textContent = capturing === a ? "Press keys or click…" : pretty(hk[a]);
     const b = document.createElement("button"); b.textContent = capturing === a ? "Cancel" : "Change";
     b.onclick = () => { capturing = capturing === a ? null : a; window.overlayApp.capturing(!!capturing); say(capturing ? "Listening… press the combo for " + LABELS[a][0] + "." : ""); render(); };
     r.append(l, k, b); list.appendChild(r);
@@ -84,6 +96,21 @@ document.addEventListener("keydown", async e => {
   else say(res.msg, "err");
   render();
 });
+// Mouse buttons: middle (1), back (3), forward (4) in browser numbering = Mouse3/4/5 for the app.
+const MB = {1: "Mouse3", 3: "Mouse4", 4: "Mouse5"};
+async function takeMouse(e){
+  if (!capturing || !MB[e.button]) return;
+  e.preventDefault(); e.stopPropagation();
+  const mods = []; if (e.ctrlKey) mods.push("Control"); if (e.altKey) mods.push("Alt"); if (e.shiftKey) mods.push("Shift"); if (e.metaKey) mods.push("Super");
+  const accel = mods.concat([MB[e.button]]).join("+"), action = capturing;
+  capturing = null; window.overlayApp.capturing(false);
+  const res = await window.overlayApp.setHotkey(action, accel);
+  if (res.ok){ hk = res.hotkeys; say(LABELS[action][0] + " is now " + pretty(accel) + ".", "ok"); }
+  else say(res.msg, "err");
+  render();
+}
+document.addEventListener("mousedown", takeMouse, true);
+["mouseup", "auxclick"].forEach(t => document.addEventListener(t, e => { if (MB[e.button]) e.preventDefault(); }, true));
 document.getElementById("reset").onclick = async () => { hk = await window.overlayApp.resetHotkeys(); say("Back to the defaults.", "ok"); render(); };
 document.getElementById("done").onclick = document.getElementById("close").onclick = () => window.overlayApp.closeMe();
 window.overlayApp.getHotkeys().then(h => { hk = h; render(); });
