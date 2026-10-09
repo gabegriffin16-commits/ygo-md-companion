@@ -747,6 +747,15 @@ html.fadebg .fadetog{background:var(--panel2); border-color:color-mix(in srgb, v
 .hdrside{gap:6px}
 .stepnav{display:grid; grid-template-columns:1fr auto 1fr}
 .stepnav #stepBack{justify-self:start} .stepnav #stepNext{justify-self:end} .stepnav #newDuel{justify-self:center}
+/* screen-reading (auto) mode in the desktop app: hide what the reader now covers */
+.manualtog{display:none}
+html.has-reader .manualtog{display:inline-flex}
+.autonote{display:none}
+html.auto .autonote{display:block}
+html.auto #stepNext, html.auto #stepBack, html.auto .lpin, html.auto .lpcol .mini, html.auto .dbox .seg,
+html.auto #chipArea, html.auto #clearHand, html.auto .drawchips, html.auto .manualtoggle, html.auto .manualonly{display:none !important}
+html.auto .stepnav{grid-template-columns:1fr}
+html.auto .lpcol{padding-right:12px}
 </style>
 </head>
 <body>
@@ -1114,6 +1123,23 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   fadeItem.title = "Calms the moving background so buttons stand out";
   fadeItem.addEventListener("click", function(){ fadeBg = !fadeBg; save("hbc-fade", fadeBg); paintSwatches(); });
   document.getElementById("themeMenu").after(fadeItem);
+  // Manual mode (desktop app only): brings back the buttons the screen reader normally covers.
+  var manualMode = !!load("hbc-manual", false);
+  var manualItem = document.createElement("button");
+  manualItem.type = "button"; manualItem.className = "fadeitem fadetog manualtog"; manualItem.id = "manualBtn"; manualItem.setAttribute("role", "switch");
+  manualItem.innerHTML = '<span>Manual</span><span class="sw" aria-hidden="true"></span>';
+  manualItem.title = "Show the manual buttons (Next, LP, turn order, card pickers) in case the screen reading gets something wrong. Also pauses automatic turn and LP updates.";
+  fadeItem.after(manualItem);
+  function paintAuto(){
+    manualItem.setAttribute("aria-checked", manualMode ? "true" : "false");
+    var has = document.documentElement.classList.contains("has-reader");
+    document.documentElement.classList.toggle("auto", has && !manualMode);
+  }
+  window.autoOn = function(){ return document.documentElement.classList.contains("auto"); };
+  manualItem.addEventListener("click", function(){ manualMode = !manualMode; save("hbc-manual", manualMode); paintAuto();
+    if (typeof window.onAutoChange === "function") window.onAutoChange(); });
+  window.setHasReader = function(on){ document.documentElement.classList.toggle("has-reader", !!on); paintAuto(); };
+  paintAuto();
   themeBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
@@ -1958,12 +1984,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function renderSetup(){
     var b = box("Who goes first?");
     b.appendChild(park.querySelector(".seg") || document.querySelector("#duelPark .seg"));
-    b.appendChild(nodes("p", "hint", "Both players start at 8000 LP. Your opponent's turns are skipped; use the LP bar any time to log damage."));
+    b.appendChild(nodes("p", "hint manualonly", "Both players start at 8000 LP. Your opponent's turns are skipped; use the LP bar any time to log damage."));
+    b.appendChild(nodes("p", "hint autonote", "Waiting for the duel. Turn order, your opening hand, turns, phases and LP are read from the screen."));
   }
 
   function renderOpening(){
     var b = box("Your opening hand");
     b.appendChild(document.getElementById("openHint"));
+    if (!b.querySelector(".autonote")) b.appendChild(nodes("p", "hint autonote", D.openRead ? "Opening hand read from the screen. Switch on Manual up top to fix it if something's off." : "Reading your opening hand from the screen\u2026"));
     b.appendChild(document.getElementById("chipArea"));
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
@@ -1974,7 +2002,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   function renderDraw(){
     var b = box(D.n === 1 ? "Your first draw" : "What did you draw?");
-    var wrap = nodes("div", "chips");
+    var wrap = nodes("div", "chips drawchips");
+    b.appendChild(nodes("p", "hint autonote", "Your draw is read from the screen. You move to your Main Phase when the game does."));
     CARDS.forEach(function(c){
       var btn = nodes("button", "chip", c.name); btn.type = "button";
       btn.setAttribute("aria-pressed", D.drew === c.id ? "true" : "false");
@@ -1983,7 +2012,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       wrap.appendChild(btn);
     });
     b.appendChild(wrap);
-    b.appendChild(nodes("p", "hint", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Tap what you drew and you\u2019re straight into your Main Phase. Press Next if you\u2019d rather skip it."));
+    b.appendChild(nodes("p", "hint manualonly", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Tap what you drew and you\u2019re straight into your Main Phase. Press Next if you\u2019d rather skip it."));
     var bd = B();
     if (D.n > 1 && (bd.field.length || bd.back.length || bd.gy.increase)){
       var cb = box("Anything happen on their turn?");
@@ -2636,7 +2665,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
     mb.addEventListener("click", function(){ D.showManual = !D.showManual; persist(); renderBody(); });
     mt.appendChild(mb);
-    if (D.showManual){ renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); }
+    if (D.showManual && !window.autoOn()){ renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); }
   }
 
   function reminders(){
@@ -2798,10 +2827,44 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   window.addEventListener("overlay-reader", function(e){
     var s = e.detail || {}, was = readerStatus && readerStatus.state;
     readerStatus = s;
+    if (window.setHasReader){ var on = s.state && s.state !== "off"; if (on !== document.documentElement.classList.contains("has-reader")){ window.setHasReader(on); renderDuel(); } }
     if (s.state !== was) renderStepper();
     else { var rp = document.querySelector(".readerpill"); if (rp && s.seen != null) rp.title = "Reading your hand from the screen (" + s.seen + " cards seen)"; }
   });
   function knownKeys(h){ var o = {}; Object.keys(h || {}).forEach(function(k){ if (F[k] && h[k] > 0) o[k] = h[k]; }); return o; }
+  // ---------- turn/phase and LP read from the screen (desktop app) ----------
+  var hudPrev = null;
+  window.onAutoChange = function(){ renderDuel(); };
+  function setOrder(o){ D.order = o; syncGlobals(); persist(); paintTurn(); evaluate(); }
+  window.addEventListener("overlay-turn", function(e){
+    var ev = e.detail || {}, prev = hudPrev; hudPrev = ev.mine;
+    if (!window.autoOn()) return;
+    function next(){ document.getElementById("stepNext").click(); }
+    // Turn 1 tells us who went first.
+    if (ev.turn1 && (D.phase === "setup" || D.phase === "opening")){
+      var o = ev.mine ? "first" : "second";
+      if (D.order !== o){ setOrder(o); renderDuel(); toast(o === "first" ? "Going first (read from screen)" : "Going second (read from screen)"); }
+    }
+    if (ev.mine){
+      if (ev.phase === "main"){
+        if (D.phase === "opening" && D.openRead){ next(); if (D.phase === "draw") next(); }
+        else if (D.phase === "draw"){ next(); toast("Main Phase"); }
+      } else if ((ev.phase === "draw" || ev.phase === "standby") && prev === false){
+        // Your turn again: wrap up the last one and move to the Draw Phase.
+        if (D.phase === "main") next();
+        if (D.phase === "end"){ next(); toast("Turn " + D.n + ": Draw Phase"); }
+      }
+    } else if (D.phase === "main"){
+      next(); toast("Their turn: your turn wrapped up");
+    }
+  });
+  window.addEventListener("overlay-lp", function(e){
+    var d = e.detail || {};
+    if (!window.autoOn() || (d.who !== "me" && d.who !== "opp") || typeof d.lp !== "number") return;
+    if (D.lp[d.who] === d.lp) return;
+    D.lp[d.who] = d.lp; persist(); renderLP();
+  });
+
   window.addEventListener("overlay-hand", function(e){
     var ev = e.detail || {}, seen = knownKeys(ev.hand), added = (ev.added || []).filter(function(k){ return F[k]; });
     var size = Object.keys(seen).reduce(function(a, k){ return a + seen[k]; }, 0), msgs = [];
