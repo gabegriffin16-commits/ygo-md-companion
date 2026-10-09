@@ -1143,7 +1143,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // In the desktop app, the switch lives in the thin app bar up top, next to the hotkeys cog.
   (function dock(tries){
     var bar = document.getElementById("ovBar");
-    if (bar){ manualItem.classList.add("inbar"); bar.appendChild(manualItem); return; }
+    if (bar){
+      manualItem.classList.add("inbar"); bar.appendChild(manualItem);
+      // Reload button beside the expand arrow, same as Reload page in the tray menu.
+      if (!document.getElementById("ovRe")){
+        var rl = document.createElement("button"); rl.type = "button"; rl.className = "ovb"; rl.id = "ovRe"; rl.title = "Reload the page"; rl.textContent = "\u21BB";
+        rl.style.left = "70px"; rl.style.fontSize = "12px";
+        rl.addEventListener("click", function(){ location.reload(); });
+        var f = document.getElementById("ovF"); if (f) f.after(rl); else bar.appendChild(rl);
+      }
+      return;
+    }
     if (tries < 40) setTimeout(function(){ dock(tries + 1); }, 250);
   })(0);
   window.setHasReader = function(on){ document.documentElement.classList.toggle("has-reader", !!on); paintAuto(); };
