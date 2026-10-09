@@ -646,7 +646,7 @@ html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html
 header.top{flex-wrap:wrap; row-gap:7px; margin-top:4px}
 header.top nav.tabs{position:static; display:block; background:none !important; border:0; padding:0; z-index:auto; flex:1 1 auto; min-width:0; order:1}
 header.top .hdrside{order:2}
-header.top nav.tabs .wrap{display:grid !important; grid-template-columns:repeat(4, minmax(0,1fr)); gap:3px; max-width:none; margin:0; padding:3px; border-radius:999px;
+header.top nav.tabs .wrap{display:grid !important; grid-template-columns:none; grid-auto-flow:column; grid-auto-columns:minmax(0,1fr); gap:3px; max-width:none; margin:0; padding:3px; border-radius:999px;
   background:color-mix(in srgb, var(--bg) 45%, transparent); border:1px solid color-mix(in srgb, var(--line) 80%, transparent)}
 header.top .tab{border:0 !important; margin:0; border-radius:999px; padding:7px 6px; font:600 .86rem var(--display); color:var(--muted); background:none}
 header.top .tab:hover{color:var(--ink)}
@@ -1122,6 +1122,68 @@ html.deckopen #deckPane .dl-item{border-radius:8px}
 .dmdel:hover{opacity:1; color:var(--red); background:color-mix(in srgb, var(--red) 12%, transparent)}
 .dmrow.armed .dmdel{opacity:1; color:#fff; background:var(--red)}
 .dmrow.armed .dmitem span{color:var(--red)}
+/* ---- sign-in screen ---- */
+html.authing body > *:not(#authScreen):not(.ambient):not(#ovBar){display:none !important}
+#authScreen{position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:24px 16px; overflow:auto}
+.authcard{width:min(380px, 100%); box-sizing:border-box; display:flex; flex-direction:column; gap:12px; padding:26px 24px 22px; border-radius:16px;
+  background:var(--panel); border:1px solid var(--line); box-shadow:0 18px 44px rgba(0,0,0,.3)}
+.authbrand h1{margin:0; font:700 1.35rem var(--display); color:var(--ink)}
+.authbrand p{margin:4px 0 4px; color:var(--muted); font-size:.9rem}
+.authseg{display:grid; grid-template-columns:1fr 1fr; gap:3px; padding:3px; border-radius:999px; background:color-mix(in srgb, var(--bg) 60%, transparent); border:1px solid var(--line)}
+.authseg button{border:0; border-radius:999px; padding:7px 6px; background:none; color:var(--muted); font:600 .86rem var(--display); cursor:pointer}
+.authseg button[aria-selected="true"]{background:var(--gold); color:#1B1640}
+.authf{display:flex; flex-direction:column; gap:5px}
+.authf span{font:600 .74rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.authf input{box-sizing:border-box; height:40px; padding:0 14px; border-radius:12px; border:1px solid var(--line); background:var(--bg); color:var(--ink); font:400 .95rem var(--body)}
+.authf input:focus{outline:0; border-color:var(--gold)}
+.authup{display:none !important}
+#authScreen.up .authup{display:flex !important}
+#authScreen.up p.authup{display:block !important}
+.autherr{margin:0; padding:8px 12px; border-radius:10px; font-size:.86rem; color:color-mix(in srgb, var(--red) 80%, var(--ink)); background:color-mix(in srgb, var(--red) 12%, transparent); border:1px solid color-mix(in srgb, var(--red) 40%, transparent)}
+.authgo{height:42px; border-radius:12px; font:700 .95rem var(--display); margin-top:2px}
+.authgo:disabled{opacity:.7}
+.authnote{margin:0; color:var(--muted); font-size:.8rem; line-height:1.45}
+html.in-overlay #authScreen{top:16px}
+.bldshare{height:auto; align-self:stretch}
+.nodeck{display:flex; flex-direction:column; gap:8px; margin:14px 0 0}
+.nodeck button{width:100%}
+.dmwho{display:flex; align-items:center; gap:6px; padding:6px 10px 2px; font-size:.82rem; color:var(--muted)}
+.dmwho b{color:var(--ink); font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.dmadmin{margin-left:auto; font:600 .66rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:color-mix(in srgb, var(--gold) 80%, var(--ink)); background:color-mix(in srgb, var(--gold) 14%, transparent); border:1px solid color-mix(in srgb, var(--gold) 45%, transparent); border-radius:999px; padding:1px 8px}
+/* ---- Users tab ---- */
+.uhead{display:flex; align-items:center; gap:10px; margin:4px 0 8px}
+.uhead h2{margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.ubk{flex:none; width:34px; height:34px; display:grid; place-items:center; padding:0; border-radius:50%; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 60%, var(--panel)); color:var(--muted); cursor:pointer}
+.ubk:hover{color:var(--gold); border-color:var(--gold)}
+.urefresh{padding:6px 14px; border-radius:999px; font-size:.8rem}
+.usub{margin:0 0 12px}
+.ulist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden}
+.urow{display:flex; align-items:center; gap:12px; width:100%; padding:11px 14px; background:none; border:0; border-top:1px solid var(--line); color:var(--ink); text-align:left; cursor:pointer; font:inherit}
+.urow:first-child{border-top:0}
+.urow:hover{background:color-mix(in srgb, var(--gold) 7%, transparent)}
+.uav{flex:none; width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font:700 .85rem var(--display); color:color-mix(in srgb, var(--gold) 80%, var(--ink)); background:color-mix(in srgb, var(--gold) 14%, transparent); border:1px solid color-mix(in srgb, var(--gold) 40%, transparent)}
+.unm{flex:1; min-width:0; display:flex; align-items:center; gap:8px}
+.unm b{font-weight:600; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.utag{flex:none; font:600 .64rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted); border:1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius:999px; padding:1px 7px}
+.utag.gold{color:color-mix(in srgb, var(--gold) 80%, var(--ink)); background:color-mix(in srgb, var(--gold) 12%, transparent); border-color:color-mix(in srgb, var(--gold) 45%, transparent)}
+.ucount{flex:none; color:var(--muted); font-size:.82rem; white-space:nowrap}
+.uchev{flex:none; display:grid; place-items:center; color:var(--muted)}
+.umeta{display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin:0 0 12px}
+.umeta .pill{background:color-mix(in srgb, var(--muted) 10%, transparent); color:var(--muted); border:1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius:999px; padding:2px 10px; font:600 .76rem var(--display)}
+.ustarters .fhead{margin-right:4px}
+.uacts{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin:0 0 14px}
+.uacts .primary, .uacts .ghost{height:38px; padding:0 18px; border-radius:12px}
+.ushare{height:38px; width:auto; margin:0}
+.unotes{padding:12px 14px; margin-bottom:14px}
+.unotetext{margin:6px 0 0; white-space:pre-line; color:var(--muted); font-size:.9rem; line-height:1.5}
+.udeckzone{margin:0 0 16px}
+.ugrid{display:grid; grid-template-columns:repeat(auto-fill, minmax(76px, 1fr)); gap:6px; margin-top:6px}
+.utile{position:relative; padding:0; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel); aspect-ratio:421/614; cursor:pointer}
+.utile img{display:block; width:100%; height:100%; object-fit:cover}
+.utile:hover{border-color:var(--gold)}
+.ucopies{position:absolute; right:4px; bottom:4px; font:700 .7rem var(--display); color:#fff; background:rgba(0,0,0,.65); border-radius:999px; padding:1px 7px}
+html.compact .ugrid{grid-template-columns:repeat(auto-fill, minmax(64px, 1fr))}
+.unotes h3.cd-sec{margin:0}
 </style>
 </head>
 <body>
@@ -1141,6 +1203,7 @@ html.deckopen #deckPane .dl-item{border-radius:8px}
         <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
         <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
         <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
+        <button class="tab" role="tab" id="t-users" aria-selected="false" aria-controls="tab-users" data-tab="users">Users</button>
       </div>
     </nav>
   </header>
@@ -1207,6 +1270,11 @@ html.deckopen #deckPane .dl-item{border-radius:8px}
     <label class="cgpicklab" for="cgPick">Their deck</label>
     <select id="cgPick" class="cgpick"></select>
     <div id="cgList"></div>
+  </section>
+
+  <!-- USERS (accounts only) -->
+  <section id="tab-users" hidden aria-labelledby="t-users">
+    <div id="usersView"></div>
   </section>
 </main>
 
@@ -1326,7 +1394,11 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
 // The built-in HERO deck comes from deck.json + rules.json. Decks you build live in localStorage
 // ("mdc-decks") as card ids and copies, and can be moved between people as .ydk files.
 var MDC = (function(){
-  var KEY = "mdc-decks", PILOT = "mdc-pilot";
+  var KEY = "mdc-decks", PILOT = "mdc-pilot", heroOK = true, hooks = {};
+  // Signed in: each account gets its own copy of the deck list and pilot on this device.
+  function scope(uid, allowHero){ KEY = "mdc-decks:" + uid; PILOT = "mdc-pilot:" + uid; heroOK = !!allowHero; }
+  function on(name, fn){ hooks[name] = fn; }
+  function replaceAll(decks){ return wr(KEY, decks); }
   function rd(k, d){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
   function wr(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
   function list(){ return rd(KEY, []); }
@@ -1334,11 +1406,26 @@ var MDC = (function(){
   function put(deck){
     var l = list(), i = l.findIndex(function(d){ return d.id === deck.id; });
     deck.updated = Date.now();
+    if (deck.shared === undefined) deck.shared = true;
     if (i >= 0) l[i] = deck; else l.push(deck);
-    return wr(KEY, l);
+    var ok = wr(KEY, l);
+    if (ok && hooks.put) hooks.put(deck);
+    return ok;
   }
-  function remove(id){ wr(KEY, list().filter(function(d){ return d.id !== id; })); if (pilot() === id) wr(PILOT, "hero"); }
-  function pilot(){ var p = rd(PILOT, "hero"); return p === "hero" || get(p) ? p : "hero"; }
+  function remove(id){
+    wr(KEY, list().filter(function(d){ return d.id !== id; }));
+    if (rd(PILOT, null) === id) wr(PILOT, heroOK ? "hero" : null);
+    if (hooks.remove) hooks.remove(id);
+  }
+  // "hero" is the built-in Omni HERO deck (only when allowed); null means no deck yet.
+  function pilot(){
+    var p = rd(PILOT, null);
+    if (p === "hero" && heroOK) return "hero";
+    if (p && p !== "hero" && get(p)) return p;
+    if (heroOK) return "hero";
+    var l = list(); return l.length ? l[0].id : null;
+  }
+  function heroAllowed(){ return heroOK; }
   function setPilot(id){ wr(PILOT, id); location.reload(); }
   function newId(){ return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
   var EXTRA_RE = /^(fusion|synchro|xyz|link)/;
@@ -1401,8 +1488,81 @@ var MDC = (function(){
     });
     inp.click();
   }
-  return {list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
+  return {scope:scope, on:on, replaceAll:replaceAll, heroAllowed:heroAllowed, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
     toDeckData:toDeckData, toYdk:toYdk, fromYdk:fromYdk, download:download, pickFile:pickFile};
+})();
+
+// ================= accounts + shared decks (Supabase) =================
+// Fill these in to turn accounts on. Both values are public by design: the database rules in
+// supabase/schema.sql decide who can read or change what. Leave them empty to run without accounts.
+window.MDC_CLOUD = window.MDC_CLOUD || {url:"", key:""};
+var CLOUD = (function(){
+  var cfg = window.MDC_CLOUD, sb = null, user = null, profile = null;
+  var LIB = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
+  function configured(){ return !!(cfg && cfg.url && cfg.key); }
+  function loadLib(){
+    if (window.supabase && window.supabase.createClient) return Promise.resolve();
+    return new Promise(function(ok, no){ var t = document.createElement("script"); t.src = LIB; t.onload = ok; t.onerror = function(){ no(new Error("couldn't load the sign-in library")); }; document.head.appendChild(t); });
+  }
+  function client(){ if (!sb) sb = window.supabase.createClient(cfg.url, cfg.key, {auth:{persistSession:true, autoRefreshToken:true, storageKey:"mdc-auth"}}); return sb; }
+  // Accounts use a username; Supabase wants an email, so each username maps to a placeholder address nobody receives mail at.
+  var EMAIL_DOMAIN = "players.mdc-app.com";
+  function emailFor(u){ return String(u).trim().toLowerCase() + "@" + EMAIL_DOMAIN; }
+  var NAME_RE = /^[A-Za-z0-9_.-]{3,20}$/;
+  function err(e){ return new Error(e && (e.message || e.error_description) || String(e)); }
+  function start(){ return loadLib().then(function(){ return client().auth.getSession(); }).then(function(r){ user = r.data && r.data.session ? r.data.session.user : null; return user; }); }
+  function friendly(m){
+    if (/Invalid login credentials/i.test(m)) return "That username and password don't match.";
+    if (/already registered|already exists/i.test(m)) return "That username is taken. Pick another.";
+    if (/Password should be/i.test(m)) return "Use a password with at least 6 characters.";
+    if (/Email logins are disabled|Signups not allowed/i.test(m)) return "Sign-ups are turned off right now.";
+    if (/confirm/i.test(m)) return "This account still needs email confirmation. Ask the admin to turn off “Confirm email” in Supabase.";
+    return m;
+  }
+  function signIn(name, pass){
+    return client().auth.signInWithPassword({email:emailFor(name), password:pass}).then(function(r){
+      if (r.error) throw new Error(friendly(r.error.message)); user = r.data.user; return user; });
+  }
+  function signUp(name, pass){
+    if (!NAME_RE.test(name)) return Promise.reject(new Error("Usernames are 3–20 letters, numbers, dots, dashes or underscores."));
+    return client().auth.signUp({email:emailFor(name), password:pass, options:{data:{username:name.trim()}}}).then(function(r){
+      if (r.error) throw new Error(friendly(r.error.message));
+      if (!r.data.session) throw new Error(friendly("confirm"));
+      user = r.data.user; return user; });
+  }
+  function signOut(){ return client().auth.signOut().then(function(){ user = null; profile = null; }); }
+  function loadProfile(){
+    return client().from("profiles").select("id, username, is_admin").eq("id", user.id).maybeSingle().then(function(r){
+      if (r.error) throw err(r.error);
+      profile = r.data || {id:user.id, username:(user.user_metadata && user.user_metadata.username) || "player", is_admin:false};
+      return profile; });
+  }
+  function rowToDeck(r){ var d = r.data || {}; d.id = r.id; d.name = r.name; d.shared = r.shared; d.updated = Date.parse(r.updated_at) || d.updated; d.owner = r.owner; return d; }
+  function myDecks(){
+    return client().from("decks").select("id, owner, name, data, shared, updated_at").eq("owner", user.id).then(function(r){
+      if (r.error) throw err(r.error); return r.data.map(rowToDeck); });
+  }
+  function pushDeck(d){
+    var data = JSON.parse(JSON.stringify(d)); delete data.owner;
+    return client().from("decks").upsert({id:d.id, owner:user.id, name:d.name || "Untitled deck", data:data, shared:d.shared !== false, updated_at:new Date(d.updated || Date.now()).toISOString()})
+      .then(function(r){ if (r.error) throw err(r.error); });
+  }
+  function deleteDeck(id){ return client().from("decks").delete().eq("id", id).eq("owner", user.id).then(function(r){ if (r.error) throw err(r.error); }); }
+  // Everyone you can see, with the decks the rules let you see (yours, shared ones, or all for the admin).
+  function directory(){
+    return Promise.all([
+      client().from("profiles").select("id, username, is_admin, created_at").order("username"),
+      client().from("decks").select("id, owner, name, data, shared, updated_at").order("updated_at", {ascending:false})
+    ]).then(function(a){
+      if (a[0].error) throw err(a[0].error); if (a[1].error) throw err(a[1].error);
+      var by = {}; a[0].data.forEach(function(u){ u.decks = []; by[u.id] = u; });
+      a[1].data.forEach(function(r){ if (by[r.owner]) by[r.owner].decks.push(rowToDeck(r)); });
+      return a[0].data;
+    });
+  }
+  return {configured:configured, start:start, signIn:signIn, signUp:signUp, signOut:signOut, loadProfile:loadProfile,
+    myDecks:myDecks, pushDeck:pushDeck, deleteDeck:deleteDeck, directory:directory,
+    user:function(){ return user; }, profile:function(){ return profile; }, nameOk:function(n){ return NAME_RE.test(n); }};
 })();
 
 function startCompanion(DECKDATA, RULES, CARDDB){
@@ -1411,6 +1571,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var HEROMODE = !DECKDATA.custom;
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
+  // The Users tab only exists with accounts on.
+  if (!(window.CLOUD && CLOUD.user())){ ["t-users", "tab-users"].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); }); }
+  else { var tcg = document.getElementById("t-counter"); if (tcg){ tcg.textContent = "Counters"; tcg.title = "Counter Guide"; } }
   var CARD_BY_ID = {}; CARDDB.cards.forEach(function(c){ CARD_BY_ID[c.id] = c; });
   // Master Duel Forbidden/Limited list (cards.json "b": F = Forbidden, L = Limited, S = Semi-Limited).
   var BAN_MAX = {F:0, L:1, S:2}, BAN_NAME = {F:"Forbidden", L:"Limited", S:"Semi-Limited"}, BAN_SHORT = {F:"F", L:"L1", S:"L2"};
@@ -2009,6 +2172,16 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     deckPane.querySelector(".deckpick b").textContent = PILOT_NAME;
     deckPane.querySelector(".deckpick").addEventListener("click", function(e){ e.stopPropagation(); if (deckMenu.hidden) openDeckMenu(this); else closeDeckMenu(); });
     deckPane.querySelector(".sub").textContent = MAIN_COUNT + " main, " + EXTRA_COUNT + " Extra. Select a card for details.";
+    if (DECKDATA.none){
+      deckPane.querySelector(".sub").textContent = "Build a deck, import a .ydk, or copy one from another player.";
+      var cta = nodes("div", "nodeck");
+      var b1 = nodes("button", "primary", "Build a deck"); b1.type = "button"; b1.addEventListener("click", function(){ closeFind(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); });
+      var b2 = nodes("button", "ghost", "Import .ydk"); b2.type = "button"; b2.addEventListener("click", function(){ closeFind(); importYdk(); });
+      cta.appendChild(b1); cta.appendChild(b2);
+      if (document.getElementById("t-users") && CLOUD.user()){ var b3 = nodes("button", "ghost", "Browse players' decks"); b3.type = "button"; b3.addEventListener("click", function(){ closeFind(); document.getElementById("t-users").click(); }); cta.appendChild(b3); }
+      deckPane.appendChild(cta);
+      return;
+    }
     if (HEROMODE && (UNRULED.length || MISSING.length)){
       var warn = document.createElement("div"); warn.className = "sub deckwarn";
       warn.textContent = "\u2691 " + (MISSING.length ? MISSING.length + " not found in cards.json. " : "") + (UNRULED.length ? UNRULED.length + " without play rules yet." : "");
@@ -2066,6 +2239,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function paintCard(){
     if (typeof selected === "string" && selected.indexOf("db:") === 0){ paintDbCard(+selected.slice(3)); return; }
     var c = DECK.filter(function(x){ return x.id === selected; })[0] || DECK[0];
+    if (!c){ cardPane.innerHTML = ""; cardPane.appendChild(searchBar()); cardPane.appendChild(mk("p", "hint emptycard", "Look up any card above. Your deck's cards show here once you've built or picked a deck.")); return; }
     var at = c.attr || (c.sec === "Spells" ? "spell" : (c.sec === "Traps" ? "trap" : null));
     var info = parseInfo(c.info);
     cardPane.innerHTML = "";
@@ -3353,6 +3527,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
 
   // ---------- overlay app hotkey commands (the desktop app sends these; harmless on the website) ----------
+  window.appToast = toast;
   function toast(msg, ms){
     var el = document.getElementById("hbcToast");
     if (!el){ el = document.createElement("div"); el.id = "hbcToast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
@@ -3533,6 +3708,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function rows(arr){ return arr.map(function(c){ var d = CARD_BY_NAME[c.name]; return d ? {id:d.id, n:c.n} : null; }).filter(Boolean); }
     return {id:PILOT_ID, name:PILOT_NAME, main:rows(DECKDATA.main), extra:rows(DECKDATA.extra)};
   }
+  function importYdk(){
+    MDC.pickFile(function(text, name){
+      var r = MDC.fromYdk(text, name, CARDDB);
+      if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
+      if (r.unknown) toast(r.unknown + " card" + (r.unknown > 1 ? "s" : "") + " in that file weren't found and were skipped", 3200);
+      openBuilder(r.deck, true);
+    });
+  }
   function fileName(s){ return (s || "deck").replace(/[\\/:*?"<>|]+/g, "").trim() || "deck"; }
 
   var deckMenu = document.createElement("div"); deckMenu.className = "deckmenu"; deckMenu.hidden = true; deckMenu.setAttribute("role", "menu");
@@ -3545,8 +3728,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function openDeckMenu(anchor){
     deckMenu.innerHTML = "";
     deckMenu.appendChild(nodes("div", "dmhead", "Decks"));
-    var hero = menuItem("Omni HERO", PILOT_ID === "hero" ? "on" : "", function(){ if (PILOT_ID !== "hero") MDC.setPilot("hero"); else closeDeckMenu(); });
-    hero.appendChild(nodes("small", null, "built in"));
+    if (MDC.heroAllowed()){
+      var hero = menuItem("Omni HERO", PILOT_ID === "hero" ? "on" : "", function(){ if (PILOT_ID !== "hero") MDC.setPilot("hero"); else closeDeckMenu(); });
+      hero.appendChild(nodes("small", null, "built in"));
+    }
+    if (!MDC.heroAllowed() && !MDC.list().length) deckMenu.appendChild(nodes("div", "dmempty", "No decks yet."));
     MDC.list().forEach(function(d){
       var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
       var it = menuItem(d.name || "Untitled deck", PILOT_ID === d.id ? "on" : "", function(){ if (PILOT_ID !== d.id) MDC.setPilot(d.id); else closeDeckMenu(); });
@@ -3554,22 +3740,21 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     deckMenu.appendChild(nodes("div", "dmsep"));
     menuItem("+ Build a new deck", "act", function(){ closeDeckMenu(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); });
-    if (DECKDATA.custom) menuItem("Edit this deck", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); });
-    else menuItem("Copy this deck to edit", "act", function(){ closeDeckMenu(); var c = currentAsBuilt(); c.id = MDC.newId(); c.name = PILOT_NAME + " (copy)"; openBuilder(c, true); });
-    menuItem("Import a .ydk file", "act", function(){
-      closeDeckMenu();
-      MDC.pickFile(function(text, name){
-        var r = MDC.fromYdk(text, name, CARDDB);
-        if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
-        if (r.unknown) toast(r.unknown + " card" + (r.unknown > 1 ? "s" : "") + " in that file weren't found and were skipped", 3200);
-        openBuilder(r.deck, true);
-      });
-    });
-    menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); });
-    if (DECKDATA.custom) menuItem("Delete this deck", "act danger", function(b){
+    if (DECKDATA.custom && !DECKDATA.none) menuItem("Edit this deck", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); });
+    else if (!DECKDATA.none) menuItem("Copy this deck to edit", "act", function(){ closeDeckMenu(); var c = currentAsBuilt(); c.id = MDC.newId(); c.name = PILOT_NAME + " (copy)"; openBuilder(c, true); });
+    menuItem("Import a .ydk file", "act", function(){ closeDeckMenu(); importYdk(); });
+    if (!DECKDATA.none) menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); });
+    if (DECKDATA.custom && !DECKDATA.none) menuItem("Delete this deck", "act danger", function(b){
       if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME; return; }
-      MDC.remove(PILOT_ID); MDC.setPilot("hero");
+      MDC.remove(PILOT_ID); MDC.setPilot(MDC.heroAllowed() ? "hero" : null);
     });
+    if (CLOUD.user()){
+      deckMenu.appendChild(nodes("div", "dmsep"));
+      var who = nodes("div", "dmwho"); who.appendChild(nodes("span", null, "Signed in as ")); who.appendChild(nodes("b", null, (CLOUD.profile() || {}).username || ""));
+      if ((CLOUD.profile() || {}).is_admin) who.appendChild(nodes("small", "dmadmin", "admin"));
+      deckMenu.appendChild(who);
+      menuItem("Sign out", "act", function(){ closeDeckMenu(); CLOUD.signOut().then(function(){ location.reload(); }); });
+    }
     var r = anchor.getBoundingClientRect();
     deckMenu.hidden = false;
     deckMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - deckMenu.offsetWidth - 8)) + "px";
@@ -3599,7 +3784,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       '<div class="bldtop">' +
         '<div class="bldnames"><input class="bldname" type="text" maxlength="40" placeholder="Deck name" aria-label="Deck name">' +
         '<button type="button" class="bldpick" aria-haspopup="true" aria-expanded="false" title="Open one of your saved decks to edit it"><span class="bldpicklbl">Saved decks</span><span class="caret" aria-hidden="true"></span></button></div>' +
-        '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
+        '<div class="bldbtns"><button type="button" class="fadeitem fadetog bldshare" role="switch" title="Shared decks show in the Users tab for everyone. Private ones only you (and the admin) can see."><span>Shared</span><span class="sw" aria-hidden="true"></span></button><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldbar"><div class="bldstat"></div>' +
       '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div></div>' +
@@ -3625,6 +3810,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var nameIn = $(".bldname"), stat = $(".bldstat"), grid = $(".bldgrid"), pager = $(".bldpager"), list = $(".blddecklist"),
         q = $(".bldq input"), fpanel = $(".bldfilters"), fbtn = $(".bldfbtn"), info = $(".bldinfo");
     nameIn.value = deck.name || "";
+    var shareBtn = $(".bldshare");
+    if (deck.shared === undefined) deck.shared = true;
+    if (!CLOUD.user()) shareBtn.remove();
+    else {
+      var paintShare = function(){ shareBtn.setAttribute("aria-checked", deck.shared ? "true" : "false"); shareBtn.querySelector("span").textContent = deck.shared ? "Shared" : "Private"; };
+      paintShare();
+      shareBtn.addEventListener("click", function(){ deck.shared = !deck.shared; dirty = true; paintShare(); });
+    }
     // Saved decks: pick one to load it here for editing.
     var pickBtn = $(".bldpick"), pickMenu = nodes("div", "deckmenu bldpickmenu"); pickMenu.hidden = true; pickMenu.setAttribute("role", "menu"); root.appendChild(pickMenu);
     var saved = MDC.get(deck.id);
@@ -3667,7 +3860,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
       pickMenu.appendChild(nodes("div", "dmsep"));
       pickItem("+ Start a new deck", null, "act", function(b){ switchTo({id:MDC.newId(), name:"", main:[], extra:[]}, true, b); });
-      if (PILOT_ID === "hero") pickItem("Copy Omni HERO to edit", null, "act", function(b){ var c = currentAsBuilt(); c.id = MDC.newId(); c.name = "Omni HERO (copy)"; switchTo(c, true, b); });
+      if (PILOT_ID === "hero" && MDC.heroAllowed()) pickItem("Copy Omni HERO to edit", null, "act", function(b){ var c = currentAsBuilt(); c.id = MDC.newId(); c.name = "Omni HERO (copy)"; switchTo(c, true, b); });
     }
     pickBtn.addEventListener("click", function(e){
       e.stopPropagation();
@@ -4113,35 +4306,268 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
   }
 
+
+  // ---------- Users: everyone's shared decks (accounts only) ----------
+  (function(){
+    var tabBtn = document.getElementById("t-users"), view = document.getElementById("usersView");
+    if (!tabBtn || !view) return;
+    var dir = null, loading = false, at = {level:"users"}, heroCache = null;
+    var me = CLOUD.profile() || {};
+    function ago(t){
+      if (!t) return ""; var m = Math.round((Date.now() - t) / 60000);
+      if (m < 2) return "just now"; if (m < 60) return m + " min ago"; var h = Math.round(m / 60); if (h < 24) return h + " h ago";
+      var d = Math.round(h / 24); return d < 30 ? d + (d === 1 ? " day ago" : " days ago") : new Date(t).toLocaleDateString();
+    }
+    function count(rows){ return (rows || []).reduce(function(a, r){ return a + r.n; }, 0); }
+    // Omni HERO, built from deck.json, shown under the admin so anyone can copy it.
+    function heroDeck(){
+      if (heroCache) return Promise.resolve(heroCache);
+      return fetch("deck.json", {cache:"no-cache"}).then(function(r){ return r.json(); }).then(function(d){
+        function rows(a){ return (a || []).map(function(c){ var x = CARD_BY_NAME[c.name]; return x ? {id:x.id, n:c.n} : null; }).filter(Boolean); }
+        heroCache = {id:"hero", name:"Omni HERO", main:rows(d.main), extra:rows(d.extra), shared:true, builtin:true,
+          notes:"The built-in deck. Its play lines, checkpoints and counter tips stay with the admin's account; a copy gets the cards."};
+        return heroCache;
+      });
+    }
+    function load(force){
+      if (loading) return; if (dir && !force){ paint(); return; }
+      loading = true; view.innerHTML = ""; view.appendChild(nodes("p", "hint", "Loading players…"));
+      CLOUD.directory().then(function(list){
+        dir = list; loading = false;
+        var admin = dir.filter(function(u){ return u.is_admin; })[0];
+        if (!admin){ paint(); return; }
+        return heroDeck().then(function(h){ if (!admin.decks.some(function(d){ return d.id === "hero"; })) admin.decks.unshift(h); paint(); }, function(){ paint(); });
+      }).catch(function(e){ loading = false; view.innerHTML = ""; view.appendChild(nodes("p", "hint", "Couldn't load players (" + e.message + ").")); });
+    }
+    function head(title, back){
+      var h = nodes("div", "uhead");
+      if (back){ var b = nodes("button", "ubk"); b.type = "button"; b.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>'; b.title = back.label; b.setAttribute("aria-label", back.label); b.addEventListener("click", back.fn); h.appendChild(b); }
+      h.appendChild(nodes("h2", null, title));
+      if (!back){ var r = nodes("button", "ghost urefresh", "Refresh"); r.type = "button"; r.addEventListener("click", function(){ load(true); }); h.appendChild(r); }
+      return h;
+    }
+    function paint(){
+      view.innerHTML = "";
+      if (!dir) return;
+      var u = at.user && dir.filter(function(x){ return x.id === at.user; })[0];
+      if (at.level !== "users" && !u) at = {level:"users"};
+      if (at.level === "users") return paintUsers();
+      if (at.level === "decks") return paintDecks(u);
+      var d = u.decks.filter(function(x){ return x.id === at.deck; })[0];
+      if (!d){ at = {level:"decks", user:u.id}; return paintDecks(u); }
+      paintOne(u, d);
+    }
+    function paintUsers(){
+      view.appendChild(head("Players"));
+      view.appendChild(nodes("p", "hint usub", "Open a player to see the decks they share. Copy any deck to make your own version."));
+      var list = nodes("div", "ulist");
+      var sorted = dir.slice().sort(function(a, b){ return (b.id === me.id) - (a.id === me.id) || a.username.localeCompare(b.username); });
+      sorted.forEach(function(u){
+        var row = nodes("button", "urow"); row.type = "button";
+        var av = nodes("span", "uav", (u.username || "?").slice(0, 1).toUpperCase()); row.appendChild(av);
+        var nm = nodes("span", "unm"); nm.appendChild(nodes("b", null, u.username));
+        if (u.id === me.id) nm.appendChild(nodes("small", "utag", "you"));
+        if (u.is_admin) nm.appendChild(nodes("small", "utag gold", "admin"));
+        row.appendChild(nm);
+        var n = u.decks.length; row.appendChild(nodes("span", "ucount", n ? n + (n === 1 ? " deck" : " decks") : "no decks"));
+        row.appendChild(chev());
+        row.addEventListener("click", function(){ at = {level:"decks", user:u.id}; paint(); });
+        list.appendChild(row);
+      });
+      view.appendChild(list);
+    }
+    function chev(){ var c = nodes("span", "uchev"); c.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg>'; return c; }
+    function paintDecks(u){
+      view.appendChild(head(u.id === me.id ? "Your decks" : u.username + "’s decks", {label:"All players", fn:function(){ at = {level:"users"}; paint(); }}));
+      if (!u.decks.length){ view.appendChild(nodes("p", "hint", u.id === me.id ? "You haven't saved a deck yet." : "Nothing shared yet.")); return; }
+      var list = nodes("div", "ulist");
+      u.decks.forEach(function(d){
+        var row = nodes("button", "urow"); row.type = "button";
+        var nm = nodes("span", "unm"); nm.appendChild(nodes("b", null, d.name || "Untitled deck"));
+        if (d.builtin) nm.appendChild(nodes("small", "utag gold", "built in"));
+        else if (d.shared === false) nm.appendChild(nodes("small", "utag", "private"));
+        row.appendChild(nm);
+        row.appendChild(nodes("span", "ucount", count(d.main) + " + " + count(d.extra) + (d.updated && !d.builtin ? " · " + ago(d.updated) : "")));
+        row.appendChild(chev());
+        row.addEventListener("click", function(){ at = {level:"deck", user:u.id, deck:d.id}; paint(); });
+        list.appendChild(row);
+      });
+      view.appendChild(list);
+    }
+    function showCard(id){
+      if (document.documentElement.classList.contains("compact") || window.innerWidth < 1220){ closeFind(); openFind(true); }
+      paintDbCard(id);
+    }
+    function tiles(rows, label){
+      var wrap = nodes("div", "udeckzone"); wrap.appendChild(nodes("div", "fhead", label + " (" + count(rows) + ")"));
+      var g = nodes("div", "ugrid");
+      rows.forEach(function(r){
+        var c = CARD_BY_ID[r.id]; if (!c) return;
+        var t = nodes("button", "utile"); t.type = "button"; t.title = c.n;
+        var im = document.createElement("img"); im.loading = "lazy"; im.alt = c.n; im.src = (window.ART_BASE || "") + c.id + ".avif"; t.appendChild(im);
+        if (r.n > 1) t.appendChild(nodes("span", "ucopies", "×" + r.n));
+        t.addEventListener("click", function(){ showCard(c.id); });
+        g.appendChild(t);
+      });
+      wrap.appendChild(g); return wrap;
+    }
+    function paintOne(u, d){
+      var mine = u.id === me.id;
+      view.appendChild(head(d.name || "Untitled deck", {label:"Back to " + (mine ? "your decks" : u.username), fn:function(){ at = {level:"decks", user:u.id}; paint(); }}));
+      var meta = nodes("div", "umeta");
+      meta.appendChild(nodes("span", "pill", "by " + u.username));
+      meta.appendChild(nodes("span", "pill", count(d.main) + " Main · " + count(d.extra) + " Extra"));
+      if (d.updated && !d.builtin) meta.appendChild(nodes("span", "pill", "updated " + ago(d.updated)));
+      view.appendChild(meta);
+      var acts = nodes("div", "uacts");
+      if (mine){
+        var pil = nodes("button", "primary", PILOT_ID === d.id ? "Piloting" : "Pilot this deck"); pil.type = "button"; pil.disabled = PILOT_ID === d.id;
+        pil.addEventListener("click", function(){ MDC.setPilot(d.id); }); acts.appendChild(pil);
+      }
+      if (mine && !d.builtin){
+        var ed = nodes("button", "ghost", "Edit"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
+        var sh = nodes("button", "fadeitem fadetog ushare"); sh.type = "button"; sh.setAttribute("role", "switch");
+        sh.innerHTML = '<span></span><span class="sw" aria-hidden="true"></span>';
+        var paintSh = function(){ sh.setAttribute("aria-checked", d.shared !== false ? "true" : "false"); sh.querySelector("span").textContent = d.shared !== false ? "Shared" : "Private"; };
+        paintSh();
+        sh.addEventListener("click", function(){ var x = MDC.get(d.id); if (!x) return; x.shared = !(x.shared !== false); d.shared = x.shared; MDC.put(x); paintSh(); toast(x.shared ? "Shared with everyone" : "Only you (and the admin) can see it now"); });
+        acts.appendChild(sh);
+      } else if (!mine) {
+        var cp = nodes("button", "primary", "Copy to my decks"); cp.type = "button";
+        cp.addEventListener("click", function(){
+          var c = {id:MDC.newId(), name:(d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")"), main:JSON.parse(JSON.stringify(d.main || [])), extra:JSON.parse(JSON.stringify(d.extra || [])),
+            notes:d.builtin ? "" : (d.notes || ""), starters:(d.starters || []).slice(), shared:true};
+          if (!MDC.put(c)){ toast("Couldn't save: storage is full or blocked"); return; }
+          toast("Copied to your decks");
+          dir = null;   // your deck list changed
+          cp.textContent = "Pilot the copy"; cp.onclick = null;
+          cp.addEventListener("click", function(){ MDC.setPilot(c.id); }, {once:true});
+          var op = nodes("button", "ghost", "Edit the copy"); op.type = "button"; op.addEventListener("click", function(){ openBuilder(JSON.parse(JSON.stringify(c)), false); }); acts.appendChild(op);
+        }, {once:true});
+        acts.appendChild(cp);
+      }
+      view.appendChild(acts);
+      if (d.notes){ var nb = nodes("section", "card unotes"); nb.appendChild(nodes("h3", "cd-sec", "Deck notes")); nb.appendChild(nodes("p", "unotetext", d.notes)); view.appendChild(nb); }
+      var st = (d.starters || []).map(function(id){ return CARD_BY_ID[id]; }).filter(Boolean);
+      if (st.length){ var sb = nodes("div", "umeta ustarters"); sb.appendChild(nodes("span", "fhead", "Starters")); st.forEach(function(c){ sb.appendChild(nodes("span", "pill", c.n)); }); view.appendChild(sb); }
+      view.appendChild(tiles(d.main || [], "Main Deck"));
+      if ((d.extra || []).length) view.appendChild(tiles(d.extra, "Extra Deck"));
+    }
+    tabBtn.addEventListener("click", function(){ load(false); });
+    if (!document.getElementById("tab-users").hidden) load(false);
+  })();
+
   syncGlobals(); paintChips(); paintTurn(); renderDuel();
 }
 
 // Load the deck, the play rules, and the card database, then start.
+// With accounts on (MDC_CLOUD filled in), you sign in first and your decks come from your account.
 (function(){
   if (window.OMNI_DATA){ var o = window.OMNI_DATA; startCompanion(o.deck, o.rules, o.cards); return; }
   function get(u){ return fetch(u, {cache:"no-cache"}).then(function(r){ if (!r.ok) throw new Error(u + " (" + r.status + ")"); return r.json(); }); }
-  var note = document.createElement("div"); note.id = "bootNote"; note.textContent = "Loading deck and card data\u2026";
+  var note = document.createElement("div"); note.id = "bootNote"; note.textContent = "Loading deck and card data…";
   document.body.appendChild(note);
-  var pilot = MDC.pilot();
-  if (pilot !== "hero"){
-    get("cards.json").then(function(cards){
-      note.remove(); startCompanion(MDC.toDeckData(MDC.get(pilot), cards), {cards:{}, locks:{}}, cards);
+  function fail(msg){ if (!note.parentNode) document.body.appendChild(note); note.className = "err"; note.textContent = msg; }
+  function boot(){
+    note.textContent = "Loading deck and card data…";
+    var pilot = MDC.pilot();
+    if (pilot !== "hero"){
+      get("cards.json").then(function(cards){
+        note.remove();
+        var deck = pilot ? MDC.toDeckData(MDC.get(pilot), cards) : {name:"No deck yet", custom:true, none:true, deckId:null, main:[], extra:[]};
+        startCompanion(deck, {cards:{}, locks:{}}, cards);
+      }).catch(function(err){
+        if (window.console) console.error(err);
+        fail("Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload.");
+      });
+      return;
+    }
+    Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
+      note.remove(); startCompanion(a[0], a[1], a[2]);
     }).catch(function(err){
+      fail(location.protocol === "file:"
+        ? "This page needs deck.json, rules.json and cards.json, and browsers block those when you open the file directly. Use your GitHub site or the overlay app."
+        : "Couldn't load " + (err && err.message ? err.message : "the data files") + ". Check that deck.json, rules.json and cards.json sit next to index.html.");
       if (window.console) console.error(err);
-      if (!note.parentNode) document.body.appendChild(note);
-      note.className = "err"; note.textContent = "Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload.";
     });
-    return;
   }
-  Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
-    note.remove(); startCompanion(a[0], a[1], a[2]);
-  }).catch(function(err){
-    note.className = "err";
-    note.textContent = location.protocol === "file:"
-      ? "This page needs deck.json, rules.json and cards.json, and browsers block those when you open the file directly. Use your GitHub site or the overlay app."
-      : "Couldn't load " + (err && err.message ? err.message : "the data files") + ". Check that deck.json, rules.json and cards.json sit next to index.html.";
-    if (window.console) console.error(err);
-  });
+  if (!CLOUD.configured()){ boot(); return; }
+
+  function notify(m){ if (window.appToast) window.appToast(m, 2600); else if (window.console) console.warn(m); }
+  function markUnsynced(id, on){ var d = MDC.get(id); if (!d) return; var l = MDC.list().map(function(x){ if (x.id === id){ if (on) x.unsynced = true; else delete x.unsynced; } return x; }); MDC.replaceAll(l); }
+  function enter(){
+    note.textContent = "Loading your decks…";
+    return CLOUD.loadProfile().then(function(pr){
+      MDC.scope(pr.id, pr.is_admin);
+      // The first account to sign in on this device takes the decks saved here before accounts existed.
+      var legacy = null; try { legacy = JSON.parse(localStorage.getItem("mdc-decks") || "null"); } catch (e) {}
+      if (legacy && legacy.length && !localStorage.getItem("mdc-migrated")){
+        var mine = MDC.list(); legacy.forEach(function(d){ if (!mine.some(function(x){ return x.id === d.id; })){ d.unsynced = true; mine.push(d); } });
+        MDC.replaceAll(mine); try { localStorage.setItem("mdc-migrated", pr.id); } catch (e) {}
+      }
+      return CLOUD.myDecks();
+    }).then(function(cloud){
+      var have = {}; cloud.forEach(function(d){ have[d.id] = true; });
+      var waiting = MDC.list().filter(function(d){ return d.unsynced && !have[d.id]; });
+      MDC.replaceAll(cloud.concat(waiting));
+      waiting.forEach(function(d){ CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(){}); });
+      MDC.on("put", function(d){ CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(e){ markUnsynced(d.id, true); notify("Saved on this device. Couldn't sync to your account yet (" + e.message + ")."); }); });
+      MDC.on("remove", function(id){ CLOUD.deleteDeck(id).catch(function(e){ notify("Couldn't delete it from your account (" + e.message + ")."); }); });
+      document.documentElement.classList.add("cloud");
+      boot();
+    }).catch(function(e){ if (window.console) console.error(e); fail("Couldn't load your account (" + e.message + "). Check your connection and reload."); });
+  }
+
+  // ---- sign-in screen ----
+  function authScreen(){
+    note.remove();
+    try { var th = JSON.parse(localStorage.getItem("hbc-theme") || "null"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
+    var mode = "in";
+    var box = document.createElement("div"); box.id = "authScreen";
+    box.innerHTML =
+      '<form class="authcard" novalidate>' +
+        '<div class="authbrand"><h1>Master Duel Companion</h1><p>Sign in to get your decks.</p></div>' +
+        '<div class="authseg" role="tablist"><button type="button" data-m="in" aria-selected="true">Sign in</button><button type="button" data-m="up" aria-selected="false">Create account</button></div>' +
+        '<label class="authf"><span>Username</span><input name="u" type="text" autocomplete="username" autocapitalize="off" spellcheck="false" maxlength="20" required></label>' +
+        '<label class="authf"><span>Password</span><input name="p" type="password" autocomplete="current-password" minlength="6" required></label>' +
+        '<label class="authf authup"><span>Confirm password</span><input name="p2" type="password" autocomplete="new-password" minlength="6"></label>' +
+        '<p class="autherr" role="alert" hidden></p>' +
+        '<button type="submit" class="primary authgo">Sign in</button>' +
+        '<p class="authnote authup">Your decks are saved to your account. Decks you mark Shared show in the Users tab for everyone; the app’s admin can see all decks.</p>' +
+      '</form>';
+    document.body.appendChild(box);
+    document.documentElement.classList.add("authing");
+    var f = box.querySelector("form"), e = box.querySelector(".autherr"), go = box.querySelector(".authgo");
+    function setMode(m){
+      mode = m; box.classList.toggle("up", m === "up");
+      box.querySelectorAll(".authseg button").forEach(function(b){ b.setAttribute("aria-selected", b.dataset.m === m ? "true" : "false"); });
+      go.textContent = m === "up" ? "Create account" : "Sign in";
+      f.p.setAttribute("autocomplete", m === "up" ? "new-password" : "current-password");
+      e.hidden = true;
+    }
+    box.querySelectorAll(".authseg button").forEach(function(b){ b.addEventListener("click", function(){ setMode(b.dataset.m); f.u.focus(); }); });
+    f.addEventListener("submit", function(ev){
+      ev.preventDefault();
+      var u = f.u.value.trim(), pw = f.p.value;
+      function bad(m){ e.textContent = m; e.hidden = false; }
+      if (!u || !pw) return bad("Enter a username and password.");
+      if (mode === "up"){
+        if (!CLOUD.nameOk(u)) return bad("Usernames are 3–20 letters, numbers, dots, dashes or underscores.");
+        if (pw.length < 6) return bad("Use a password with at least 6 characters.");
+        if (pw !== f.p2.value) return bad("The passwords don't match.");
+      }
+      go.disabled = true; go.textContent = mode === "up" ? "Creating…" : "Signing in…";
+      (mode === "up" ? CLOUD.signUp(u, pw) : CLOUD.signIn(u, pw)).then(function(){
+        box.remove(); document.documentElement.classList.remove("authing");
+        document.body.appendChild(note); return enter();
+      }).catch(function(x){ go.disabled = false; go.textContent = mode === "up" ? "Create account" : "Sign in"; bad(x.message); });
+    });
+    setTimeout(function(){ f.u.focus(); }, 30);
+  }
+
+  note.textContent = "Signing in…";
+  CLOUD.start().then(function(u){ if (u) return enter(); authScreen(); })
+    .catch(function(e){ if (window.console) console.error(e); fail("Couldn't reach the sign-in service (" + e.message + "). Check your connection and reload."); });
 })();
 </script>
 </body>
