@@ -1021,9 +1021,11 @@ html.deckopen #deckPane, html.findopen #cardPane{top:24px; left:8px; right:8px; 
   background:radial-gradient(120% 40% at 50% 0%, var(--panel2) 0%, var(--panel) 70%) !important; box-shadow:0 18px 44px rgba(0,0,0,.35)}
 html.deckopen #findClose, html.findopen #findClose{top:38px; right:22px; width:30px; height:30px; padding:0; display:grid; place-items:center; border-radius:50%;
   background:color-mix(in srgb, var(--bg) 60%, transparent); color:var(--muted); border:1px solid var(--line); font:600 0/1 var(--display)}
-html.deckopen #findClose::before, html.findopen #findClose::before{content:"\2715"; font-size:.8rem}
+html.deckopen #findClose::before, html.findopen #findClose::before{content:""; width:11px; height:11px; background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 1.5l9 9M10.5 1.5l-9 9' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M1.5 1.5l9 9M10.5 1.5l-9 9' stroke='black' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E") center/contain no-repeat}
 html.deckopen #findClose:hover, html.findopen #findClose:hover{color:var(--ink); border-color:var(--gold)}
-html.deckopen .deckpick, html.findopen .deckpick{padding-right:40px}
+html.deckopen .deckpick, html.findopen .deckpick{width:calc(100% - 42px)}
 html.findopen #cardPane .cdsearch{margin-right:40px}
 /* decklist drawer rows */
 html.deckopen #deckPane .deckgrp{border-top:0; border-bottom:1px solid var(--line); margin:18px 0 6px; padding:4px 2px 6px}
@@ -1061,6 +1063,17 @@ html.findopen #cardPane .cd-image img{width:100%; height:100%; object-fit:contai
     background:color-mix(in srgb, var(--pa, var(--gold)) 12%, transparent); border:1px solid color-mix(in srgb, var(--pa, var(--gold)) 45%, transparent); padding:2px 10px}
   .side.right .plate{border-top-width:3px}
 }
+.deckpick{display:flex; align-items:center; gap:10px; width:100%; box-sizing:border-box; padding:8px 12px 8px 14px !important; margin:0 0 8px;
+  background:color-mix(in srgb, var(--bg) 60%, transparent); border:1px solid var(--line); border-radius:12px; transition:border-color .15s, background .15s}
+.deckpick b{font:700 1.08rem var(--display)}
+.deckpick .caret{flex:none; width:22px; height:22px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--gold) 14%, transparent)}
+.deckpick .caret::before{content:""; width:10px; height:6px; background:var(--gold);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.deckpick:hover, .deckpick[aria-expanded="true"]{border-color:color-mix(in srgb, var(--gold) 60%, var(--line)); background:color-mix(in srgb, var(--gold) 7%, var(--bg))}
+.deckpick:hover b{color:var(--ink)}
+html.deckopen #findClose, html.findopen #findClose{top:45px; right:22px; width:34px; height:34px}
+.cd-offtext{white-space:pre-line; font-size:.86rem; line-height:1.5; color:var(--muted, inherit); margin:6px 0 0}
 </style>
 </head>
 <body>
@@ -1944,7 +1957,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var selected = load("hbc-card", "vyon");
 
   function paintDeck(){
-    deckPane.innerHTML = '<button type="button" class="deckpick" title="Switch decks, build a new one, import or export"><span class="lbl">Piloting</span><b></b><span class="caret">\u25BE</span></button><div class="sub"></div>';
+    deckPane.innerHTML = '<button type="button" class="deckpick" title="Switch decks, build a new one, import or export" aria-haspopup="true"><b></b><span class="caret" aria-hidden="true"></span></button><div class="sub"></div>';
     deckPane.querySelector(".deckpick b").textContent = PILOT_NAME;
     deckPane.querySelector(".deckpick").addEventListener("click", function(e){ e.stopPropagation(); if (deckMenu.hidden) openDeckMenu(this); else closeDeckMenu(); });
     deckPane.querySelector(".sub").textContent = MAIN_COUNT + " main, " + EXTRA_COUNT + " Extra. Select a card for details.";
@@ -2191,8 +2204,32 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (x.b) meta.appendChild(mk("span", "pill banpill ban-" + x.b, BAN_NAME[x.b] + (x.b === "F" ? "" : " \u00B7 " + BAN_MAX[x.b])));
       if (x.ar) meta.appendChild(mk("span", "pill", x.ar));
       meta.appendChild(mk("span", "pill", "Not in your deck"));
+      // Name, Attribute, level/type and stats, same layout as cards in your deck.
+      var isST = x.f === "spell" || x.f === "trap", aw = x.a ? x.a.toLowerCase() : null;
+      if (aw) plate.classList.add("pa-" + aw); else if (isST) plate.classList.add("pa-" + x.f);
+      var head = mk("div", "plate-head"); head.appendChild(mk("h2", "cd-title", x.n));
+      var ab = mk("span", "plate-attr");
+      if (isST) ab.textContent = x.f === "spell" ? "SPELL" : "TRAP"; else if (aw){ ab.appendChild(attrDot(aw)); ab.appendChild(document.createTextNode(x.a)); }
+      if (ab.textContent) head.appendChild(ab);
+      plate.appendChild(head);
+      var line = mk("div", "plate-line");
+      if (x.lk) line.appendChild(mk("span", "stars", "Link-" + x.lk));
+      else if (x.lv) line.appendChild(mk("span", "stars", (x.f === "xyz" ? "\u2605".repeat(Math.min(x.lv, 12)) + "  Rank " : "\u2605".repeat(Math.min(x.lv, 12)) + "  Level ") + x.lv));
+      var tl = isST ? (x.r ? x.r + " " : "") + (x.f === "spell" ? "Spell" : "Trap") : (x.tl || []).join(" / ");
+      if (tl) line.appendChild(mk("span", "tags", tl));
+      plate.appendChild(line);
+      if (!isST && x.atk != null){
+        var stats = mk("div", "plate-stats");
+        var sa = mk("div", "stat"); sa.appendChild(mk("span", "k", "ATK")); sa.appendChild(mk("span", "v", String(x.atk))); stats.appendChild(sa);
+        var sd = mk("div", "stat"); sd.appendChild(mk("span", "k", x.lk ? "LINK" : "DEF")); sd.appendChild(mk("span", "v", String(x.lk ? x.lk : (x.def != null ? x.def : "?")))); stats.appendChild(sd);
+        plate.appendChild(stats);
+      }
       plate.appendChild(meta);
       holder.appendChild(plate);
+      if (x.d){
+        var off = mk("section", "cd-block cd-official"); off.appendChild(mk("h3", "cd-sec", "Official text"));
+        off.appendChild(mk("p", "cd-offtext", x.d)); holder.appendChild(off);
+      }
       holder.appendChild(mk("div", "cd-src", "Official card text from the YGOPRODeck database."));
     });
   }
@@ -3282,7 +3319,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (narrow){
       document.documentElement.classList.add("findopen");
       var x = document.getElementById("findClose");
-      if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = "✕ Close";
+      if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = ""; x.setAttribute("aria-label", "Close"); x.title = "Close";
         x.addEventListener("click", closeFind); document.body.appendChild(x); }
     }
     if (noFocus) return;
@@ -3291,7 +3328,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function closeFind(){ document.documentElement.classList.remove("findopen", "deckopen"); }
   function closeBtn(){
     var x = document.getElementById("findClose");
-    if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = "\u2715 Close";
+    if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = ""; x.setAttribute("aria-label", "Close"); x.title = "Close";
       x.addEventListener("click", closeFind); document.body.appendChild(x); }
   }
   function openDeck(){ closeFind(); closeBtn(); document.documentElement.classList.add("deckopen"); }
