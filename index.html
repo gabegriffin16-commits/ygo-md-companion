@@ -1054,6 +1054,13 @@ html.findopen #cardPane .cdsearch input{border-color:var(--line)}
 .fr-effect{--fr1:#6E4A35; --fr2:#A9744F} .fr-normal{--fr1:#7A6638; --fr2:#B89A5A} .fr-fusion{--fr1:#4E3C6E; --fr2:#7C63A3} .fr-link{--fr1:#2D4A6A; --fr2:#4F79A3} .fr-spell{--fr1:#285C52; --fr2:#3F8E7D} .fr-trap{--fr1:#5E2F55; --fr2:#935081}
 html.findopen #cardPane .plate .cd-image{overflow:hidden; place-items:center}
 html.findopen #cardPane .cd-image img{width:100%; height:100%; object-fit:contain}
+/* full view matches the compact drawers */
+@media (min-width:1220px){
+  .side.left .dl-item[aria-current="true"]{outline:0 !important; background:color-mix(in srgb, var(--gold) 12%, transparent) !important; box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--gold) 40%, transparent) !important}
+  .side.right .plate-attr{display:inline-flex; align-items:center; font:600 .74rem var(--display); color:color-mix(in srgb, var(--pa, var(--gold)) 75%, var(--ink));
+    background:color-mix(in srgb, var(--pa, var(--gold)) 12%, transparent); border:1px solid color-mix(in srgb, var(--pa, var(--gold)) 45%, transparent); padding:2px 10px}
+  .side.right .plate{border-top-width:3px}
+}
 </style>
 </head>
 <body>
