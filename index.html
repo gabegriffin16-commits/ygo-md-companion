@@ -756,7 +756,6 @@ html.fadebg .vstips, html.fadebg .vsbtn{background:color-mix(in srgb, var(--pane
       <div class="wrap">
         <button class="tab" role="tab" id="t-hand" aria-selected="true" aria-controls="tab-hand" data-tab="hand">Duel</button>
         <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
-        <button class="tab" role="tab" id="t-extra" aria-selected="false" aria-controls="tab-extra" data-tab="extra">Extra Deck</button>
         <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
         <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
       </div>
@@ -803,15 +802,6 @@ html.fadebg .vstips, html.fadebg .vsbtn{background:color-mix(in srgb, var(--pane
   </section>
 
   <!-- EXTRA -->
-  <section id="tab-extra" hidden aria-labelledby="t-extra">
-    <div class="filter" role="group" aria-label="Filter Extra Deck">
-      <button type="button" data-f="all" aria-pressed="true">All</button>
-      <button type="button" data-f="end">End board</button>
-      <button type="button" data-f="break">Board breakers</button>
-      <button type="button" data-f="bridge">Stepping stones</button>
-    </div>
-    <div id="extraList"></div>
-  </section>
 
   <!-- CHECKPOINTS -->
   <section id="tab-check" hidden aria-labelledby="t-check">
@@ -1145,7 +1135,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     window.scrollTo(0,0);
   }
   tabs.forEach(function(t){ t.addEventListener("click", function(){ showTab(t.dataset.tab); }); });
-  showTab(load("hbc-tab", "hand"));
+  var savedTab = load("hbc-tab", "hand");
+  if (!document.getElementById("tab-" + savedTab)) savedTab = "hand";   // e.g. the old Extra Deck tab
+  showTab(savedTab);
 
   // ---------- cards ----------
   var hand = load("hbc-hand", {});
@@ -1378,28 +1370,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var ATTR_NAME = {fire:"\uD83D\uDD34 FIRE", wind:"\uD83D\uDFE2 WIND", light:"\uD83D\uDFE1 LIGHT", dark:"\uD83D\uDFE3 DARK"};
   document.getElementById("elementRow").textContent = "\uD83D\uDD34 \uD83D\uDFE2 \uD83D\uDFE1 \uD83D\uDFE3 \uD83D\uDFE4";
 
-  var exFilter = "all";
-  function paintExtra(){
-    var list = document.getElementById("extraList"); list.innerHTML = "";
-    EXTRA.filter(function(x){ return exFilter === "all" || x.f.indexOf(exFilter) >= 0; }).forEach(function(x){
-      var a = ATTR[x.n];
-      var d = document.createElement("div"); d.className = "card" + (a ? " attr a-" + a : "");
-      d.innerHTML = '<div class="head"><h3></h3>' + (a ? '<span class="attrtag">' + ATTR_NAME[a] + '</span>' : '') + '</div><div class="mat"></div><dl><dt>When</dt><dd class="w"></dd><dt>Why</dt><dd class="y"></dd></dl>';
-      d.querySelector("h3").textContent = x.n + (x.c > 1 ? "  (\u00D7" + x.c + ")" : "");
-      d.querySelector(".mat").textContent = x.m;
-      d.querySelector(".w").textContent = x.w;
-      d.querySelector(".y").textContent = x.y;
-      list.appendChild(d);
-    });
-  }
-  document.querySelectorAll(".filter button").forEach(function(b){
-    b.addEventListener("click", function(){
-      exFilter = b.dataset.f;
-      document.querySelectorAll(".filter button").forEach(function(o){ o.setAttribute("aria-pressed", o === b ? "true" : "false"); });
-      paintExtra();
-    });
-  });
-  paintExtra();
 
   // ---------- checkpoints ----------
   // p: 1 = protect, 2 = situational, 3 = bait
