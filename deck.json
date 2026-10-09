@@ -324,14 +324,14 @@
     "Burns for a destroyed monster's original ATK when it wins a battle."
    ],
    "notes": [
-    "Favorite Contact on their turn, or Polymerization going second.",
+    "Favorite Contact on their turn. Going second: Instant Contact into Flame Wingman, then Miracle Fusion with Neos from your GY.",
     "More Attributes on the field means more destruction."
    ],
    "role": [
     "end",
     "break"
    ],
-   "when": "On their turn through Favorite Contact, or on your turn with Polymerization before attacking.",
+   "when": "On their turn through Favorite Contact, or going second with Miracle Fusion (Neos in GY + Flame Wingman) before attacking.",
    "why": "Destroys their cards up to the number of different Attributes on the field. Can't be destroyed by card effects."
   },
   {

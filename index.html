@@ -1141,10 +1141,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     "Last: Fusion Destiny, Malicious + Malicious from Deck into Destroyer Phoenix Enforcer."
   ];
   var BREAKER = [
-    "Get Neos into your GY first (Vyon's dump or a Faris discard).",
+    "You need Instant Contact plus a starter for the core engine. Already holding Miracle Fusion? You can skip step 3.",
+    "Run the core engine to Vyon. Have Vyon dump Neos to the GY (or discard Neos to Faris). Neos has to be in the GY, not your hand.",
+    "Vyon: banish a HERO from your GY (not Neos) to add Polymerization. Polymerization: Stratos + Increase into Sunrise, which searches Miracle Fusion.",
     "Instant Contact (1000 LP): summon Flame Wingman from your Extra Deck. With Neos in the GY it keeps its effects and can attack.",
-    "Polymerization: Neos from hand + Flame Wingman into Shining Neos Wingman. It destroys their cards up to the number of different Attributes on the field.",
-    "Attack. Sunrise or Trinity can clean up what's left."
+    "Miracle Fusion: banish Neos from your GY + Flame Wingman from the field into Shining Neos Wingman. It destroys their cards up to the number of different Attributes among all monsters on the field.",
+    "Attack. Sunrise destroys one more card when another of your HEROs attacks (once per turn)."
   ];
   var BRICK = [
     "Going first: set Increase if you have it. If it's destroyed and you take damage, it returns to your backrow ready for the engine next turn.",
@@ -1271,7 +1273,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       plans.push({t:"Start with Vyon", s:ENTRIES[5].s});
     }
 
-    if (turn === "second" && (n("ic") || n("poly")) ){
+    if (turn === "second" && n("ic")){
       plans.push({t:"Breaker plan for going second", s:BREAKER, cls:"alt"});
     }
 
