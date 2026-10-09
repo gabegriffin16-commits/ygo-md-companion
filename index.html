@@ -920,6 +920,8 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 </div>
 
 <script>
+/* Compressed art for every Master Duel card (421x614 AVIF), hosted by the ygo-md-card-art repo. */
+window.ART_BASE = "https://gabegriffin16-commits.github.io/ygo-md-card-art/art/";
 /* YGOPRODeck card image client (inlined for local use). */
 /* Card IDs from YGOPRODeck, used to find images/<id>.jpg in the same folder as this page. */
 window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045474, "A Hero Lives": 8949584, "Ash Blossom & Joyous Spring": 14558127, "Destiny HERO - Dangerous": 30757127, "Destiny HERO - Destroyer Phoenix Enforcer": 60461804, "Destiny HERO - Dystopia": 90579153, "Destiny HERO - Malicious": 9411399, "E - Emergency Call": 213326, "Elemental HERO Flame Wingman": 35809262, "Elemental HERO Flame Wingman - Infernal Rage": 93347961, "Elemental HERO Neos": 89943723, "Elemental HERO Shadow Mist": 50720316, "Elemental HERO Shining Neos Wingman": 56733747, "Elemental HERO Stratos": 40044918, "Elemental HERO Sunrise": 22908820, "Favorite Contact": 75047173, "Fusion Destiny": 52947044, "Instant Contact": 16169772, "Maxx \"C\"": 23434538, "Miracle Fusion": 45906428, "Polymerization": 24094653, "Vision HERO Faris": 18094166, "Vision HERO Increase": 22865492, "Vision HERO Trinity": 46759931, "Vision HERO Vyon": 27780618, "Xtra HERO Cross Crusader": 58004362, "Xtra HERO Infernal Devicer": 19324993, "Xtra HERO Wonder Driver": 1948619};
@@ -978,11 +980,15 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
     var localId = window.CARD_IDS && window.CARD_IDS[name];
     if (localId){
       img.onload = function(){ if (img._tok === token) set("ready"); };
-      img.onerror = function(){ if (img._tok === token) remote(); };
+      img.onerror = function(){ if (img._tok === token) hosted(localId); };
       img.fetchPriority = "high"; img.alt = name; img.src = "images/" + localId + ".jpg";
       return;
     }
     remote();
+    function hosted(id){
+      img.onerror = function(){ if (img._tok === token) remote(); };
+      img.src = window.ART_BASE + id + ".avif";
+    }
     function remote(){
     getCards([name]).then(function(m){
       if (img._tok !== token) return;
@@ -1010,7 +1016,9 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
         }).catch(done);
       };
       if (!id) return fallback();
-      var im = new Image(); im.onload = done; im.onerror = fallback; im.src = "images/" + id + ".jpg";
+      var im = new Image(); im.onload = done;
+      im.onerror = function(){ var a = new Image(); a.onload = done; a.onerror = fallback; a.src = window.ART_BASE + id + ".avif"; };
+      im.src = "images/" + id + ".jpg";
     }
     for (var k = 0; k < 4; k++) nextOne();
   }
@@ -1921,7 +1929,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var img = mk("img"); img.alt = x.n; img.width = 421; img.height = 614;
       fig.appendChild(img); plate.appendChild(fig);
       img.onload = function(){ fig.dataset.state = "ready"; };
-      img.onerror = function(){ if (fig.isConnected) fig.replaceWith(cardFace(x)); };
+      img.onerror = function(){
+        if (!img.dataset.tried){ img.dataset.tried = "1"; img.src = window.ART_BASE + x.id + ".avif"; return; }
+        if (fig.isConnected) fig.replaceWith(cardFace(x));
+      };
       img.src = "images/" + x.id + ".jpg";
       var meta = mk("div", "cd-meta");
       if (x.md) meta.appendChild(mk("span", "pill rar r-" + x.md, x.md)); else meta.appendChild(mk("span", "pill", "Not in Master Duel"));
