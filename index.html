@@ -13,6 +13,7 @@
   var th = rd("hbc-theme"); if (th) h.setAttribute("data-theme", OLD[th] || th);
   if (rd("hbc-compact") || /[?&]compact/.test(location.search)) h.classList.add("compact");
   if (rd("hbc-fade")) h.classList.add("fadebg");
+  h.setAttribute("data-bg", rd("hbc-bg") || "bubble");
   if (/Electron/i.test(navigator.userAgent)) h.classList.add("in-overlay");
   h.classList.add("booting");
 })();
@@ -1016,7 +1017,7 @@ header.top{border-bottom:0; box-shadow:inset 0 -1px 0 color-mix(in srgb, var(--g
 #ovBar .thememenu.inbar .themebtn{height:16px; padding:0 2px; gap:5px; border:0; border-radius:0; background:none !important; color:inherit;
   font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.8}
 #ovBar .thememenu.inbar .themebtn:hover, #ovBar .thememenu.inbar .themebtn[aria-expanded="true"]{opacity:1; color:var(--gold)}
-#ovBar .thememenu.inbar .tbub{width:10px; height:10px; border-width:1px}
+#ovBar .thememenu.inbar .themebtn .tbub{width:10px; height:10px; border-width:1px}
 #ovBar .thememenu.inbar .caret{font-size:8px; color:inherit}
 #ovBar .themepop{z-index:10000; text-transform:none; letter-spacing:normal}
 /* With theme, fade and the full/compact arrow up in the app bar, the banner is just the tabs (plus Deck/Find/Log in compact). */
@@ -1262,7 +1263,7 @@ html.booting .layout, html.booting #themePop{visibility:hidden}
 #ovBar #ovRight #ovK{width:20px; justify-content:center; padding:0}
 #ovBar .ovlab, #ovBar .acctbtn.inbar span, #ovBar .thememenu.inbar .tname{line-height:16px; display:inline-block; height:16px}
 #ovBar .thememenu.inbar .themebtn{display:inline-flex; align-items:center; height:16px}
-#ovBar .thememenu.inbar .tbub{display:block}
+#ovBar .thememenu.inbar .themebtn .tbub{display:block}
 #ovBar .thememenu.inbar .caret{display:inline-flex; align-items:center; height:16px; margin-left:1px}
 #ovBar .thememenu.inbar .caret svg{display:block}
 html.compact #ovBar .thememenu.inbar .tname{max-width:none}
@@ -1290,15 +1291,145 @@ html.in-overlay.deckopen #deckPane, html.in-overlay.findopen #cardPane{top:30px}
 #ovBar .setlbl{font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; display:inline-block}
 html:not(.compact) #ovBar #ovRight{gap:14px}
 /* optical nudges, measured at 4x: icons, bubbles and arrows share the labels' center */
-#ovBar .thememenu.inbar .tbub{transform:translateY(-.75px)}
+#ovBar .thememenu.inbar .themebtn .tbub{transform:translateY(-.75px)}
 #ovBar .thememenu.inbar .caret svg{transform:translateY(-.65px)}
 #ovBar #ovUsers svg{transform:translateY(-.75px)}
 #ovBar #acctBtn svg{transform:translateY(-.85px)}
-.themeitem .tbub{transform:translateY(-1px)}
+.themeitem .tbub, .bgitem .bgchip{transform:translateY(-1.6px)}
 html.compact #ovBar #ovRight{gap:10px}
 html.compact #ovBar #ovLeft{gap:4px}
 html.compact #ovBar #ovLeft .thememenu.inbar{margin-left:4px}
 html.compact #ovBar #ovRight{gap:9px}
+/* ---- moving backgrounds: html[data-bg] picks the layer (all transform-only so the game keeps its frames) ---- */
+html[data-bg="none"] .ambient{display:none}
+html[data-bg]:not([data-bg="bubble"]):not([data-bg="none"]) .ambient{background:none; animation:none}
+.ambient::before, .ambient::after{content:""; position:absolute; inset:0; pointer-events:none}
+/* Smoke: soft grey-tinted wisps drifting sideways */
+html[data-bg="smoke"] .ambient::before{inset:-10%;
+  background:
+    radial-gradient(38% 16% at 22% 30%, color-mix(in srgb, var(--muted) 34%, transparent), transparent 70%),
+    radial-gradient(30% 14% at 70% 22%, color-mix(in srgb, var(--ink) 16%, transparent), transparent 70%),
+    radial-gradient(44% 18% at 55% 68%, color-mix(in srgb, var(--muted) 30%, transparent), transparent 72%),
+    radial-gradient(26% 12% at 12% 78%, color-mix(in srgb, var(--ink) 14%, transparent), transparent 70%);
+  filter:blur(26px); animation:smokeA 46s ease-in-out infinite alternate}
+html[data-bg="smoke"] .ambient::after{inset:-10%;
+  background:
+    radial-gradient(34% 15% at 80% 55%, color-mix(in srgb, var(--muted) 28%, transparent), transparent 70%),
+    radial-gradient(28% 12% at 35% 48%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
+    radial-gradient(40% 16% at 60% 88%, color-mix(in srgb, var(--ink) 12%, transparent), transparent 70%);
+  filter:blur(32px); animation:smokeB 58s ease-in-out infinite alternate}
+@keyframes smokeA{ from{transform:translate3d(-8%,0,0) scale(1)} to{transform:translate3d(9%,-3%,0) scale(1.12)} }
+@keyframes smokeB{ from{transform:translate3d(7%,2%,0) scale(1.08)} to{transform:translate3d(-9%,-2%,0) scale(1)} }
+/* Aurora: tall soft curtains in the theme's colors, swaying */
+html[data-bg="aurora"] .ambient::before{inset:-5% -40%;
+  background:linear-gradient(100deg, transparent 8%, color-mix(in srgb, var(--sky) 30%, transparent) 18%, transparent 30%,
+    color-mix(in srgb, var(--gold) 24%, transparent) 44%, transparent 56%, color-mix(in srgb, var(--amb, var(--dark)) 32%, transparent) 70%, transparent 84%,
+    color-mix(in srgb, var(--sky) 22%, transparent) 94%, transparent 100%);
+  filter:blur(30px); transform-origin:50% 0; animation:auroraSway 26s ease-in-out infinite alternate;
+  -webkit-mask:linear-gradient(transparent 0%, #000 18%, #000 55%, transparent 90%); mask:linear-gradient(transparent 0%, #000 18%, #000 55%, transparent 90%)}
+@keyframes auroraSway{ 0%{transform:translate3d(-10%,0,0) skewX(-8deg)} 100%{transform:translate3d(10%,3%,0) skewX(8deg)} }
+/* Nebula: a slow-turning swirl of the theme's colors */
+html[data-bg="nebula"] .ambient::before{inset:5%;
+  background:conic-gradient(from 0deg at 50% 50%, color-mix(in srgb, var(--gold) 26%, transparent), transparent 18%, color-mix(in srgb, var(--sky) 28%, transparent) 33%, transparent 50%,
+    color-mix(in srgb, var(--amb, var(--dark)) 34%, transparent) 66%, transparent 82%, color-mix(in srgb, var(--gold) 26%, transparent));
+  border-radius:50%; filter:blur(70px); animation:nebulaSpin 120s linear infinite}
+html[data-bg="nebula"] .ambient::after{background:radial-gradient(30% 30% at 50% 50%, color-mix(in srgb, var(--bg) 70%, transparent), transparent 70%)}
+@keyframes nebulaSpin{ to{transform:rotate(360deg)} }
+/* Tide: broad swells rising and falling from below */
+html[data-bg="tide"] .ambient::before{inset:10% -10% 0;
+  background:radial-gradient(70% 30% at 30% 72%, color-mix(in srgb, var(--sky) 42%, transparent), transparent 70%),
+    radial-gradient(60% 26% at 76% 80%, color-mix(in srgb, var(--amb, var(--dark)) 44%, transparent), transparent 70%),
+    radial-gradient(80% 18% at 50% 60%, color-mix(in srgb, var(--sky) 18%, transparent), transparent 75%);
+  filter:blur(22px); animation:tideA 14s ease-in-out infinite alternate}
+html[data-bg="tide"] .ambient::after{inset:0 -10% 30%;
+  background:radial-gradient(55% 30% at 60% 40%, color-mix(in srgb, var(--gold) 22%, transparent), transparent 70%),
+    radial-gradient(45% 22% at 25% 30%, color-mix(in srgb, var(--sky) 20%, transparent), transparent 70%);
+  filter:blur(28px); animation:tideB 20s ease-in-out infinite alternate}
+@keyframes tideA{ from{transform:translate3d(-4%,6%,0) scaleY(.92)} to{transform:translate3d(4%,-4%,0) scaleY(1.06)} }
+@keyframes tideB{ from{transform:translate3d(3%,-3%,0)} to{transform:translate3d(-4%,4%,0)} }
+/* Embers: tiny sparks drifting upward over a warm glow */
+html[data-bg="embers"] .ambient{background:radial-gradient(60% 38% at 50% 95%, color-mix(in srgb, var(--gold) 30%, transparent), transparent 70%), radial-gradient(45% 32% at 18% 88%, color-mix(in srgb, var(--amb, var(--dark)) 26%, transparent), transparent 70%) !important}
+html[data-bg="embers"] .ambient::before{inset:0 0 -340px;
+  background-image:radial-gradient(2.2px 2.2px at 165px 77px, color-mix(in srgb, var(--gold) 63%, transparent), transparent),
+    radial-gradient(1.6px 1.6px at 37px 274px, color-mix(in srgb, var(--gold) 97%, transparent), transparent),
+    radial-gradient(1.9px 1.9px at 29px 259px, color-mix(in srgb, var(--sky) 65%, transparent), transparent),
+    radial-gradient(1.6px 1.6px at 222px 214px, color-mix(in srgb, var(--gold) 65%, transparent), transparent),
+    radial-gradient(1.6px 1.6px at 282px 217px, color-mix(in srgb, var(--gold) 96%, transparent), transparent),
+    radial-gradient(2.7px 2.7px at 63px 114px, color-mix(in srgb, var(--sky) 97%, transparent), transparent),
+    radial-gradient(2.6px 2.6px at 31px 295px, color-mix(in srgb, var(--gold) 63%, transparent), transparent),
+    radial-gradient(2.6px 2.6px at 113px 23px, color-mix(in srgb, var(--gold) 68%, transparent), transparent),
+    radial-gradient(1.8px 1.8px at 148px 214px, color-mix(in srgb, var(--sky) 67%, transparent), transparent),
+    radial-gradient(2.6px 2.6px at 292px 157px, color-mix(in srgb, var(--gold) 100%, transparent), transparent),
+    radial-gradient(2.6px 2.6px at 92px 52px, color-mix(in srgb, var(--gold) 100%, transparent), transparent);
+  background-size:340px 340px; animation:emberRise 30s linear infinite; opacity:.9}
+html[data-bg="embers"] .ambient::after{inset:0 0 -460px;
+  background-image:radial-gradient(2.7px 2.7px at 132px 148px, color-mix(in srgb, var(--gold) 100%, transparent), transparent),
+    radial-gradient(3.2px 3.2px at 410px 434px, color-mix(in srgb, var(--amb, var(--dark)) 100%, transparent), transparent),
+    radial-gradient(1.8px 1.8px at 118px 341px, color-mix(in srgb, var(--gold) 74%, transparent), transparent),
+    radial-gradient(1.8px 1.8px at 328px 375px, color-mix(in srgb, var(--amb, var(--dark)) 64%, transparent), transparent),
+    radial-gradient(1.9px 1.9px at 272px 433px, color-mix(in srgb, var(--gold) 78%, transparent), transparent),
+    radial-gradient(1.8px 1.8px at 15px 220px, color-mix(in srgb, var(--amb, var(--dark)) 100%, transparent), transparent),
+    radial-gradient(3.2px 3.2px at 311px 7px, color-mix(in srgb, var(--gold) 69%, transparent), transparent),
+    radial-gradient(3.0px 3.0px at 43px 446px, color-mix(in srgb, var(--amb, var(--dark)) 76%, transparent), transparent),
+    radial-gradient(2.9px 2.9px at 423px 230px, color-mix(in srgb, var(--gold) 68%, transparent), transparent);
+  background-size:460px 460px; animation:emberRise2 46s linear infinite; opacity:.7}
+@keyframes emberRise{ from{transform:translate3d(0,0,0)} to{transform:translate3d(0,-340px,0)} }
+@keyframes emberRise2{ from{transform:translate3d(0,0,0)} to{transform:translate3d(0,-460px,0)} }
+@media (prefers-reduced-motion: reduce){ .ambient::before, .ambient::after{animation:none !important} }
+/* background preview chips */
+.bgchip{display:inline-block; width:16px; height:16px; border-radius:50%; flex:none; border:1.5px solid var(--line); box-sizing:border-box; background:var(--bg); position:relative; overflow:hidden}
+.bgc-bubble{background:radial-gradient(circle at 30% 30%, var(--gold) 0 22%, transparent 45%), radial-gradient(circle at 72% 68%, var(--sky) 0 24%, transparent 50%), var(--bg)}
+.bgc-smoke{background:radial-gradient(80% 35% at 40% 40%, color-mix(in srgb, var(--muted) 70%, transparent), transparent 70%), radial-gradient(70% 30% at 60% 70%, color-mix(in srgb, var(--ink) 35%, transparent), transparent 70%), var(--bg)}
+.bgc-aurora{background:linear-gradient(100deg, var(--bg) 10%, color-mix(in srgb, var(--sky) 70%, var(--bg)) 35%, var(--bg) 55%, color-mix(in srgb, var(--gold) 65%, var(--bg)) 75%, var(--bg) 95%)}
+.bgc-nebula{background:conic-gradient(var(--gold), var(--bg) 25%, var(--sky) 45%, var(--bg) 65%, var(--amb, var(--dark)) 85%, var(--gold))}
+.bgc-tide{background:radial-gradient(90% 60% at 40% 100%, var(--sky), transparent 70%), radial-gradient(70% 50% at 80% 100%, var(--amb, var(--dark)), transparent 70%), var(--bg)}
+.bgc-embers{background:radial-gradient(1.6px 1.6px at 30% 40%, var(--gold), transparent), radial-gradient(1.6px 1.6px at 65% 25%, var(--gold), transparent), radial-gradient(1.4px 1.4px at 55% 70%, var(--gold), transparent), radial-gradient(80% 50% at 50% 100%, color-mix(in srgb, var(--gold) 45%, var(--bg)), var(--bg) 75%)}
+.bgc-none{background:var(--bg)}
+/* theme menu: Background section under the themes */
+.themepop .bgsec .bggrid{display:grid; grid-template-columns:1fr 1fr; gap:0 4px}
+html:not(.compact) #ovBar .themepop .bgsec{grid-column:1 / -1; border-top:1px solid var(--line); margin-top:4px; padding-top:2px}
+html:not(.compact) #ovBar .themepop .bgsec .bggrid{grid-template-columns:repeat(4, 1fr)}
+html.compact .themepop .bgsec, #ovBar .themepop .bgsec{border-top:1px solid var(--line); margin-top:4px; padding-top:2px}
+.bgitem[aria-checked="true"]{color:var(--gold); font-weight:600}
+/* ---- sign-in screen: Remember me row, theme + background boxes under the card ---- */
+#authScreen{align-content:center; gap:10px}
+#authScreen > *{width:min(380px, 100%)}
+.authrow{display:flex; align-items:center; gap:12px; margin-top:2px}
+.authrow .authgo{flex:1 1 0; margin:0}
+.authrem{flex:1 1 0; height:42px; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:0 14px; border:1px solid var(--line); border-radius:12px;
+  background:var(--bg); color:var(--ink); font:500 .9rem var(--body); cursor:pointer; user-select:none}
+.authrem:hover{border-color:color-mix(in srgb, var(--gold) 55%, var(--line))}
+.authrem input{position:absolute; opacity:0; width:0; height:0}
+.authbox{flex:none; width:18px; height:18px; box-sizing:border-box; border-radius:5px; border:1.5px solid color-mix(in srgb, var(--muted) 70%, var(--line)); display:grid; place-items:center; transition:background .15s, border-color .15s}
+.authbox::after{content:""; width:10px; height:7px; background:#1B1640; opacity:0;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 7'%3E%3Cpath d='M1 3.6l2.6 2.4L9 1' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 7'%3E%3Cpath d='M1 3.6l2.6 2.4L9 1' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.authrem input:checked + .authbox{background:var(--gold); border-color:var(--gold)}
+.authrem input:checked + .authbox::after{opacity:1}
+.authrem input:focus-visible + .authbox{outline:2px solid var(--gold); outline-offset:2px}
+.authsels{display:flex; flex-direction:column; gap:10px}
+.authsels .thememenu{position:relative; width:100%}
+.authsels .themebtn{width:100%; height:44px; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:0 8px 0 14px; border-radius:12px; border:1px solid var(--line);
+  background:var(--panel); color:var(--ink); font:600 .9rem var(--display); box-shadow:0 10px 26px rgba(0,0,0,.2); cursor:pointer; text-align:left}
+.authsels .themebtn:hover, .authsels .themebtn[aria-expanded="true"]{border-color:color-mix(in srgb, var(--gold) 60%, var(--line))}
+.authsels .asl{flex:none; width:86px; font:600 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+.authsels .tbub, .authsels .bgchip{width:18px; height:18px; transform:none}
+.authsels .tname{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.authsels .caret{flex:none; width:26px; height:26px; border-radius:50%; display:grid; place-items:center; color:var(--gold); background:color-mix(in srgb, var(--gold) 14%, transparent)}
+.authsels .caret svg{display:block}
+.authsels .themepop{position:fixed; z-index:120}
+.authsels .themepop .bgsec{display:none}
+.authsels .themepop:not([hidden]){display:grid; grid-template-columns:1fr 1fr; gap:0 8px; min-width:min(380px, calc(100vw - 12px))}
+.authsels .bgpop:not([hidden]){grid-template-columns:1fr 1fr; gap:0 4px; padding:6px}
+html.authing #ovBar #ovLeft .thememenu{display:none}
+/* the center column sits the same distance below the bar as the side panels */
+@media (min-width:1220px){
+  html:not(.compact) .center main{padding-top:0 !important}
+  html:not(.compact) header.top{margin-top:22px !important}
+}
+.authrem{flex:0 0 auto; white-space:nowrap}
+.authrow .authgo{flex:1 1 auto}
+#ovBar .themepop .tbub, #ovBar .themepop .bgchip{width:16px; height:16px}
 </style>
 </head>
 <body>
@@ -1874,6 +2005,33 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     col.appendChild(b);
   });
+  // ---- moving backgrounds (picked under the themes; "None" is the plain theme color) ----
+  var BACKGROUNDS = [
+    {id:"bubble", name:"Bubble"}, {id:"smoke", name:"Smoke"}, {id:"aurora", name:"Aurora"},
+    {id:"nebula", name:"Nebula"}, {id:"tide", name:"Tide"}, {id:"embers", name:"Embers"}, {id:"none", name:"None"}];
+  function curBg(){ var b = load("hbc-bg", "bubble"); return BACKGROUNDS.some(function(x){ return x.id === b; }) ? b : "bubble"; }
+  function setBg(id){ save("hbc-bg", id); document.documentElement.setAttribute("data-bg", id); paintBgs(); }
+  function bgChip(id){ var c = document.createElement("span"); c.className = "bgchip bgc-" + id; return c; }
+  var bgSec = document.createElement("div"); bgSec.className = "themecol bgsec"; bgSec.appendChild(Object.assign(document.createElement("div"), {className:"themegrp", textContent:"Background"}));
+  var bgGrid = document.createElement("div"); bgGrid.className = "bggrid"; bgSec.appendChild(bgGrid);
+  function bgButtons(into, after){
+    BACKGROUNDS.forEach(function(bg){
+      var b = document.createElement("button"); b.type = "button"; b.className = "themeitem bgitem"; b.dataset.bg = bg.id; b.setAttribute("role", "menuitemradio");
+      b.appendChild(bgChip(bg.id)); b.appendChild(document.createTextNode(bg.name));
+      b.addEventListener("click", function(e){ e.stopPropagation(); setBg(bg.id); if (after) after(); });
+      into.appendChild(b);
+    });
+  }
+  bgButtons(bgGrid, closeTheme);
+  themePop.appendChild(bgSec);
+  function paintBgs(){
+    var cur = curBg(), nm = (BACKGROUNDS.filter(function(x){ return x.id === cur; })[0] || BACKGROUNDS[0]).name;
+    document.querySelectorAll(".bgitem").forEach(function(b){ b.setAttribute("aria-checked", b.dataset.bg === cur ? "true" : "false"); });
+    document.querySelectorAll(".bgname").forEach(function(e){ e.textContent = nm; });
+    document.querySelectorAll(".bgnow").forEach(function(e){ e.className = "bgchip bgnow bgc-" + cur; });
+  }
+  document.documentElement.setAttribute("data-bg", curBg()); paintBgs();
+
   var fadeItem = document.createElement("button");
   fadeItem.type = "button"; fadeItem.className = "fadeitem fadetog"; fadeItem.id = "fadeBtn"; fadeItem.setAttribute("role", "switch");
   fadeItem.innerHTML = '<span>Fade</span><span class="sw" aria-hidden="true"></span>';
@@ -2019,7 +2177,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         if (!el.querySelector(".ovlab")){ el.textContent = ""; var ic = nodes("span", "ovic"); ic.innerHTML = BAR_ICON[id]; el.appendChild(ic); el.appendChild(nodes("span", "ovlab", LABELS[id])); }
         left.appendChild(el);
       });
-      var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); left.appendChild(tm);
+      var tm = document.getElementById("themeMenu");
+      if (!document.getElementById("authSel")){ tm.classList.add("inbar"); left.appendChild(tm); }
       var paintExpand = function(){ var f = document.getElementById("ovF"); if (!f) return; var c = document.documentElement.classList.contains("compact");
         var l = f.querySelector(".ovlab"); if (l) l.textContent = c ? "Expand" : "Compact";
         var ic = f.querySelector(".ovic"); if (ic && ic.dataset.m !== String(c)){ ic.dataset.m = String(c); ic.innerHTML = c ? BAR_ICON.ovF : BAR_ICON.ovFin; } };
@@ -2101,7 +2260,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
     if (open){ var r = themeBtn.getBoundingClientRect();   // fixed so the header can't clip it
       themePop.style.top = (r.bottom + 6) + "px";
-      if (document.getElementById("themeMenu").classList.contains("inbar")){ themePop.style.left = Math.max(6, r.left) + "px"; themePop.style.right = "auto"; }
+      if (document.getElementById("themeMenu").classList.contains("authsel")){ themePop.style.left = Math.max(6, Math.min(r.left, window.innerWidth - themePop.offsetWidth - 6)) + "px"; themePop.style.right = "auto"; }
+      else if (document.getElementById("themeMenu").classList.contains("inbar")){ themePop.style.left = Math.max(6, r.left) + "px"; themePop.style.right = "auto"; }
       else { themePop.style.left = "auto"; themePop.style.right = Math.max(6, window.innerWidth - r.right) + "px"; } }
   });
   document.addEventListener("click", function(e){ if (!themePop.hidden && !e.target.closest("#themeMenu")) closeTheme(); });
@@ -4742,6 +4902,29 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   })();
 
   syncGlobals(); paintChips(); paintTurn(); renderDuel();
+  // Signed out: the theme picker and a background picker sit under the sign-in card instead of in the top bar.
+  (function(){
+    var host = document.getElementById("authSel"); if (!host) return;
+    var tm = document.getElementById("themeMenu"); tm.classList.remove("inbar"); tm.classList.add("authsel"); host.appendChild(tm);
+    var tb = document.getElementById("themeBtn"); if (!tb.querySelector(".asl")) tb.insertBefore(Object.assign(document.createElement("span"), {className:"asl", textContent:"Theme"}), tb.firstChild);
+    var tc = tb.querySelector(".caret"); if (tc) tc.innerHTML = '<svg viewBox="0 0 10 6" width="10" height="6" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>';
+    var wrap = document.createElement("div"); wrap.className = "thememenu authsel bgmenu";
+    var bb = document.createElement("button"); bb.type = "button"; bb.className = "themebtn"; bb.setAttribute("aria-haspopup", "true"); bb.setAttribute("aria-expanded", "false");
+    bb.innerHTML = '<span class="asl">Background</span><span class="bgchip bgnow"></span><span class="tname bgname"></span><span class="caret" aria-hidden="true">' + tc.innerHTML + '</span>';
+    var pop = document.createElement("div"); pop.className = "themepop bgpop"; pop.hidden = true; pop.setAttribute("role", "menu");
+    function closeBg(){ pop.hidden = true; bb.setAttribute("aria-expanded", "false"); }
+    bgButtons(pop, closeBg);
+    bb.addEventListener("click", function(e){
+      e.stopPropagation(); closeTheme();
+      if (!pop.hidden){ closeBg(); return; }
+      pop.hidden = false; bb.setAttribute("aria-expanded", "true");
+      var r = bb.getBoundingClientRect(); pop.style.top = (r.bottom + 6) + "px"; pop.style.left = r.left + "px"; pop.style.width = r.width + "px";
+    });
+    tb.addEventListener("click", closeBg);
+    document.addEventListener("click", function(e){ if (!pop.hidden && !wrap.contains(e.target)) closeBg(); });
+    wrap.appendChild(bb); wrap.appendChild(pop); host.appendChild(wrap);
+    paintBgs();
+  })();
   // Show the app once it's arranged. In the desktop app, wait (briefly) for the top bar so the theme and
   // settings buttons are already in it rather than jumping there.
   (function reveal(n){
@@ -4839,12 +5022,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<label class="authf"><span>Password</span><input name="p" type="password" autocomplete="current-password" minlength="6" required></label>' +
         '<label class="authf authup"><span>Confirm password</span><input name="p2" type="password" autocomplete="new-password" minlength="6"></label>' +
         '<p class="autherr" role="alert" hidden></p>' +
-        '<button type="submit" class="primary authgo">Sign in</button>' +
+        '<div class="authrow"><label class="authrem"><input type="checkbox" name="rem" checked><span class="authbox" aria-hidden="true"></span><span>Remember me</span></label>' +
+        '<button type="submit" class="primary authgo">Sign in</button></div>' +
         '<p class="authnote authup">Your decks are saved to your account. Decks you mark Shared show in the Users tab for other players.</p>' +
       '</form>';
+    var selHost = document.createElement("div"); selHost.id = "authSel"; selHost.className = "authsels"; box.appendChild(selHost);
     document.body.appendChild(box);
     document.documentElement.classList.add("authing");
     var f = box.querySelector("form"), e = box.querySelector(".autherr"), go = box.querySelector(".authgo");
+    try { f.rem.checked = localStorage.getItem("mdc-remember") !== "0"; } catch (x) {}
     function setMode(m){
       mode = m; box.classList.toggle("up", m === "up");
       box.querySelectorAll(".authseg button").forEach(function(b){ b.setAttribute("aria-selected", b.dataset.m === m ? "true" : "false"); });
@@ -4865,6 +5051,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       go.disabled = true; go.textContent = mode === "up" ? "Creating…" : "Signing in…";
       (mode === "up" ? CLOUD.signUp(u, pw) : CLOUD.signIn(u, pw)).then(function(){
+        // Remember me off: this sign-in lasts until the app (or browser tab) closes.
+        try { localStorage.setItem("mdc-remember", f.rem.checked ? "1" : "0"); sessionStorage.setItem("mdc-alive", "1"); } catch (x) {}
         go.textContent = "Loading your decks…"; location.reload();
       }).catch(function(x){ go.disabled = false; go.textContent = mode === "up" ? "Create account" : "Sign in"; bad(x.message); });
     });
@@ -4874,6 +5062,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   note.textContent = "Signing in…";
   CLOUD.start().then(function(u){
+    var keep = true; try { keep = localStorage.getItem("mdc-remember") !== "0" || !!sessionStorage.getItem("mdc-alive"); } catch (x) {}
+    if (u && !keep) return CLOUD.signOut().then(function(){ MDC.scope("guest", false); authScreen(); boot(); });
     if (u) return enter();
     // Signed out: the app runs deckless behind the sign-in card, so the top bar (theme, reload, settings,
     // full/compact) still works before you sign in.
