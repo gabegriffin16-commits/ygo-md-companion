@@ -1,5 +1,5 @@
 {
- "_readme": "Card behaviors for the play engine. Keys match the ids in deck.json. Filters are checked against the official card data in cards.json (hero, elemental, vision, destiny, monster, spell, trap, fusion, normal, effect, levelMin, levelMax, attr, race, name, nameHas, materialHas, notSelf). 'do' is add, send, place, summon, mark, destroyOwn, or fusion. 'from' is deck, extra, gy, hand, field, or ban. 'short' is the label in the once-per-turn list. 'trackOnly' effects (like on-attack destroys) are tracked and can be marked stopped but don't show up as plays. Locks: 'allow' is the filter for what you can still Special Summon while the lock is on; 'extraOnly' means it only limits summons from the Extra Deck.",
+ "_readme": "Card behaviors for the play engine. Keys match the ids in deck.json. Filters are checked against the official card data in cards.json (hero, elemental, vision, destiny, monster, spell, trap, fusion, normal, effect, levelMin, levelMax, attr, race, name, nameHas, materialHas, notSelf). 'do' is add, send, place, summon, mark, destroyOwn, or fusion. 'from' is deck, extra, gy, hand, field, or ban. 'short' is the label in the once-per-turn list. 'trackOnly' effects (like on-attack destroys) are tracked and can be marked stopped but don't show up as plays. Locks: 'allow' is the filter for what you can still Special Summon while the lock is on; 'extraOnly' means it only limits summons from the Extra Deck. 'priority' is 'protect' (your choke points) or 'bait' (fine to lose; play it first to draw out a negate); 'baitIfHand' makes it bait only while that card is in your hand.",
  "locks": {
   "faris": {
    "text": "Extra Deck: HERO monsters only",
@@ -37,7 +37,9 @@
      "faris",
      "mist"
     ],
-    "stopTip": "If you hold Faris and a HERO to discard, the engine still runs. Otherwise set up for next turn."
+    "stopTip": "If you hold Faris and a HERO to discard, the engine still runs. Otherwise set up for next turn.",
+    "priority": "bait",
+    "baitIfHand": "faris"
    }
   },
   "mist": {
@@ -55,7 +57,8 @@
      "neos"
     ],
     "stopTip": "No Shadow Mist search this turn. Use Vyon's dump on Neos to stage Favorite Contact.",
-    "short": "Shadow Mist: its one effect"
+    "short": "Shadow Mist: its one effect",
+    "priority": "bait"
    }
   },
   "faris": {
@@ -140,7 +143,8 @@
       "name": "Polymerization"
      },
      "stopTip": "No Polymerization search. Use Instant Contact or Fusion Destiny if you have them, or hold what's on board.",
-     "short": "Vyon: Polymerization search"
+     "short": "Vyon: Polymerization search",
+     "priority": "protect"
     }
    ]
   },
@@ -157,7 +161,8 @@
     "recommend": [
      "faris"
     ],
-    "short": "Increase: summon from backrow"
+    "short": "Increase: summon from backrow",
+    "priority": "protect"
    },
    "onSummon": {
     "if": "fromBackrow",
@@ -174,7 +179,8 @@
      "vyon"
     ],
     "stopTip": "No Vyon this turn. Normal Summon what you can, get Malicious bodies out, and save Polymerization for next turn.",
-    "short": "Increase: summon Vision HERO"
+    "short": "Increase: summon Vision HERO",
+    "priority": "protect"
    },
    "inGY": {
     "opt": "inc_place",
@@ -191,7 +197,8 @@
     "filter": {
      "name": "Destiny HERO - Malicious"
     },
-    "stopTip": "The Malicious stays banished. You can still use the other copies later."
+    "stopTip": "The Malicious stays banished. You can still use the other copies later.",
+    "priority": "bait"
    }
   },
   "ash": {
@@ -224,7 +231,8 @@
     "recommend": [
      "stratos"
     ],
-    "stopTip": "The LP is paid, but your Normal Summon is still open."
+    "stopTip": "The LP is paid, but your Normal Summon is still open.",
+    "priority": "bait"
    }
   },
   "ecall": {
@@ -238,7 +246,8 @@
     },
     "recommend": [
      "stratos"
-    ]
+    ],
+    "priority": "bait"
    }
   },
   "poly": {
@@ -278,7 +287,8 @@
      "materialHas": "Destiny HERO"
     },
     "lockAfter": "destiny",
-    "stopTip": "No Fusion Destiny monster. Build the Elemental line instead: Sunrise into Infernal Rage."
+    "stopTip": "No Fusion Destiny monster. Build the Elemental line instead: Sunrise into Infernal Rage.",
+    "priority": "protect"
    }
   },
   "ic": {
@@ -389,7 +399,8 @@
      "nameHas": "Favorite"
     },
     "stopTip": "No Favorite Contact. Keep Infernal Rage as a Wingman for Polymerization into Shining Neos Wingman next turn.",
-    "short": "Infernal Rage: Favorite search"
+    "short": "Infernal Rage: Favorite search",
+    "priority": "protect"
    },
    "ignition": [
     {
@@ -607,5 +618,11 @@
     "short": "Infernal Devicer: add materials"
    }
   }
- }
+ },
+ "protectOrder": [
+  "inc_vision",
+  "vyon_poly",
+  "destiny",
+  "rage_search"
+ ]
 }

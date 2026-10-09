@@ -677,6 +677,24 @@ html.in-overlay header.top{margin-top:10px}
 html:not(.compact) header.top{flex-wrap:nowrap}
 html:not(.compact) header.top nav.tabs{flex:1 1 0}
 html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
+
+/* bait / protect tags on plays */
+.tog.play .ptag{margin-left:6px; font:700 .62rem var(--display); letter-spacing:.06em; text-transform:uppercase; padding:1px 5px; border-radius:99px; vertical-align:1px}
+.tog.play.t-bait .ptag{background:color-mix(in srgb, var(--sky) 25%, transparent); color:var(--ink)}
+.tog.play.t-protect .ptag{background:color-mix(in srgb, var(--gold) 30%, transparent); color:var(--ink)}
+.tog.play.t-protect{border-color:color-mix(in srgb, var(--gold) 70%, var(--line))}
+.baithint{font-size:.8rem; color:var(--ink); background:color-mix(in srgb, var(--sky) 12%, transparent); border-left:3px solid var(--sky); border-radius:0 8px 8px 0; padding:5px 9px; margin:0 0 7px}
+.baithint b{font-family:var(--display); color:var(--sky)}
+/* foldable plan cards */
+.plan h3{margin:0}
+.planbtn{all:unset; box-sizing:border-box; cursor:pointer; display:flex; justify-content:space-between; align-items:center; gap:10px; width:100%; font:inherit}
+.planbtn::after{content:"\25BE"; color:var(--gold); font-size:.85em; transition:transform .15s}
+.plan.folded .planbtn::after{transform:rotate(-90deg)}
+.planbtn:focus-visible{outline:2px solid var(--sky); outline-offset:3px; border-radius:4px}
+.plan > ol{margin-top:8px}
+.plan.folded > ol{display:none}
+.plan.folded{padding-top:10px; padding-bottom:10px}
+.foldall{display:flex; justify-content:flex-end; margin-bottom:-28px}
 </style>
 </head>
 <body>
@@ -726,6 +744,7 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
 
   <!-- LINES -->
   <section id="tab-lines" hidden aria-labelledby="t-lines">
+    <div class="foldall"><button type="button" class="mini" id="foldAll">Collapse all</button></div>
     <h2 style="margin-top:4px">How to start</h2>
     <div id="entryLines"></div>
     <h2>Core engine</h2>
@@ -1141,15 +1160,26 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     {t:"Vyon only", s:["Normal Summon Vyon and send Shadow Mist to the GY. Search Stratos or Faris for next turn.","Banish a HERO from your GY to add Polymerization."]}
   ];
 
+  // Plan cards fold: tap the title to collapse or expand. Remembered per card title.
+  var planFold = load("hbc-planfold", {});
   function planHTML(title, steps, cls){
-    var h = '<div class="plan' + (cls ? " " + cls : "") + '"><h3></h3><ol></ol></div>';
+    var h = '<div class="plan' + (cls ? " " + cls : "") + '"><h3><button type="button" class="planbtn" aria-expanded="true"></button></h3><ol></ol></div>';
     var d = document.createElement("div"); d.innerHTML = h;
-    d.querySelector("h3").textContent = title;
+    var pbtn = d.querySelector(".planbtn"), card = d.firstChild;
+    pbtn.textContent = title;
+    function setFold(f){ card.classList.toggle("folded", f); pbtn.setAttribute("aria-expanded", f ? "false" : "true"); }
+    setFold(!!planFold[title]);
+    pbtn.addEventListener("click", function(){ var f = !card.classList.contains("folded"); planFold[title] = f; if (!f) delete planFold[title]; save("hbc-planfold", planFold); setFold(f); });
     var ol = d.querySelector("ol");
     steps.forEach(function(s){ var li = document.createElement("li"); li.textContent = s; ol.appendChild(li); });
     return d.firstChild;
   }
 
+  document.getElementById("foldAll").addEventListener("click", function(){
+    var cards = document.querySelectorAll("#tab-lines .plan"), anyOpen = [].some.call(cards, function(c){ return !c.classList.contains("folded"); });
+    cards.forEach(function(c){ if (c.classList.contains("folded") === anyOpen) c.querySelector(".planbtn").click(); });
+    this.textContent = anyOpen ? "Expand all" : "Collapse all";
+  });
   // static lines tab
   var el = document.getElementById("entryLines");
   ENTRIES.forEach(function(e){ el.appendChild(planHTML(e.t, e.s)); });
@@ -2233,20 +2263,20 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.setTurn = b.setTurn || {};
     MAIN_ORDER.forEach(function(id){
       if (!h[id]) return; var r = R[id] || {}, e = r.spell;
-      if (e && opened(e) && !(e.cond === "noFaceUpMonsters" && faceUp) && !(needsTarget(e) && !choicesFor(e, id).length)) P.push({t:e.label, go:function(){ runEffect(e.label, id, e, {fromHand:true}); }});
+      if (e && opened(e) && !(e.cond === "noFaceUpMonsters" && faceUp) && !(needsTarget(e) && !choicesFor(e, id).length)) P.push({e:e, t:e.label, go:function(){ runEffect(e.label, id, e, {fromHand:true}); }});
       if (r.trap || r.set) P.push({t:"Set " + nm(id), go:function(){ act("Set " + nm(id), null, function(){ fromHand(id); b.back.push(id + "_set"); b.setTurn[id] = D.n; }); }});
     });
     uniq(b.back).forEach(function(x){
       var m = /^(.*)_set$/.exec(x); if (!m) return; var id = m[1], e = R[id] && R[id].trap;
       if (!e || !opened(e) || b.setTurn[id] === D.n) return;
-      P.push({t:"Flipped " + nm(id) + " (on their turn)", go:function(){ runEffect(nm(id), id, e, {fromBack:x}); }});
+      P.push({e:e, t:"Flipped " + nm(id) + " (on their turn)", go:function(){ runEffect(nm(id), id, e, {fromBack:x}); }});
     });
     if (!D.ns){
       MAIN_ORDER.forEach(function(id){
         var f = F[id]; if (!h[id] || !f.monster || (R[id] && R[id].handtrap)) return;
         var need = (f.level || 0) <= 4 ? 0 : ((f.level || 0) <= 6 ? 1 : 2);
-        if (!need) P.push({t:"Normal Summon " + nm(id), go:function(){ act("Normal Summon " + nm(id), null, function(){ fromHand(id); summon(id, "ns"); }); }});
-        else if (b.field.length >= need) P.push({t:"Tribute Summon " + nm(id), go:function(){
+        if (!need) P.push({e:R[id] && R[id].onSummon, t:"Normal Summon " + nm(id), go:function(){ act("Normal Summon " + nm(id), null, function(){ fromHand(id); summon(id, "ns"); }); }});
+        else if (b.field.length >= need) P.push({e:R[id] && R[id].onSummon, t:"Tribute Summon " + nm(id), go:function(){
           setMulti("Tribute Summon " + nm(id), "Tap " + need + " monster" + (need > 1 ? "s" : "") + " to tribute.", b.field.map(function(x){ return {id:x, from:"field"}; }), need,
             function(){ return true; }, function(sel){ act("Tribute Summon " + nm(id), null, function(){ sel.forEach(function(s){ take(B().field, s.id); toGY(s.id); }); fromHand(id); summon(id, "ns"); }); }, "Summon " + nm(id));
         }});
@@ -2257,7 +2287,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var ok = ((e.from === "hand" && h[id]) || (e.from === "backrow" && b.back.indexOf(id + "_t") >= 0)) && canSS(id, false);
       var cc = costChoices(e, id);
       if (!ok || (cc && !cc.o.length)) return;
-      P.push({t:e.label, go:function(){
+      P.push({e:e, t:e.label, go:function(){
         var how = e.from === "backrow" ? "back" : "ss";
         var go2 = function(k){ act(e.label + (k ? ": " + nm(k) : ""), function(){ payCost(e, id, k); if (e.from === "hand") fromHand(id); else take(B().back, id + "_t"); }, function(){ summon(id, how); }, null); };
         if (cc && cc.o.length > 1) setPick(cc.t, cc.o, function(o){ go2(o.k); }); else go2(cc ? cc.o[0].k : null);
@@ -2269,13 +2299,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         if (e.cond === "madeWithNormal" && !(D.madeNormal || {})[id]) return;
         var cc = costChoices(e, id); if (cc && !cc.o.length) return;
         if (needsTarget(e) && !choicesFor(e, id).filter(function(o){ return o.k !== "_alt"; }).length) return;
-        P.push({t:e.label, go:function(){ runEffect(e.label, id, e, null); }});
+        P.push({e:e, t:e.label, go:function(){ runEffect(e.label, id, e, null); }});
       });
     });
     Object.keys(b.gy).forEach(function(id){
       var e = R[id] && R[id].gyEffect; if (!e || !b.gy[id] || !opened(e)) return;
       if (needsTarget(e) && !choicesFor(e, id).length) return;
-      P.push({t:e.label, go:function(){ runEffect(e.label, id, e, null); }});
+      P.push({e:e, t:e.label, go:function(){ runEffect(e.label, id, e, null); }});
     });
     if (b.field.length >= 2) EXTRA_ORDER.forEach(function(id){
       var r = R[id]; if (!r || !r.link || deckLeft(id) <= 0 || !canSS(id, true)) return;
@@ -2306,6 +2336,29 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         // shuffled or bounced to the Extra Deck: it's back in the Deck count automatically
       });
     });
+  }
+  // ---- bait vs protect: play the cheap Ash/Imperm targets before your choke points ----
+  var PO = RULES.protectOrder || [];
+  var PROTECT_ORDER = EFFECTS.filter(function(e){ return e.priority === "protect" && e.kind !== "summonProc"; })
+    .sort(function(a, b){ var x = PO.indexOf(a.key), y = PO.indexOf(b.key); return (x < 0 ? 99 : x) - (y < 0 ? 99 : y); });
+  function tierOf(e){
+    if (!e || !e.priority) return null;
+    if (e.priority === "bait" && e.baitIfHand && !D.hand[e.baitIfHand]) return null;
+    return e.priority;
+  }
+  function stoppers(e){
+    var s = []; if (!e) return s;
+    var x = EFFECTS.filter(function(f){ return f.key === e.key; })[0];   // the flattened copy knows its owner and kind
+    if (!x) return s;
+    if (ashable(x)) s.push("Ash"); if (impable(x)) s.push("Imperm"); return s;
+  }
+  function nextProtect(){
+    var b = B();
+    return PROTECT_ORDER.filter(function(e){
+      if (e.opt && D.opt[e.opt]) return false;
+      var id = e.owner;
+      return D.hand[id] || b.field.indexOf(id) >= 0 || b.back.indexOf(id + "_t") >= 0 || deckLeft(id) > 0;
+    })[0] || null;
   }
   function renderPlays(){
     var b = B();
@@ -2404,7 +2457,22 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var list = plays();
       if (!list.length) pl.appendChild(nodes("p", "hint", "Nothing left to play from what's tracked. Use Manual tracking below for anything else."));
       var w4 = nodes("div", "togs");
-      list.forEach(function(p){ var bt = nodes("button", "tog play", p.t); bt.type = "button"; bt.addEventListener("click", p.go); w4.appendChild(bt); });
+      var baits = [];
+      list.forEach(function(p){
+        var tier = tierOf(p.e), bt = nodes("button", "tog play" + (tier ? " t-" + tier : ""), p.t); bt.type = "button";
+        if (tier){ var tag = nodes("span", "ptag", tier === "bait" ? "Bait" : "Protect"); bt.appendChild(tag);
+          bt.title = tier === "bait" ? "Fine to lose: play it first to draw out " + (stoppers(p.e).join(" or ") || "a negate") : "A choke point: play it after your bait"; }
+        if (tier === "bait") baits.push(p);
+        bt.addEventListener("click", p.go); w4.appendChild(bt);
+      });
+      var np = nextProtect();
+      if (baits.length && np && !D.queue.length){
+        var bp = baits[0], st = stoppers(bp.e), hint = nodes("p", "baithint");
+        hint.appendChild(nodes("b", null, "Bait first: "));
+        hint.appendChild(document.createTextNode(bp.t.replace(/ \(.*\)$/, "") + (st.length ? ". It can draw out " + st.join(" or ") : "") +
+          ", and you lose little if it gets stopped. Save your negate-worthy play (" + (np.short || np.label.split(":")[0]) + ") for after."));
+        pl.appendChild(hint);
+      }
       pl.appendChild(w4);
       var noRule = UNRULED.filter(function(id){ return D.hand[id] || b.field.indexOf(id) >= 0; });
       if (noRule.length) pl.appendChild(nodes("p", "hint warnline", "⚑ No play rules yet for " + noRule.map(nm).join(", ") + ". Track them with Manual tracking, and ask to have rules added."));
