@@ -206,7 +206,10 @@ function newerThan(a, b) {
   for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
   return false;
 }
-function updateEvent(d) { pageEvent("overlay-update", Object.assign({ current: app.getVersion() }, d)); }
+function updateEvent(d) {
+  if (process.env.OMNI_DEBUG) console.log("[update]", JSON.stringify(d));
+  pageEvent("overlay-update", Object.assign({ current: app.getVersion() }, d));
+}
 async function checkUpdate(manual) {
   try {
     const r = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`,
@@ -250,7 +253,10 @@ async function installUpdate() {
       "@echo off", "set tries=0", ":wait", "timeout /t 1 /nobreak >nul",
       `move /y "${tmp}" "${exe}" >nul 2>&1`, "if not errorlevel 1 goto go",
       "set /a tries+=1", "if %tries% lss 60 goto wait", ":go", `start "" "${exe}"`, `del "%~f0"`, ""].join("\r\n"));
-    require("child_process").spawn("cmd.exe", ["/c", cmd], { detached: true, stdio: "ignore", windowsHide: true }).unref();
+    await new Promise((res, rej) => {
+      const ch = require("child_process").spawn("cmd.exe", ["/c", cmd], { detached: true, stdio: "ignore", windowsHide: true });
+      ch.once("error", rej); ch.once("spawn", () => { ch.unref(); res(); });
+    });
     updateEvent({ state: "restarting", version: update.version });
     setTimeout(() => app.quit(), 600);
   } catch (e) {
