@@ -1098,6 +1098,24 @@ html.findopen #cardPane .plate{border-top-width:1px; border-top-color:color-mix(
 html.findopen #cardPane .plate-stats .stat{border-radius:8px}
 html.findopen #cardPane .plate .cd-image{border-radius:8px}
 html.deckopen #deckPane .dl-item{border-radius:8px}
+/* builder: deck name and saved-deck picker share the row half and half */
+.bldnames{flex:1 1 360px; min-width:0; display:flex; gap:8px}
+.bldnames .bldname{flex:none; width:calc(50% - 4px); box-sizing:border-box; height:40px; border-radius:12px}
+.bldpick{flex:none; width:calc(50% - 4px); min-width:0; height:40px; box-sizing:border-box; display:flex; align-items:center; gap:10px; padding:0 7px 0 14px; cursor:pointer; text-align:left;
+  background:var(--panel); color:var(--muted); border:1px solid var(--line); border-radius:12px; font:600 .9rem var(--display); transition:border-color .15s}
+.bldpick .bldpicklbl{flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bldpick:hover, .bldpick[aria-expanded="true"]{border-color:color-mix(in srgb, var(--gold) 60%, var(--line)); color:var(--ink)}
+.bldpick .caret{flex:none; width:24px; height:24px; border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb, var(--gold) 14%, transparent)}
+.bldpick .caret::before{content:""; width:10px; height:6px; background:var(--gold);
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat}
+.bldpickmenu{z-index:95}
+.bldpickmenu .dmitem span{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+.bldpickmenu .dmitem[data-armed] span{color:var(--red)}
+.bldpickmenu .dmitem{justify-content:flex-start} .bldpickmenu .dmitem small{margin-left:auto}
+.bldpickmenu .dmitem{position:relative; padding-right:28px} .bldpickmenu .dmitem.on::after{position:absolute; right:10px; margin:0}
+.dmempty{padding:6px 10px 8px; color:var(--muted); font-size:.82rem}
+@media (max-width:760px){ .bldnames{flex-basis:100%} }
 </style>
 </head>
 <body>
@@ -3572,7 +3590,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var root = nodes("div", "bld"); root.id = "builder"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Deck builder");
     root.innerHTML =
       '<div class="bldtop">' +
-        '<input class="bldname" type="text" maxlength="40" placeholder="Deck name">' +
+        '<div class="bldnames"><input class="bldname" type="text" maxlength="40" placeholder="Deck name" aria-label="Deck name">' +
+        '<button type="button" class="bldpick" aria-haspopup="true" aria-expanded="false" title="Open one of your saved decks to edit it"><span class="bldpicklbl">Saved decks</span><span class="caret" aria-hidden="true"></span></button></div>' +
         '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldbar"><div class="bldstat"></div>' +
@@ -3599,6 +3618,43 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var nameIn = $(".bldname"), stat = $(".bldstat"), grid = $(".bldgrid"), pager = $(".bldpager"), list = $(".blddecklist"),
         q = $(".bldq input"), fpanel = $(".bldfilters"), fbtn = $(".bldfbtn"), info = $(".bldinfo");
     nameIn.value = deck.name || "";
+    // Saved decks: pick one to load it here for editing.
+    var pickBtn = $(".bldpick"), pickMenu = nodes("div", "deckmenu bldpickmenu"); pickMenu.hidden = true; pickMenu.setAttribute("role", "menu"); root.appendChild(pickMenu);
+    var saved = MDC.get(deck.id);
+    if (saved && !isNew) $(".bldpicklbl").textContent = "Editing: " + (saved.name || "Untitled deck");
+    function closePick(){ pickMenu.hidden = true; pickBtn.setAttribute("aria-expanded", "false"); }
+    function switchTo(next, fresh, item){
+      if (dirty && !item.dataset.armed){ item.dataset.armed = "1"; item.querySelector("span").textContent = "Unsaved changes: tap again"; return; }
+      closePick(); openBuilder(next, fresh);
+    }
+    function pickItem(label, sub, cls, fn){
+      var b = nodes("button", "dmitem" + (cls ? " " + cls : "")); b.type = "button"; b.setAttribute("role", "menuitem");
+      b.appendChild(nodes("span", null, label)); if (sub) b.appendChild(nodes("small", null, sub));
+      b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); pickMenu.appendChild(b); return b;
+    }
+    pickBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (!pickMenu.hidden){ closePick(); return; }
+      pickMenu.innerHTML = ""; pickMenu.appendChild(nodes("div", "dmhead", "Your saved decks"));
+      var decks = MDC.list().slice().sort(function(a, b){ return (b.updated || 0) - (a.updated || 0); });
+      if (!decks.length) pickMenu.appendChild(nodes("div", "dmempty", "Nothing saved yet. Decks you save show up here."));
+      decks.forEach(function(d){
+        var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
+        pickItem(d.name || "Untitled deck", cnt + " cards", d.id === deck.id ? "on" : "", function(b){
+          if (d.id === deck.id){ closePick(); return; }
+          switchTo(JSON.parse(JSON.stringify(MDC.get(d.id))), false, b);
+        });
+      });
+      pickMenu.appendChild(nodes("div", "dmsep"));
+      pickItem("+ Start a new deck", null, "act", function(b){ switchTo({id:MDC.newId(), name:"", main:[], extra:[]}, true, b); });
+      if (PILOT_ID === "hero") pickItem("Copy Omni HERO to edit", null, "act", function(b){ var c = currentAsBuilt(); c.id = MDC.newId(); c.name = "Omni HERO (copy)"; switchTo(c, true, b); });
+      pickMenu.hidden = false; pickBtn.setAttribute("aria-expanded", "true");
+      var r = pickBtn.getBoundingClientRect();
+      pickMenu.style.width = Math.max(240, r.width) + "px";
+      pickMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - pickMenu.offsetWidth - 8)) + "px";
+      pickMenu.style.top = (r.bottom + 6) + "px";
+    });
+    root.addEventListener("click", function(e){ if (!pickMenu.hidden && !pickMenu.contains(e.target) && !pickBtn.contains(e.target)) closePick(); });
     nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
     var notesIn = $(".bldnotes textarea"); notesIn.value = deck.notes || "";
     notesIn.addEventListener("input", function(){ deck.notes = notesIn.value; dirty = true; });
@@ -4008,8 +4064,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
     });
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
-    function close(){ root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey); }
-    function onKey(e){ if (e.key === "Escape"){ if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
+    function close(){ closePick(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey); }
+    function onKey(e){ if (e.key === "Escape"){ if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
     document.addEventListener("keydown", onKey);
     var cancel = $(".bldcancel");
     cancel.addEventListener("click", function(){
