@@ -346,6 +346,8 @@ html.compact .lpcol{padding-left:8px}
 .stepper li.ph.done{color:var(--ink); opacity:.7}
 .stepper li.ph.cur{color:var(--gold)}
 .stepper li.ph.cur::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; border-radius:2px; background:var(--gold)}
+.stepper li.readerpill{margin-left:12px; padding:4px 0 6px; color:var(--muted); font-size:.8rem; cursor:help}
+.stepper li.readerpill.on{color:var(--gold)}
 .stepper li.ph.skip{text-decoration:line-through; opacity:.45}
 .stepper li.skip{opacity:.45; text-decoration:line-through}
 .stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
@@ -813,6 +815,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // Deck cards the play engine has no rules for (Normal Monsters don't need any).
   var UNRULED = ALL_IDS.filter(function(id){ return !R[id] && !F[id].normal && !F[id].missing; });
   var MISSING = ALL_IDS.filter(function(id){ return F[id].missing; });
+  // The overlay app's hand reader looks for these cards on screen.
+  window.OMNI_DECK = DECKDATA.main.map(function(c){ return {key:c.id, name:F[c.id].short, cid:F[c.id].db.id || null}; });
   // ---- the shapes the rest of the page uses, built from the data above ----
   function longName(n){ return n.replace(/^Elemental HERO /, "").replace(/^Destiny HERO - /, ""); }
   var CARDS = DECKDATA.main.map(function(c){ var f = F[c.id];
@@ -1658,6 +1662,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (skipped) li.title = "No draw on the first turn when going first";
       st.appendChild(li);
     });
+    if (readerStatus && readerStatus.state !== "off"){
+      var on = readerStatus.state === "reading";
+      var rp = nodes("li", "readerpill" + (on ? " on" : ""), on ? "\u25C9" : "\u25CB");
+      rp.title = on ? "Reading your hand from the screen" + (readerStatus.seen != null ? " (" + readerStatus.seen + " cards seen)" : "") :
+        readerStatus.state === "searching" ? "Hand reader: waiting for Master Duel" : "Hand reader: " + readerStatus.state + (readerStatus.note ? " (" + readerStatus.note + ")" : "");
+      st.appendChild(rp);
+    }
   }
 
   function renderSetup(){
@@ -1947,7 +1958,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function doEffect(e, self, ch){
     var b = B();
     if (!ch || ch.k === "_alt" || ch.k === "_done") return;
-    if (e.do === "add"){ removeFrom(ch.from, ch.k); inc(D.hand, ch.k); D.added.push(ch.k); }
+    if (e.do === "add"){ removeFrom(ch.from, ch.k);
+      if (D.seen && D.seen[ch.k] > 0) D.seen[ch.k]--;   // the hand reader already put it in your hand
+      else { inc(D.hand, ch.k); D.added.push(ch.k); } }
     else if (e.do === "send"){ removeFrom(ch.from, ch.k); toGY(ch.k); }
     else if (e.do === "place"){ removeFrom(ch.from, ch.k); b.back.push(ch.k + "_t"); }
     else if (e.do === "summon"){ var neg = negatedNow(e); removeFrom(ch.from, ch.k); summon(ch.k, ch.from === "gy" ? "gy" : (ch.from === "extra" ? "extra" : "deck"), neg); }
@@ -2391,7 +2404,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         opts:Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }),
         stops:D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }),
         lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note});
-      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null; D.ns = false; D.queue = []; D.acts = []; pending = null;
+      D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null; D.ns = false; D.queue = []; D.acts = []; pending = null; D.seen = {};
+    }
+    // The hand reader saw your draw before you ended the turn here: use it now.
+    if (D.phase === "draw" && D.early && D.early.length && !D.drew){
+      D.drew = D.early.shift();
+      D.early.forEach(function(k){ inc(D.hand, k); D.added.push(k); });
+      D.early = []; D.hand[D.drew] = (D.hand[D.drew] || 0) + 1; D.phase = "main";
+      toast("Drew " + nm(D.drew) + " (read from screen)");
     }
     persist(); renderDuel(); window.scrollTo(0, 0);
     var m = document.querySelector(".center main"); if (m) m.scrollTop = 0;
@@ -2451,6 +2471,67 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (on){ var lh = document.querySelector(".loghead"); if (lh) lh.scrollIntoView({block:"start", behavior:"smooth"}); }
   });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && /findopen|deckopen/.test(document.documentElement.className) && !(e.target && e.target.value)) closeFind(); });
+  // ---------- hand reader (overlay app reads your hand from the screen) ----------
+  var readerStatus = null;
+  window.addEventListener("overlay-reader", function(e){
+    var s = e.detail || {}, was = readerStatus && readerStatus.state;
+    readerStatus = s;
+    if (s.state !== was) renderStepper();
+    else { var rp = document.querySelector(".readerpill"); if (rp && s.seen != null) rp.title = "Reading your hand from the screen (" + s.seen + " cards seen)"; }
+  });
+  function knownKeys(h){ var o = {}; Object.keys(h || {}).forEach(function(k){ if (F[k] && h[k] > 0) o[k] = h[k]; }); return o; }
+  window.addEventListener("overlay-hand", function(e){
+    var ev = e.detail || {}, seen = knownKeys(ev.hand), added = (ev.added || []).filter(function(k){ return F[k]; });
+    var size = Object.keys(seen).reduce(function(a, k){ return a + seen[k]; }, 0), msgs = [];
+    // Opening hand: fill it in.
+    if (D.phase === "setup" || D.phase === "opening"){
+      if (D.phase === "opening" && D.openRead && D.order === "second" && added.length && size >= 6){
+        // Going second: the 6th card is your first draw.
+        document.getElementById("stepNext").click();          // opening -> draw
+        D.drew = added[0]; persist();
+        document.getElementById("stepNext").click();          // draw -> main
+        toast("Drew " + nm(added[0]) + " (read from screen)");
+        return;
+      }
+      if (size >= 5){
+        if (D.phase === "setup") document.getElementById("stepNext").click();
+        D.hand = seen; D.openRead = true; syncGlobals(); persist(); renderDuel();
+        toast("Opening hand read: " + Object.keys(seen).map(function(k){ return nm(k) + (seen[k] > 1 ? " \u00D7" + seen[k] : ""); }).join(", "));
+      }
+      return;
+    }
+    if (!added.length) return;
+    var drew = null;
+    D.seen = D.seen || {};
+    added.forEach(function(k){
+      if (D.phase === "draw" && !D.drew && !drew){ drew = k; return; }
+      if (D.phase === "end"){ (D.early = D.early || []).push(k); msgs.push(nm(k) + " seen (counts as your draw next turn)"); return; }
+      // A search waiting to resolve that can add this card: resolve it with this card.
+      var q = D.queue.filter(function(q){ var x = R[q.id] && R[q.id][q.kind]; return x && x.do === "add" && choicesFor(x, q.id).some(function(o){ return o.k === k; }); })[0];
+      if (q){
+        var x = R[q.id][q.kind], o = choicesFor(x, q.id).filter(function(o){ return o.k === k; })[0];
+        act(x.label.split(":")[0] + ": " + o.t, null, function(){
+          D.queue = D.queue.filter(function(y){ return !(y.id === q.id && y.kind === q.kind); });
+          if (x.opt) D.opt[x.opt] = true; if (x.lock) D.locks[x.lock] = true;
+          doEffect(x, q.id, o);
+        });
+        msgs.push(nm(k) + " added (" + x.label.split(":")[0] + ")");
+        return;
+      }
+      // Anything else that showed up: put it in your hand so the plays stay right.
+      if ((D.hand[k] || 0) < (seen[k] || 0)){
+        inc(D.hand, k); D.added.push(k); D.seen[k] = (D.seen[k] || 0) + 1;
+        msgs.push(nm(k) + " added to hand");
+      }
+    });
+    if (drew){
+      D.drew = drew; persist();
+      document.getElementById("stepNext").click();              // draw -> main, adds it to your hand
+      msgs.unshift("Drew " + nm(drew));
+    } else { persist(); syncGlobals(); renderDuel(); }
+    if (msgs.length) toast(msgs.join(" \u00B7 ") + " (read from screen)");
+  });
+
   window.addEventListener("overlay-cmd", function(e){
     var cmd = e.detail;
     if (cmd === "next"){ if (clickFirst("#stepNext")) toast(D.phase === "main" ? "Main Phase" : "Next: " + (PH_LABEL[D.phase] || "")); }
