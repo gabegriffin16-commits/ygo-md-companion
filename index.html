@@ -2844,11 +2844,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
 
   // ---------- overlay app hotkey commands (the desktop app sends these; harmless on the website) ----------
-  function toast(msg){
+  function toast(msg, ms){
     var el = document.getElementById("hbcToast");
     if (!el){ el = document.createElement("div"); el.id = "hbcToast"; el.setAttribute("role", "status"); document.body.appendChild(el); }
     el.textContent = msg; el.classList.add("show");
-    clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove("show"); }, 1600);
+    clearTimeout(el._t); el._t = setTimeout(function(){ el.classList.remove("show"); }, ms || 1600);
   }
   function clickFirst(sel){ var el = document.querySelector(sel); if (el && !el.disabled){ el.click(); return true; } return false; }
 
@@ -2983,7 +2983,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (clickFirst(".trigbox .stopbtn." + cls) || clickFirst(".actlog .stopbtn." + cls)) toast(lbl + " marked"); else toast("Nothing to mark " + lbl + " on");
     }
     else if (cmd === "compact"){ clickFirst("#compactBtn"); }
-    else if (cmd === "fade"){ var fb = document.getElementById("fadeBtn"); if (fb){ fb.click(); toast(fb.getAttribute("aria-checked") === "true" ? "Background faded" : "Background back to normal"); } }
+    else if (cmd === "fade"){ var fb = document.getElementById("fadeBtn"); if (fb){ fb.click(); toast(fb.getAttribute("aria-checked") === "true" ? "Background faded" : "Background back to normal", 800); } }
     else if (cmd === "find"){ openFind(); }
     else if (cmd === "duel"){ var t = document.getElementById("t-hand"); if (t) t.click(); }
   });
