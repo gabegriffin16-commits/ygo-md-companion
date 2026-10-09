@@ -1,0 +1,72 @@
+{
+  "name": "master-duel-companion",
+  "productName": "Master Duel Companion App",
+  "version": "1.8.0",
+  "description": "Always-on-top Master Duel companion overlay with global hotkeys and a hand reader.",
+  "main": "main.js",
+  "author": "Gabe",
+  "license": "UNLICENSED",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win portable --publish never"
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "com.gabe.masterduelcompanion",
+    "productName": "Master Duel Companion App",
+    "files": [
+      "main.js",
+      "preload.js",
+      "hotkeys.html",
+      "icon.ico",
+      "site/**/*",
+      "reader.html",
+      "reader.js",
+      "reader-preload.js",
+      "handreader.js",
+      "hudreader.js",
+      "hud-templates.json",
+      "vendor/**/*",
+      "tess-worker.js",
+      "!node_modules/@tesseract.js-data/eng/4.0.0/**",
+      "!node_modules/tesseract.js/dist/**"
+    ],
+    "asarUnpack": [
+      "node_modules/@tesseract.js-data/**",
+      "node_modules/bmp-js/**",
+      "node_modules/encoding/**",
+      "node_modules/iconv-lite/**",
+      "node_modules/idb-keyval/**",
+      "node_modules/is-electron/**",
+      "node_modules/is-url/**",
+      "node_modules/node-fetch/**",
+      "node_modules/opencollective-postinstall/**",
+      "node_modules/regenerator-runtime/**",
+      "node_modules/safer-buffer/**",
+      "node_modules/tesseract.js/**",
+      "node_modules/tesseract.js-core/**",
+      "node_modules/tr46/**",
+      "node_modules/wasm-feature-detect/**",
+      "node_modules/webidl-conversions/**",
+      "node_modules/whatwg-url/**",
+      "node_modules/zlibjs/**",
+      "tess-worker.js"
+    ],
+    "win": {
+      "target": "portable",
+      "icon": "build/icon.ico",
+      "signAndEditExecutable": true
+    },
+    "portable": {
+      "artifactName": "MasterDuelCompanion.exe"
+    }
+  },
+  "dependencies": {
+    "@tesseract.js-data/eng": "^1.0.0",
+    "tesseract.js": "^5.1.1"
+  },
+  "repository": "https://github.com/gabegriffin16-commits/ygo-md-companion"
+}

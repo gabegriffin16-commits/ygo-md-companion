@@ -759,6 +759,9 @@ html.auto .lpcol{padding-right:12px}
 .manualtog.inbar .sw{width:18px; height:10px} .manualtog.inbar .sw::after{width:6px; height:6px; top:2px; left:2px}
 .manualtog.inbar[aria-checked="true"] .sw::after{transform:translateX(8px)}
 .manualtog.inbar[aria-checked="true"]{color:var(--gold); opacity:1}
+#ovBar .ovb.ovup{left:92px; width:auto; padding:0 8px; height:14px; top:1px; border-radius:999px; background:var(--gold) !important; color:#1B1640 !important; font:700 9px sans-serif; letter-spacing:.06em; text-transform:uppercase; opacity:1}
+#ovBar .ovb.ovup:disabled{opacity:.85; cursor:default}
+#ovBar:has(.ovup) > span{opacity:0}
 </style>
 </head>
 <body>
@@ -1152,10 +1155,33 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         rl.addEventListener("click", function(){ location.reload(); });
         var f = document.getElementById("ovF"); if (f) f.after(rl); else bar.appendChild(rl);
       }
+      paintUpdate();
       return;
     }
     if (tries < 40) setTimeout(function(){ dock(tries + 1); }, 250);
   })(0);
+  // Update button in the app bar (shows only when GitHub has a newer version of the app).
+  var upState = null;
+  function paintUpdate(){
+    var bar = document.getElementById("ovBar"); if (!bar) return;
+    var b = document.getElementById("ovUp");
+    if (!upState || upState.state === "current"){ if (b) b.remove(); return; }
+    if (!b){
+      b = document.createElement("button"); b.type = "button"; b.className = "ovb ovup"; b.id = "ovUp";
+      b.addEventListener("click", function(){ if (upState && (upState.state === "available" || upState.state === "error") && window.overlayApp && overlayApp.installUpdate) overlayApp.installUpdate(); });
+      var rl = document.getElementById("ovRe"); if (rl) rl.after(b); else bar.appendChild(b);
+    }
+    var st = upState.state;
+    b.textContent = st === "downloading" ? "Updating " + (upState.pct || 0) + "%" : st === "restarting" ? "Restarting\u2026" : st === "error" ? "Update failed: retry" : "Update to v" + upState.version;
+    b.title = st === "error" ? (upState.note || "") : st === "available" ? ("Version " + upState.version + " is ready. Click to download it and restart." + (upState.notes ? "\n\n" + upState.notes : "")) : "";
+    b.disabled = st === "downloading" || st === "restarting";
+  }
+  window.addEventListener("overlay-update", function(e){
+    var d = e.detail || {};
+    if (d.state === "current"){ if (typeof toast === "function") toast("You're on the latest version (v" + d.current + ")"); upState = null; paintUpdate(); return; }
+    if (d.state === "error" && typeof toast === "function") toast("Update didn't finish: " + (d.note || "unknown error"));
+    upState = d; paintUpdate();
+  });
   window.setHasReader = function(on){ document.documentElement.classList.toggle("has-reader", !!on); paintAuto(); };
   paintAuto();
   themeBtn.addEventListener("click", function(e){

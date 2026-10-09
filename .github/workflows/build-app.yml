@@ -1,0 +1,64 @@
+# Builds the Windows app whenever anything in app/ changes and posts it as a GitHub release.
+# The release tag comes from "version" in app/package.json, so bump that to ship a new build.
+# The app checks the latest release on start and offers an Update button.
+name: Build app
+
+on:
+  push:
+    branches: [main]
+    paths: ["app/**", ".github/workflows/build-app.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read version
+        id: v
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V=$(node -p "require('./app/package.json').version")
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+          if gh release view "v$V" >/dev/null 2>&1; then
+            echo "Release v$V already exists. Bump the version in app/package.json to publish a new build."
+            echo "skip=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.v.outputs.skip != '1'
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Bundle the offline copy of the site
+        if: steps.v.outputs.skip != '1'
+        shell: bash
+        run: mkdir -p app/site && cp index.html deck.json rules.json cards.json app/site/
+
+      - name: Install
+        if: steps.v.outputs.skip != '1'
+        working-directory: app
+        run: npm ci
+
+      - name: Build exe
+        if: steps.v.outputs.skip != '1'
+        working-directory: app
+        run: npx electron-builder --win portable --publish never
+
+      - name: Publish release
+        if: steps.v.outputs.skip != '1'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.v.outputs.version }}"
+          git log -1 --pretty=%B | sed '/^Co-Authored-By/d;/^Claude-Session/d' > notes.txt
+          gh release create "v$V" app/dist/MasterDuelCompanion.exe --title "Master Duel Companion App v$V" --notes-file notes.txt
