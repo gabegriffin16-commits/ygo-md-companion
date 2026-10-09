@@ -12,6 +12,11 @@ on:
 permissions:
   contents: write
 
+# One build at a time, so two quick pushes can't both try to publish the same version.
+concurrency:
+  group: build-app
+  cancel-in-progress: false
+
 jobs:
   build:
     runs-on: windows-latest
