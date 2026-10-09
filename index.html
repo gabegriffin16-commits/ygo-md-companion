@@ -322,15 +322,15 @@ body{
 /* ---- duel flow ---- */
 .lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px;
   background:linear-gradient(var(--bg) 80%, transparent)}
-.lpbar .turnlab{flex:1 1 0; min-width:0; font:600 .82rem var(--display); color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+
 .lpcol{display:flex; align-items:center; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px}
 .lpcol .lab{font:600 .72rem var(--display); color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
 .lpval{font:700 1.05rem var(--display); color:var(--ink); min-width:3.2em; text-align:right; font-variant-numeric:tabular-nums}
 .lpval.low{color:var(--red)}
 .lpval.flash{animation:lpFlash .5s ease}
 @keyframes lpFlash{ from{color:var(--gold)} }
-.turnlab .tl-short{display:none}
-html.compact .turnlab .tl-long{display:none} html.compact .turnlab .tl-short{display:inline}
+.lpcol{flex:1 1 0; min-width:0; justify-content:flex-end}
+.lpcol .lab{margin-right:auto}
 html.compact .lpin{width:40px}
 html.compact .lpcol{padding-left:8px}
 .lpcol .mini{padding:2px 7px; font-size:.72rem; border-radius:999px; background:transparent}
@@ -339,10 +339,14 @@ html.compact .lpcol{padding-left:8px}
 .lpin{width:52px; background:transparent; color:var(--ink); border:1px solid transparent; border-radius:999px; padding:2px 6px; font:600 .78rem var(--body); text-align:center}
 .lpin:hover, .lpin:focus{border-color:var(--line); background:var(--bg); outline:none}
 .lpin::placeholder{color:var(--muted); opacity:.7}
-.stepper{list-style:none; display:flex; gap:6px; padding:0; margin:6px 0 14px}
-.stepper li{flex:1; text-align:center; font:600 .85rem var(--display); padding:8px 4px; border-radius:10px; background:var(--panel); color:var(--muted); border:1px solid var(--line)}
-.stepper li.done{color:var(--ink)}
-.stepper li.cur{background:var(--gold); color:#1B1640; border-color:var(--gold)}
+.stepper{list-style:none; display:flex; align-items:center; gap:0; padding:0 2px; margin:0 0 12px; font:600 .78rem var(--display); color:var(--muted); border-bottom:1px solid var(--line)}
+.stepper .turnno{color:var(--gold); margin-right:auto; padding:4px 0 6px; letter-spacing:.02em; white-space:nowrap}
+.stepper .turnno small{color:var(--muted); font-weight:500; margin-left:6px}
+.stepper li.ph{position:relative; padding:4px 0 6px; margin-left:14px; white-space:nowrap}
+.stepper li.ph.done{color:var(--ink); opacity:.7}
+.stepper li.ph.cur{color:var(--gold)}
+.stepper li.ph.cur::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; border-radius:2px; background:var(--gold)}
+.stepper li.ph.skip{text-decoration:line-through; opacity:.45}
 .stepper li.skip{opacity:.45; text-decoration:line-through}
 .stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
 .primary{background:var(--gold); color:#1B1640; border:0; border-radius:10px; padding:10px 24px; font:700 .95rem var(--display); cursor:pointer}
@@ -497,6 +501,29 @@ html.compact .emblem{width:34px; height:38px}
 html.compact h1{font-size:1.1rem}
 html.compact .elements{display:none}
 html.compact .loghead, html.compact .duellog{display:none}
+.ctools{display:flex; gap:4px}
+.ctools .ctool{display:none}
+.ctool, .compactbtn{white-space:nowrap}
+html.compact .compactbtn{padding:2px 9px; font-size:.72rem; border-radius:999px}
+html.compact .ctools .ctool{display:inline-block}
+.ctool{background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 9px; font:600 .72rem var(--display); cursor:pointer}
+.ctool:hover, .ctool[aria-pressed="true"]{color:var(--ink); border-color:var(--gold)}
+html.compact.logopen .loghead{display:flex; margin-top:10px} html.compact.logopen .duellog{display:block}
+html.deckopen #deckPane{display:block !important; position:fixed; top:22px; left:8px; right:8px; bottom:8px; z-index:60; overflow-y:auto; padding:16px; border-radius:14px;
+  background:var(--panel) !important; border:1px solid var(--gold); box-shadow:0 20px 50px rgba(0,0,0,.45)}
+html.deckopen #deckPane .deckgrp{font-family:var(--display); font-weight:600; color:var(--gold); font-size:.95rem; margin:16px 0 6px; padding:6px 2px; border-top:1px solid var(--line); border-bottom:1px solid var(--line); display:flex; justify-content:space-between}
+html.deckopen #deckPane .deckgrp span{color:var(--muted); font-weight:500}
+html.deckopen #deckPane .dl-item{display:flex; align-items:center; gap:8px; width:100%; text-align:left; background:none; border:0; border-radius:8px; color:var(--ink); font:400 .93rem var(--body); padding:6px 8px; cursor:pointer}
+html.deckopen #deckPane .dl-item:hover{background:var(--panel2)}
+html.deckopen #deckPane .dl-item[aria-current="true"]{background:var(--bg); outline:1.5px solid var(--gold)}
+html.deckopen #deckPane .dl-item .nm{flex:1; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+html.deckopen #deckPane .dl-item.norule .nm::after{content:" \2691"; color:var(--red)}
+html.deckopen #deckPane .dl-item .ct{font:700 .8rem var(--display); color:var(--gold); min-width:22px}
+html.deckopen #deckPane .dl-item .dot{margin-left:auto; font-size:.8rem}
+html.deckopen #deckPane .dl-item .dot.st{flex:none; font:700 .72rem var(--display); letter-spacing:.03em; white-space:nowrap}
+html.deckopen #deckPane .dl-item .dot.spell{color:var(--spell)} html.deckopen #deckPane .dl-item .dot.trap{color:var(--trap)}
+html.deckopen #deckPane h2{margin:0 0 2px} html.deckopen #deckPane .sub{color:var(--muted); font-size:.85rem; margin-bottom:6px}
+html.deckopen #findClose{display:block; position:fixed; top:30px; right:20px; z-index:61; background:var(--gold); color:#1B1640; border:0; border-radius:999px; padding:5px 12px; font:700 .8rem var(--display); cursor:pointer}
 
 #hbcToast{position:fixed; left:50%; bottom:70px; transform:translateX(-50%) translateY(10px); background:var(--gold); color:#1B1640; font:700 .9rem var(--display); padding:8px 16px; border-radius:999px; opacity:0; pointer-events:none; transition:opacity .15s, transform .15s; z-index:50}
 #hbcToast.show{opacity:1; transform:translateX(-50%) translateY(0)}
@@ -544,13 +571,13 @@ html.findopen #cardPane .cd-block{margin-top:10px}
         <div class="elements" id="elementRow" aria-hidden="true"></div>
       </div>
     </div>
-    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div>
+    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><div class="ctools" role="group" aria-label="Compact tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log and New duel">Log</button><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div></div>
   </header>
 
   <!-- HAND -->
   <section id="tab-hand" aria-labelledby="t-hand">
+    <ol class="stepper" id="stepper" aria-label="Turn and phase"></ol>
     <div class="lpbar" id="lpBar"></div>
-    <ol class="stepper" id="stepper" aria-label="Duel steps"></ol>
     <div id="stepBody"></div>
     <div class="stepnav">
       <button type="button" class="ghost" id="stepBack">Back</button>
@@ -879,7 +906,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // ---------- compact (overlay-friendly) mode ----------
   var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
-  function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full view" : "Compact"; }
+  function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact"; }
   document.getElementById("compactBtn").addEventListener("click", function(){ compact = !compact; save("hbc-compact", compact); paintCompact(); });
   paintCompact();
 
@@ -1245,7 +1272,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           dot.className = "dot st " + (isTrap ? "trap" : "spell");
         }
         if (c.id === selected) b.setAttribute("aria-current", "true");
-        b.addEventListener("click", function(){ selected = c.id; save("hbc-card", selected); paintDeck(); paintCard(); });
+        b.addEventListener("click", function(){ selected = c.id; save("hbc-card", selected); paintDeck(); paintCard();
+          if (document.documentElement.classList.contains("deckopen")){ closeFind(); openFind(true); document.getElementById("cardPane").scrollTop = 0; } });
         deckPane.appendChild(b);
       });
     });
@@ -1578,12 +1606,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var lastLP = {};
   function renderLP(){
     var bar = document.getElementById("lpBar"); bar.innerHTML = "";
-    var pre = D.phase === "setup" || D.phase === "opening";
-    var lab = nodes("div", "turnlab");
-    lab.appendChild(nodes("span", "tl-long", pre ? "Before the duel" : "Turn " + D.n + " \u00B7 duel turn " + duelTurnNo()));
-    lab.appendChild(nodes("span", "tl-short", pre ? "Pre" : "T" + D.n));
-    lab.title = pre ? "Before the duel" : "Your turn " + D.n + ", duel turn " + duelTurnNo();
-    bar.appendChild(lab);
     [["me","You"],["opp","Opp"]].forEach(function(w){
       var k = w[0], col = nodes("div", "lpcol");
       col.appendChild(nodes("span", "lab", w[1]));
@@ -1617,15 +1639,19 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   function renderStepper(){
     var st = document.getElementById("stepper"); st.innerHTML = "";
-    var list = D.n === 1 ? PHASES : ["draw","main","end"];
+    var pre = D.phase === "setup" || D.phase === "opening";
+    var tn = nodes("li", "turnno", pre ? "Before the duel" : "Turn " + D.n);
+    if (!pre) tn.appendChild(nodes("small", null, "duel turn " + duelTurnNo() + (D.order === "first" ? " \u00B7 1st" : " \u00B7 2nd")));
+    st.appendChild(tn);
+    var list = pre ? ["setup","opening"] : ["draw","main","end"];
     var idx = PHASES.indexOf(D.phase);
     list.forEach(function(p){
-      var li = nodes("li", null, PH_LABEL[p]);
+      var li = nodes("li", "ph", PH_LABEL[p]);
       var pi = PHASES.indexOf(p);
       var skipped = p === "draw" && D.n === 1 && D.order === "first";
-      if (skipped) li.className = "skip";
-      else if (p === D.phase){ li.className = "cur"; li.setAttribute("aria-current", "step"); }
-      else if (pi < idx) li.className = "done";
+      if (skipped) li.className = "ph skip";
+      else if (p === D.phase){ li.className = "ph cur"; li.setAttribute("aria-current", "step"); }
+      else if (pi < idx) li.className = "ph done";
       if (skipped) li.title = "No draw on the first turn when going first";
       st.appendChild(li);
     });
@@ -2387,7 +2413,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function clickFirst(sel){ var el = document.querySelector(sel); if (el && !el.disabled){ el.click(); return true; } return false; }
 
   // Card lookup popup: lets compact / overlay mode reach the card panel.
-  function openFind(){
+  function openFind(noFocus){
     var narrow = document.documentElement.classList.contains("compact") || window.innerWidth < 1220;
     if (narrow){
       document.documentElement.classList.add("findopen");
@@ -2395,10 +2421,24 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = "✕ Close";
         x.addEventListener("click", closeFind); document.body.appendChild(x); }
     }
+    if (noFocus) return;
     var s = document.querySelector(".cdsearch input"); if (s){ s.focus(); s.select(); }
   }
-  function closeFind(){ document.documentElement.classList.remove("findopen"); }
-  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && document.documentElement.classList.contains("findopen") && !(e.target && e.target.value)) closeFind(); });
+  function closeFind(){ document.documentElement.classList.remove("findopen", "deckopen"); }
+  function closeBtn(){
+    var x = document.getElementById("findClose");
+    if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = "\u2715 Close";
+      x.addEventListener("click", closeFind); document.body.appendChild(x); }
+  }
+  function openDeck(){ closeFind(); closeBtn(); document.documentElement.classList.add("deckopen"); }
+  document.getElementById("cDeck").addEventListener("click", openDeck);
+  document.getElementById("cFind").addEventListener("click", function(){ closeFind(); openFind(); });
+  document.getElementById("cLog").addEventListener("click", function(){
+    var on = document.documentElement.classList.toggle("logopen");
+    this.setAttribute("aria-pressed", on ? "true" : "false");
+    if (on){ var lh = document.querySelector(".loghead"); if (lh) lh.scrollIntoView({block:"start", behavior:"smooth"}); }
+  });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && /findopen|deckopen/.test(document.documentElement.className) && !(e.target && e.target.value)) closeFind(); });
   window.addEventListener("overlay-cmd", function(e){
     var cmd = e.detail;
     if (cmd === "next"){ if (clickFirst("#stepNext")) toast(D.phase === "main" ? "Main Phase" : "Next: " + (PH_LABEL[D.phase] || "")); }
