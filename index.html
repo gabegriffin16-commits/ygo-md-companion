@@ -916,6 +916,32 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bld.dragrm .bldbrowse::after{content:"Drop here to remove one"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:10px 18px; border-radius:999px; background:var(--red); color:#fff; font:700 .9rem var(--display); pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .bld.dragadd .blddeck::after{content:"Drop here to add"; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); padding:10px 18px; border-radius:999px; background:var(--gold); color:#1B1640; font:700 .9rem var(--display); pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.4)}
 .blddeck{position:relative}
+.bld .bt{-webkit-user-select:none; user-select:none}
+.bld.dragadd, .bld.dragrm{-webkit-user-select:none; user-select:none}
+.bldghost{position:fixed; left:0; top:0; z-index:200; pointer-events:none; border-radius:5px; box-shadow:0 14px 30px rgba(0,0,0,.55); object-fit:cover}
+.bld .bldviews{display:flex; max-width:520px; align-self:center; width:100%}
+.bldviews [data-v="browse"], .bldviews [data-v="deck"]{display:none}
+.bldsim{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px}
+.bld[data-view="sim"] .bldbody{display:none !important}
+.bld[data-view="sim"] .bldsim{display:block}
+.simtop{display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-bottom:10px}
+.simseg{display:flex; background:var(--bg); border:1px solid var(--line); border-radius:999px; padding:3px}
+.simseg button{border:0; background:none; color:var(--muted); font:600 .8rem var(--display); padding:6px 12px; border-radius:999px; cursor:pointer}
+.simseg button[aria-pressed="true"]{background:var(--gold); color:#1B1640}
+.simlab{margin:8px 0 6px}
+.simhand{display:grid; grid-template-columns:repeat(auto-fill, minmax(110px, 140px)); gap:10px; padding:6px 4px}
+.simsum{font-size:.9rem; margin:0 0 8px} .simsum b{color:var(--gold)}
+.simtbl{display:flex; flex-direction:column; gap:1px; max-width:720px}
+.simrow{display:grid; grid-template-columns:1fr 60px 60px 60px; gap:8px; align-items:center; text-align:left; padding:5px 8px; border:0; border-radius:6px; background:none; color:var(--ink); font:500 .84rem var(--body); cursor:pointer}
+.simrow span:not(.simnm){text-align:right; font-variant-numeric:tabular-nums}
+.simrow:hover{background:var(--panel2)}
+.simrow.on{background:color-mix(in srgb, var(--gold) 16%, transparent)} .simrow.on .simnm{color:var(--gold); font-weight:700}
+.simhead{cursor:default; font:700 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted)} .simhead:hover{background:none}
+@media (max-width:760px){
+  .bldviews [data-v="build"]{display:none} .bldviews [data-v="browse"], .bldviews [data-v="deck"]{display:block}
+  .simhand{grid-template-columns:repeat(4, 1fr); gap:8px}
+  .simrow{grid-template-columns:1fr 44px 50px 50px; font-size:.8rem}
+}
 </style>
 </head>
 <body>
@@ -3327,7 +3353,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldstat"></div>' +
-      '<div class="bldviews" role="tablist"><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button></div>' +
+      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div>' +
       '<div class="bldbody">' +
         '<section class="bldbrowse">' +
           '<div class="bldtools">' +
@@ -3342,6 +3368,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '</section>' +
         '<section class="blddeck"><div class="blddecklist"></div><div class="bldnotes"><div class="bldnhead"><label class="fhead" for="bldNotes">Deck notes</label><span class="bldgrip" title="Drag up or down to resize" aria-hidden="true"></span></div><textarea id="bldNotes" placeholder="Combo lines, side plans, matchup reminders\u2026 These show in the Lines tab while you pilot this deck."></textarea></div></section>' +
       '</div>' +
+      '<section class="bldsim"></section>' +
       '<div class="bldinfo" hidden></div>';
     document.body.appendChild(root);
     document.documentElement.classList.add("building");
@@ -3367,7 +3394,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     // ---- deck edits ----
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
-    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (!info.hidden && info._card) showInfo(info._card); }
+    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
       var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
@@ -3393,17 +3420,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (c.b) { var bb = nodes("span", "btban ban-" + c.b, c.b === "F" ? "✕" : String(BAN_MAX[c.b])); bb.title = BAN_NAME[c.b]; b.appendChild(bb); }
       var have = copies(c.id);
       if (have && !opts.deck) b.appendChild(nodes("span", "bthave", have + "×"));
-      if (opts.deck) b.appendChild(nodes("span", "btcount", opts.n + "×"));
+      if (opts.deck && !opts.sim) b.appendChild(nodes("span", "btcount", opts.n + "×"));
       b.addEventListener("click", function(){ if (opts.deck) showInfo(c); else add(c); });
       // Drag from the card list onto your deck to add, or from your deck back to the list to remove.
-      b.draggable = true; img.draggable = false;
-      b.addEventListener("dragstart", function(e){
-        e.dataTransfer.effectAllowed = opts.deck ? "move" : "copy";
-        e.dataTransfer.setData(opts.deck ? "application/x-mdc-rm" : "application/x-mdc-add", String(c.id));
-        e.dataTransfer.setData("text/plain", c.n);
-        root.classList.add(opts.deck ? "dragrm" : "dragadd");
-      });
-      b.addEventListener("dragend", function(){ root.classList.remove("dragrm", "dragadd"); });
+      img.draggable = false;
+      if (!opts.sim) b.addEventListener("pointerdown", function(e){ if (e.pointerType !== "touch" && e.button === 0) startDrag(e, c, b, !!opts.deck); });
+      b.addEventListener("click", function(e){ if (b._dragged){ e.stopImmediatePropagation(); e.preventDefault(); b._dragged = false; } }, true);
       b.addEventListener("contextmenu", function(e){ e.preventDefault(); showInfo(c); });
       var lp; b.addEventListener("touchstart", function(){ lp = setTimeout(function(){ lp = "done"; showInfo(c); }, 480); }, {passive:true});
       b.addEventListener("touchend", function(e){ if (lp === "done"){ e.preventDefault(); } clearTimeout(lp); lp = null; });
@@ -3455,6 +3477,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       return out;
     }
     var lastRes = [];
+    function fitPer(){
+      var cs = getComputedStyle(grid), cols = cs.gridTemplateColumns.split(" ").filter(Boolean).length || 4;
+      var tile = grid.querySelector(".bt"), gap = parseFloat(cs.rowGap) || 10;
+      if (!tile || !grid.clientHeight) return PER;
+      var th = tile.getBoundingClientRect().height, avail = grid.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
+      var rows = Math.max(2, Math.floor((avail + gap) / (th + gap)));
+      return Math.max(12, cols * rows);
+    }
     function paintGrid(keepPage){
       lastRes = results();
       var pages = Math.max(1, Math.ceil(lastRes.length / PER));
@@ -3462,6 +3492,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       grid.innerHTML = "";
       if (!lastRes.length) grid.appendChild(nodes("p", "hint bldnone", "No cards match. Try clearing a filter."));
       lastRes.slice(page * PER, page * PER + PER).forEach(function(c){ grid.appendChild(tile(c)); });
+      var want = fitPer();
+      if (want !== PER && !keepPage){ var first = page * PER; PER = want; page = Math.floor(first / PER); return paintGrid(true); }
       pager.innerHTML = "";
       function pbtn(label, to, cur){ var b = nodes("button", "pg" + (cur ? " cur" : ""), label); b.type = "button"; b.disabled = to < 0 || to >= pages || cur; b.addEventListener("click", function(){ page = to; paintGrid(); grid.scrollTop = 0; }); pager.appendChild(b); }
       pbtn("«", 0); pbtn("‹", page - 1);
@@ -3469,7 +3501,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       for (var i = from; i < to; i++) pbtn(String(i + 1), i, i === page);
       pbtn("›", page + 1); pbtn("»", pages - 1);
       pager.appendChild(nodes("span", "pgcount", lastRes.length.toLocaleString() + " cards"));
-      pager.appendChild(nodes("span", "bldhint", "Click or drag a card to your deck to add it \u00B7 drag it back to remove \u00B7 right-click or hold for details"));
+      pager.appendChild(nodes("span", "bldhint", "Click or drag a card to your deck to add it \u00B7 drag it back to remove \u00B7 right-click for details"));
     }
 
     // ---- filter menu ----
@@ -3609,27 +3641,124 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
     info.addEventListener("click", function(e){ if (e.target === info) info.hidden = true; });
 
-    // ---- drag and drop between the two sides ----
-    function dropZone(el, type, fn){
-      el.addEventListener("dragover", function(e){
-        if ([].indexOf.call(e.dataTransfer.types, type) < 0) return;
-        e.preventDefault(); e.dataTransfer.dropEffect = type === "application/x-mdc-add" ? "copy" : "move"; el.classList.add("dropover");
-      });
-      el.addEventListener("dragleave", function(e){ if (!el.contains(e.relatedTarget)) el.classList.remove("dropover"); });
-      el.addEventListener("drop", function(e){
-        el.classList.remove("dropover"); root.classList.remove("dragrm", "dragadd");
-        var id = +e.dataTransfer.getData(type); if (!id) return;
-        e.preventDefault(); var c = CARD_BY_ID[id]; if (c) fn(c);
-      });
+    // ---- drag between the two sides (pointer-based: the card stays solid and the cursor doesn't change) ----
+    var drag = null;
+    function zoneAt(x, y){
+      var el = document.elementFromPoint(x, y);
+      if (!el) return null;
+      if (el.closest(".bldinfo:not([hidden])")) return null;
+      return el.closest(".blddeck") ? "deck" : el.closest(".bldbrowse") ? "browse" : null;
     }
-    dropZone($(".blddeck"), "application/x-mdc-add", add);
-    dropZone($(".bldbrowse"), "application/x-mdc-rm", sub);
+    function startDrag(e, c, tileEl, fromDeck){
+      var x0 = e.clientX, y0 = e.clientY;
+      function mv(ev){
+        if (!drag){
+          if (Math.abs(ev.clientX - x0) + Math.abs(ev.clientY - y0) < 6) return;
+          var r = tileEl.getBoundingClientRect(), img = tileEl.querySelector("img");
+          var g = img ? img.cloneNode() : nodes("span", "btface", c.n);
+          g.className = "bldghost"; g.style.width = r.width + "px"; g.style.height = (r.width * 614 / 421) + "px";
+          document.body.appendChild(g);
+          drag = {c:c, fromDeck:fromDeck, ghost:g, dx:x0 - r.left, dy:y0 - r.top};
+          root.classList.add(fromDeck ? "dragrm" : "dragadd");
+          tileEl._dragged = true;
+        }
+        drag.ghost.style.transform = "translate(" + (ev.clientX - drag.dx) + "px," + (ev.clientY - drag.dy) + "px)";
+        var z = zoneAt(ev.clientX, ev.clientY);
+        $(".blddeck").classList.toggle("dropover", !drag.fromDeck && z === "deck");
+        $(".bldbrowse").classList.toggle("dropover", drag.fromDeck && z === "browse");
+      }
+      function up(ev){
+        window.removeEventListener("pointermove", mv); window.removeEventListener("pointerup", up); window.removeEventListener("pointercancel", up);
+        if (!drag) return;
+        var d = drag, z = zoneAt(ev.clientX, ev.clientY); drag = null;
+        d.ghost.remove(); root.classList.remove("dragrm", "dragadd");
+        $(".blddeck").classList.remove("dropover"); $(".bldbrowse").classList.remove("dropover");
+        if (!d.fromDeck && z === "deck") add(d.c);
+        else if (d.fromDeck && z === "browse") sub(d.c);
+      }
+      window.addEventListener("pointermove", mv); window.addEventListener("pointerup", up); window.addEventListener("pointercancel", up);
+    }
+
+    // ---- draw simulator ----
+    var simOrder = "first", simHand = [], simRest = [];
+    function mainPile(){ var a = []; deck.main.forEach(function(r){ for (var i = 0; i < r.n; i++) a.push(r.id); }); return a; }
+    function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
+    function newHand(){
+      var pile = shuffle(mainPile()), n = simOrder === "first" ? 5 : 6;
+      simHand = pile.slice(0, n); simRest = pile.slice(n); paintSim();
+    }
+    function drawOne(){ if (!simRest.length){ toast("No cards left to draw"); return; } simHand.push(simRest.shift()); paintSim(); }
+    // Chance to see at least one of K copies in an n-card draw from N cards (hypergeometric).
+    function atLeastOne(N, K, n){
+      if (K <= 0) return 0; if (n >= N) return 1;
+      var miss = 1; for (var i = 0; i < n; i++) miss *= (N - K - i) / (N - i);
+      return Math.max(0, 1 - miss);
+    }
+    function pct(x){ return (x * 100).toFixed(x >= 0.995 || x < 0.1 ? 1 : 0) + "%"; }
+    function paintSim(){
+      var box = $(".bldsim"); if (!box) return;
+      var N = mainPile().length;
+      box.innerHTML = "";
+      var top = nodes("div", "simtop");
+      var seg = nodes("div", "simseg");
+      [["first", "Going first (5)"], ["second", "Going second (6)"]].forEach(function(o){
+        var b = nodes("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", simOrder === o[0] ? "true" : "false");
+        b.addEventListener("click", function(){ simOrder = o[0]; newHand(); }); seg.appendChild(b);
+      });
+      var nh = nodes("button", "primary", "New hand"); nh.type = "button"; nh.addEventListener("click", newHand);
+      var d1 = nodes("button", "ghost", "Draw 1"); d1.type = "button"; d1.disabled = !simHand.length; d1.addEventListener("click", drawOne);
+      top.appendChild(seg); top.appendChild(nh); top.appendChild(d1);
+      box.appendChild(top);
+      if (N < 5){ box.appendChild(nodes("p", "hint", "Add at least 5 Main Deck cards to draw hands.")); return; }
+      if (!simHand.length){ box.appendChild(nodes("p", "hint", "Press New hand to draw an opening hand from this deck.")); }
+      else {
+        box.appendChild(nodes("div", "fhead simlab", "Hand (" + simHand.length + ")" + (simRest.length ? " · " + simRest.length + " left in Deck" : "")));
+        var hw = nodes("div", "simhand");
+        simHand.forEach(function(id){ var c = CARD_BY_ID[id]; if (c){ var t = tile(c, {deck:true, sim:true}); hw.appendChild(t); } });
+        box.appendChild(hw);
+      }
+      // Starters: tap cards to mark them, see the odds of opening at least one.
+      deck.starters = deck.starters || [];
+      var st = deck.starters.filter(function(id){ return deck.main.some(function(r){ return r.id === id; }); });
+      var K = deck.main.filter(function(r){ return st.indexOf(r.id) >= 0; }).reduce(function(a, r){ return a + r.n; }, 0);
+      var odds = nodes("div", "simodds");
+      odds.appendChild(nodes("div", "fhead simlab", "Opening odds (" + N + "-card Main Deck)"));
+      var sum = nodes("p", "simsum");
+      if (K){ sum.innerHTML = "At least one starter: <b></b> going first · <b></b> going second";
+        var bs = sum.querySelectorAll("b"); bs[0].textContent = pct(atLeastOne(N, K, 5)); bs[1].textContent = pct(atLeastOne(N, K, 6)); }
+      else sum.textContent = "Tap cards below to mark your starters and see the odds of opening one.";
+      odds.appendChild(sum);
+      var tbl = nodes("div", "simtbl");
+      var hd = nodes("div", "simrow simhead"); ["Card", "Copies", "In 5", "In 6"].forEach(function(t){ hd.appendChild(nodes("span", null, t)); }); tbl.appendChild(hd);
+      deck.main.slice().sort(function(a, b){ return b.n - a.n || (CARD_BY_ID[a.id].n < CARD_BY_ID[b.id].n ? -1 : 1); }).forEach(function(r){
+        var c = CARD_BY_ID[r.id]; if (!c) return;
+        var on = st.indexOf(r.id) >= 0;
+        var row = nodes("button", "simrow" + (on ? " on" : "")); row.type = "button"; row.title = on ? "Starter: tap to unmark" : "Tap to mark as a starter";
+        row.appendChild(nodes("span", "simnm", (on ? "★ " : "") + c.n));
+        row.appendChild(nodes("span", null, String(r.n)));
+        row.appendChild(nodes("span", null, pct(atLeastOne(N, r.n, 5))));
+        row.appendChild(nodes("span", null, pct(atLeastOne(N, r.n, 6))));
+        row.addEventListener("click", function(){
+          var i = deck.starters.indexOf(r.id);
+          if (i >= 0) deck.starters.splice(i, 1); else deck.starters.push(r.id);
+          dirty = true; paintSim();
+        });
+        tbl.appendChild(row);
+      });
+      odds.appendChild(tbl);
+      box.appendChild(odds);
+    }
 
     // ---- top bar ----
     root.querySelectorAll(".bldviews button").forEach(function(b){
       b.addEventListener("click", function(){
-        view = b.dataset.v; root.dataset.view = view;
-        root.querySelectorAll(".bldviews button").forEach(function(o){ o.setAttribute("aria-selected", o === b ? "true" : "false"); });
+        view = b.dataset.v === "build" ? "browse" : b.dataset.v; root.dataset.view = view;
+        root.querySelectorAll(".bldviews button").forEach(function(o){
+          var v = o.dataset.v === "build" ? "browse" : o.dataset.v;
+          o.setAttribute("aria-selected", v === view || (o.dataset.v === "build" && view === "deck") ? "true" : "false");
+        });
+        if (view === "sim"){ if (!simHand.length && mainPile().length >= 5) newHand(); else paintSim(); }
+        else paintGrid();
       });
     });
     root.dataset.view = "browse";
@@ -3659,7 +3788,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (deck.id === PILOT_ID) location.reload();
       else MDC.setPilot(deck.id);          // switch to the deck you just built
     });
-    paintDeckList(); paintGrid(); paintFbtn();
+    paintDeckList(); paintGrid(); paintFbtn(); paintSim();
+    var rsz; window.addEventListener("resize", function(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ paintGrid(); }, 150); });
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
   }
 
