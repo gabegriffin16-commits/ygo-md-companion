@@ -1116,6 +1116,12 @@ html.deckopen #deckPane .dl-item{border-radius:8px}
 .bldpickmenu .dmitem{position:relative; padding-right:28px} .bldpickmenu .dmitem.on::after{position:absolute; right:10px; margin:0}
 .dmempty{padding:6px 10px 8px; color:var(--muted); font-size:.82rem}
 @media (max-width:760px){ .bldnames{flex-basis:100%} }
+.bldpickmenu .dmrow{display:flex; align-items:center; gap:2px}
+.bldpickmenu .dmrow .dmitem{flex:1; min-width:0}
+.dmdel{flex:none; width:30px; height:30px; display:grid; place-items:center; padding:0; border:0; border-radius:8px; background:none; color:var(--muted); cursor:pointer; opacity:.7}
+.dmdel:hover{opacity:1; color:var(--red); background:color-mix(in srgb, var(--red) 12%, transparent)}
+.dmrow.armed .dmdel{opacity:1; color:#fff; background:var(--red)}
+.dmrow.armed .dmitem span{color:var(--red)}
 </style>
 </head>
 <body>
@@ -3572,6 +3578,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   document.addEventListener("click", function(e){ if (!deckMenu.hidden && !deckMenu.contains(e.target) && !e.target.closest(".deckpick")) closeDeckMenu(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDeckMenu(); });
 
+  var bldReload = false;   // the piloted deck changed while building: reload when the builder closes
   function openBuilder(deck, isNew){
     var old = document.getElementById("builder"); if (old) old.remove();
     var dirty = false;
@@ -3632,22 +3639,40 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       b.appendChild(nodes("span", null, label)); if (sub) b.appendChild(nodes("small", null, sub));
       b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); pickMenu.appendChild(b); return b;
     }
-    pickBtn.addEventListener("click", function(e){
-      e.stopPropagation();
-      if (!pickMenu.hidden){ closePick(); return; }
+    var TRASH = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M9.5 7V4.8h5V7M6.5 7l1 12.2h9L17.5 7"/></svg>';
+    function fillPick(){
       pickMenu.innerHTML = ""; pickMenu.appendChild(nodes("div", "dmhead", "Your saved decks"));
       var decks = MDC.list().slice().sort(function(a, b){ return (b.updated || 0) - (a.updated || 0); });
       if (!decks.length) pickMenu.appendChild(nodes("div", "dmempty", "Nothing saved yet. Decks you save show up here."));
       decks.forEach(function(d){
         var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
-        pickItem(d.name || "Untitled deck", cnt + " cards", d.id === deck.id ? "on" : "", function(b){
+        var it = pickItem(d.name || "Untitled deck", cnt + (cnt === 1 ? " card" : " cards"), d.id === deck.id ? "on" : "", function(b){
           if (d.id === deck.id){ closePick(); return; }
           switchTo(JSON.parse(JSON.stringify(MDC.get(d.id))), false, b);
         });
+        // Delete: tap the bin, then tap again to confirm.
+        var row = nodes("div", "dmrow"); pickMenu.insertBefore(row, it); row.appendChild(it);
+        var del = nodes("button", "dmdel"); del.type = "button"; del.innerHTML = TRASH; del.title = "Delete " + (d.name || "this deck"); del.setAttribute("aria-label", del.title);
+        del.addEventListener("click", function(e){
+          e.stopPropagation();
+          if (!del.dataset.armed){ del.dataset.armed = "1"; row.classList.add("armed"); it.querySelector("span").textContent = "Tap again to delete";
+            setTimeout(function(){ if (row.isConnected && del.dataset.armed){ delete del.dataset.armed; row.classList.remove("armed"); it.querySelector("span").textContent = d.name || "Untitled deck"; } }, 3000); return; }
+          var wasPilot = d.id === PILOT_ID;
+          MDC.remove(d.id); if (wasPilot) bldReload = true;
+          toast("Deleted " + (d.name || "deck"));
+          if (d.id === deck.id){ closePick(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); return; }
+          fillPick();
+        });
+        row.appendChild(del);
       });
       pickMenu.appendChild(nodes("div", "dmsep"));
       pickItem("+ Start a new deck", null, "act", function(b){ switchTo({id:MDC.newId(), name:"", main:[], extra:[]}, true, b); });
       if (PILOT_ID === "hero") pickItem("Copy Omni HERO to edit", null, "act", function(b){ var c = currentAsBuilt(); c.id = MDC.newId(); c.name = "Omni HERO (copy)"; switchTo(c, true, b); });
+    }
+    pickBtn.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (!pickMenu.hidden){ closePick(); return; }
+      fillPick();
       pickMenu.hidden = false; pickBtn.setAttribute("aria-expanded", "true");
       var r = pickBtn.getBoundingClientRect();
       pickMenu.style.width = Math.max(240, r.width) + "px";
@@ -4064,7 +4089,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
     });
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
-    function close(){ closePick(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey); }
+    function close(){ closePick(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey);
+      if (bldReload){ bldReload = false; location.reload(); } }
     function onKey(e){ if (e.key === "Escape"){ if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
     document.addEventListener("keydown", onKey);
     var cancel = $(".bldcancel");
@@ -4076,9 +4102,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       deck.name = (nameIn.value || "").trim() || "Untitled deck";
       if (!deck.main.length){ toast("Add some cards first"); return; }
       if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
-      close();
-      if (deck.id === PILOT_ID) location.reload();
-      else MDC.setPilot(deck.id);          // switch to the deck you just built
+      // Stay in the builder and keep piloting whatever you were piloting. Saving the piloted deck refreshes it when you close.
+      dirty = false; isNew = false; nameIn.value = deck.name;
+      $(".bldpicklbl").textContent = "Editing: " + deck.name;
+      if (deck.id === PILOT_ID) bldReload = true;
+      toast("Saved " + deck.name);
     });
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
     var rsz; window.addEventListener("resize", function(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ paintGrid(); if (list.offsetParent) fitDeck(); }, 150); });
