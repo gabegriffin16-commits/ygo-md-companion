@@ -151,7 +151,7 @@
   {
    "id": "fuwalos",
    "name": "Mulcharmy Fuwalos",
-   "n": 1,
+   "n": 2,
    "short": "Fuwalos",
    "summary": [
     "Quick Effect, if you control no cards: discard it. For the rest of the turn, draw a card each time your opponent Special Summons from the Deck or Extra Deck.",
@@ -227,7 +227,7 @@
   {
    "id": "ic",
    "name": "Instant Contact",
-   "n": 2,
+   "n": 1,
    "short": "Instant Contact",
    "summary": [
     "Pay 1000 LP: Special Summon a Level 7 or lower Elemental HERO or Neo-Spacian from your Extra Deck, ignoring its summoning conditions.",
