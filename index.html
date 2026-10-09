@@ -950,6 +950,14 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bldpager .pgcount{margin-left:12px; order:10}
 .bld{gap:6px}
 @media (max-width:760px){ .bld .bldviews{flex:1 1 100%} .bldpager .bldhint{flex-basis:100%} }
+.ban-F{--bc:#E0525A} .ban-L{--bc:#E8893C} .ban-S{--bc:#D6B43C}
+.pill.banpill{display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--bc) 14%, transparent) !important; color:color-mix(in srgb, var(--bc) 70%, var(--ink)) !important;
+  border:1px solid color-mix(in srgb, var(--bc) 50%, transparent) !important; border-radius:999px; padding:2px 10px; font:600 .76rem var(--display); letter-spacing:.02em}
+.pill.banpill::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--bc); flex:none}
+.bldsort{appearance:none; -webkit-appearance:none; padding:7px 32px 7px 14px; cursor:pointer;
+  background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23E0B85E' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 13px center}
+.bldsort:hover, .bldsort:focus{border-color:var(--gold); outline:none}
+.bldsort option{background:var(--panel); color:var(--ink)}
 </style>
 </head>
 <body>
@@ -1937,7 +1945,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
     var meta = mk("div", "cd-meta");
     if (RARITY[c.id]) meta.appendChild(mk("span", "pill rar r-" + RARITY[c.id], RARITY[c.id]));
-    var cdb = CARD_BY_NAME[c.name]; if (cdb && cdb.b) meta.appendChild(mk("span", "pill banpill ban-" + cdb.b, BAN_NAME[cdb.b] + (cdb.b === "F" ? "" : " (" + BAN_MAX[cdb.b] + ")")));
+    var cdb = CARD_BY_NAME[c.name]; if (cdb && cdb.b) meta.appendChild(mk("span", "pill banpill ban-" + cdb.b, BAN_NAME[cdb.b] + (cdb.b === "F" ? "" : " \u00B7 " + BAN_MAX[cdb.b])));
     meta.appendChild(mk("span", "pill", c.n + (c.n > 1 ? " copies" : " copy") + (c.sec === "Extra Deck" ? " in Extra Deck" : " in Main Deck")));
     plate.appendChild(meta);
     cardPane.appendChild(plate);
@@ -2065,7 +2073,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       img.src = "images/" + x.id + ".jpg";
       var meta = mk("div", "cd-meta");
       if (x.md) meta.appendChild(mk("span", "pill rar r-" + x.md, x.md)); else meta.appendChild(mk("span", "pill", "Not in Master Duel"));
-      if (x.b) meta.appendChild(mk("span", "pill banpill ban-" + x.b, BAN_NAME[x.b] + (x.b === "F" ? "" : " (" + BAN_MAX[x.b] + ")")));
+      if (x.b) meta.appendChild(mk("span", "pill banpill ban-" + x.b, BAN_NAME[x.b] + (x.b === "F" ? "" : " \u00B7 " + BAN_MAX[x.b])));
       if (x.ar) meta.appendChild(mk("span", "pill", x.ar));
       meta.appendChild(mk("span", "pill", "Not in your deck"));
       plate.appendChild(meta);
@@ -3648,7 +3656,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       body.appendChild(nodes("p", "bimeta", meta.join(" · ")));
       var pills = nodes("div", "bipills");
       if (c.md) pills.appendChild(nodes("span", "pill rar r-" + c.md, c.md)); else pills.appendChild(nodes("span", "pill", "Not in Master Duel"));
-      if (c.b) pills.appendChild(nodes("span", "pill banpill ban-" + c.b, BAN_NAME[c.b] + (c.b === "F" ? "" : " (" + BAN_MAX[c.b] + ")")));
+      if (c.b) pills.appendChild(nodes("span", "pill banpill ban-" + c.b, BAN_NAME[c.b] + (c.b === "F" ? "" : " \u00B7 " + BAN_MAX[c.b])));
       if (c.ar) pills.appendChild(nodes("span", "pill", c.ar));
       body.appendChild(pills);
       (c.d || "").split("\n").filter(Boolean).forEach(function(p){ body.appendChild(nodes("p", "bitext", p)); });
