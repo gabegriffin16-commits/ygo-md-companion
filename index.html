@@ -320,8 +320,7 @@ body{
 @keyframes ambientFlow2{ from{background-position:0 0, 0% 0%} to{background-position:0 0, 100% 100%} }
 @media (prefers-reduced-motion: reduce){ body, .side.left, .side.right{animation:none} }
 /* ---- duel flow ---- */
-.lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px;
-  background:linear-gradient(var(--bg) 80%, transparent)}
+.lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px; background:none}
 
 .lpcol{display:flex; align-items:center; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px}
 .lpcol .lab{font:600 .72rem var(--display); color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
@@ -701,6 +700,32 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
   color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:9px 34px 9px 12px; font:600 .95rem var(--display); cursor:pointer; margin-bottom:10px}
 .cgpick:hover, .cgpick:focus{border-color:var(--gold); outline:none}
 .cgpick optgroup, .cgpick option{background:var(--panel); color:var(--ink)}
+/* opponent deck picker (Duel tab) */
+.stepper .turnno{margin-right:0}
+.stepper li.vsli{margin:0 auto 0 10px; padding:2px 0 4px}
+.vsbtn{display:inline-flex; align-items:center; gap:5px; max-width:170px; padding:2px 10px; border-radius:999px; border:1px solid var(--line); background:var(--panel); color:var(--ink); font:600 .74rem var(--display); cursor:pointer; white-space:nowrap}
+.vsbtn .vsn{overflow:hidden; text-overflow:ellipsis}
+.vsbtn.unset{color:var(--muted); border-style:dashed}
+.vsbtn:hover, .vsbtn[aria-expanded="true"]{border-color:var(--gold)}
+.vsbtn .caret{color:var(--gold); font-size:.7rem}
+.vspop{position:fixed; z-index:70; width:230px; max-height:min(70vh, 520px); overflow:auto; padding:6px; border-radius:12px; background:var(--panel); border:1px solid var(--line); box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.vspop[hidden]{display:none}
+.vspop .vsgrp{font:600 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:8px 8px 3px}
+.vspop .vsgrp:first-child{padding-top:3px}
+.vsitem{display:block; width:100%; text-align:left; padding:6px 10px; border:0; border-radius:8px; background:transparent; color:var(--ink); font:500 .84rem var(--body); cursor:pointer}
+.vsitem:hover{background:var(--panel2)}
+.vsitem[aria-checked="true"]{color:var(--gold); font-weight:700}
+#vsTips:empty{display:none}
+.vstips{border:1px solid var(--line); border-left:3px solid var(--gold); border-radius:10px; background:var(--panel); margin:0 0 8px; padding:0}
+.vstips > button{display:flex; width:100%; align-items:center; gap:8px; padding:6px 12px; border:0; background:transparent; color:var(--ink); font:600 .8rem var(--display); cursor:pointer; text-align:left}
+.vstips > button .caret{margin-left:auto; color:var(--gold); transition:transform .15s}
+.vstips.open > button .caret{transform:rotate(180deg)}
+.vstips .vsbody{padding:0 12px 8px}
+.vstips:not(.open) .vsbody{display:none}
+.vstips h4{margin:6px 0 2px; font:600 .7rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.vstips h4.ash{color:var(--red)}
+.vstips ul{margin:0; padding-left:16px; font-size:.8rem; line-height:1.35}
+html.fadebg .vstips, html.fadebg .vsbtn{background:color-mix(in srgb, var(--panel) 22%, transparent)}
 </style>
 </head>
 <body>
@@ -729,6 +754,7 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
   <section id="tab-hand" aria-labelledby="t-hand">
     <ol class="stepper" id="stepper" aria-label="Turn and phase"></ol>
     <div class="lpbar" id="lpBar"></div>
+    <div id="vsTips"></div>
     <div id="stepBody"></div>
     <div class="stepnav">
       <button type="button" class="ghost" id="stepBack">Back</button>
@@ -1735,7 +1761,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           .forEach(function(d){ var o = document.createElement("option"); o.value = d.id; o.textContent = d.name; og.appendChild(o); });
         pick.appendChild(og);
       });
-      pick.addEventListener("change", function(){ cgSel = pick.value; save("hbc-cg", cgSel); paintCounter(); });
+      pick.addEventListener("change", function(){ cgSel = pick.value; save("hbc-cg", cgSel); paintCounter();
+        if (typeof D === "object" && D){ D.vs = cgSel === "any" ? null : cgSel; persist(); renderStepper(); } });
     }
     if (!COUNTERS.some(function(d){ return d.id === cgSel; })) cgSel = "any";
     pick.value = cgSel;
@@ -1841,6 +1868,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var tn = nodes("li", "turnno", pre ? "Before the duel" : "Turn " + D.n);
     if (!pre) tn.appendChild(nodes("small", null, "duel turn " + duelTurnNo() + (D.order === "first" ? " \u00B7 1st" : " \u00B7 2nd")));
     st.appendChild(tn);
+    var vli = nodes("li", "vsli"), vb = nodes("button", "vsbtn" + (vsDeck() ? "" : " unset"));
+    vb.type = "button"; vb.id = "vsBtn"; vb.setAttribute("aria-haspopup", "true"); vb.setAttribute("aria-expanded", "false");
+    vb.title = "Which deck you're dueling against (also sets the Counter Guide)";
+    vb.appendChild(nodes("span", "vsn", vsDeck() ? "vs " + vsDeck().name : "Their deck?"));
+    vb.appendChild(nodes("span", "caret", "\u25BE"));
+    vb.addEventListener("click", function(e){ e.stopPropagation(); toggleVs(vb); });
+    vli.appendChild(vb); st.appendChild(vli);
+    renderVsTips();
     var list = pre ? ["setup","opening"] : ["draw","main","end"];
     var idx = PHASES.indexOf(D.phase);
     list.forEach(function(p){
@@ -1860,6 +1895,59 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         readerStatus.state === "searching" ? "Hand reader: waiting for Master Duel" : "Hand reader: " + readerStatus.state + (readerStatus.note ? " (" + readerStatus.note + ")" : "");
       st.appendChild(rp);
     }
+  }
+
+  // ---------- opponent deck ----------
+  function vsDeck(){ return D && D.vs && D.vs !== "any" ? COUNTERS.filter(function(x){ return x.id === D.vs; })[0] || null : null; }
+  var vsPop = document.createElement("div"); vsPop.className = "vspop"; vsPop.hidden = true; vsPop.setAttribute("role", "menu"); vsPop.setAttribute("aria-label", "Their deck");
+  document.body.appendChild(vsPop);
+  function closeVs(){ vsPop.hidden = true; var b = document.getElementById("vsBtn"); if (b) b.setAttribute("aria-expanded", "false"); }
+  function setVs(id){
+    D.vs = id === "any" ? null : id; persist();
+    cgSel = id; save("hbc-cg", cgSel); paintCounter();
+    closeVs(); renderStepper();
+  }
+  function toggleVs(btn){
+    if (!vsPop.hidden){ closeVs(); return; }
+    vsPop.innerHTML = "";
+    [["meta","Meta right now"],["other","Other decks"],["general",""]].forEach(function(g){
+      var ds = COUNTERS.filter(function(d){ return (d.group || "other") === g[0]; });
+      if (g[0] === "other") ds.sort(function(a, b){ return a.name.localeCompare(b.name); });
+      if (g[1]) vsPop.appendChild(nodes("div", "vsgrp", g[1]));
+      ds.forEach(function(d){
+        var it = nodes("button", "vsitem", d.id === "any" ? "Not sure / clear" : d.name); it.type = "button"; it.setAttribute("role", "menuitemradio");
+        it.setAttribute("aria-checked", (D.vs || "any") === d.id ? "true" : "false");
+        it.addEventListener("click", function(){ setVs(d.id); });
+        vsPop.appendChild(it);
+      });
+    });
+    var r = btn.getBoundingClientRect();
+    vsPop.hidden = false;
+    var left = Math.min(r.left, window.innerWidth - vsPop.offsetWidth - 8);
+    vsPop.style.left = Math.max(8, left) + "px"; vsPop.style.top = (r.bottom + 6) + "px";
+    btn.setAttribute("aria-expanded", "true");
+  }
+  document.addEventListener("click", function(e){ if (!vsPop.hidden && !vsPop.contains(e.target)) closeVs(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !vsPop.hidden) closeVs(); });
+  window.addEventListener("resize", closeVs);
+  var vsOpen = !!load("hbc-vsopen", false);
+  function renderVsTips(){
+    var host = document.getElementById("vsTips"); if (!host) return;
+    host.innerHTML = "";
+    var d = vsDeck(); if (!d) return;
+    var box = nodes("div", "vstips" + (vsOpen ? " open" : ""));
+    var hb = nodes("button"); hb.type = "button"; hb.setAttribute("aria-expanded", vsOpen ? "true" : "false");
+    hb.appendChild(nodes("span", null, "Countering " + d.name)); hb.appendChild(nodes("span", "caret", "\u25BE"));
+    hb.addEventListener("click", function(){ vsOpen = !vsOpen; save("hbc-vsopen", vsOpen); renderVsTips(); });
+    box.appendChild(hb);
+    var body = nodes("div", "vsbody");
+    d.sections.forEach(function(s){
+      if (!/^(Ash this|Don't Ash|Imperm|Maxx)/.test(s[0])) return;
+      body.appendChild(nodes("h4", /^Ash/.test(s[0]) ? "ash" : null, s[0]));
+      var ul = nodes("ul"); s[1].forEach(function(x){ ul.appendChild(nodes("li", null, x)); }); body.appendChild(ul);
+    });
+    var more = nodes("p", "hint", "Full breakdown in the Counter Guide tab."); more.style.margin = "6px 0 0"; body.appendChild(more);
+    box.appendChild(body); host.appendChild(box);
   }
 
   function renderSetup(){
@@ -2570,6 +2658,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["Once-per-turns", Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }).join(", ") || "none marked"],
       ["LP", "You " + D.lp.me + ", opponent " + D.lp.opp]
     ];
+    if (vsDeck()) rows.unshift(["Against", vsDeck().name]);
     rows.forEach(function(r){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, r[0] + ": ")); p.appendChild(document.createTextNode(r[1])); b.appendChild(p); });
     var rem = reminders();
     if (rem.length){
@@ -2632,7 +2721,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       D.log.push({n:D.n, t:duelTurnNo(), opening:D.opening, drew:D.drew, used:D.used.slice(), added:D.added.slice(),
         opts:Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }),
         stops:D.stops.map(function(s){ return STOP_BY[s.by] + " on " + (STOP_LABEL[s.k] || s.k); }),
-        lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note});
+        lp:{me:D.lp.me, opp:D.lp.opp}, note:D.note, vs:D.vs || null});
       D.n++; D.phase = "draw"; D.drew = null; D.used = []; D.added = []; D.stops = []; D.opt = {}; D.locks = {}; D.note = ""; D.opening = null; D.ns = false; D.queue = []; D.acts = []; pending = null; D.seen = {};
     }
     // The hand reader saw your draw before you ended the turn here: use it now.
