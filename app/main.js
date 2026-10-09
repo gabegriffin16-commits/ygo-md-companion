@@ -66,8 +66,12 @@ function setOpacity(v) {
   if (win) win.setOpacity(settings.opacity);
   saveSettings(); buildTrayMenu();
 }
+let lastToggle = 0;
 function toggleVisible() {
   if (!win) return;
+  const now = Date.now();
+  if (now - lastToggle < 350) return;      // ignore key auto-repeat / double fires
+  lastToggle = now;
   if (win.isVisible()) win.hide();
   else win.showInactive(); // don't steal focus from the game
 }
@@ -145,7 +149,7 @@ function createWindow() {
     if (isMain && settings.source !== "local" && !url.startsWith("app:")) win.loadURL(LOCAL_URL); // offline: use the bundled copy
   });
   win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: "deny" }; });
-  win.on("show", registerHotkeys); win.on("hide", registerHotkeys);
+  win.on("show", syncHotkeysToVisibility); win.on("hide", syncHotkeysToVisibility);
   screen.on("display-metrics-changed", applyLayout); screen.on("display-removed", applyLayout); screen.on("display-added", applyLayout);
   loadPage();
 }
@@ -203,6 +207,21 @@ function registerHotkeys() {
   else stopMouse();
   if (process.env.OMNI_DEBUG) console.log("[hotkeys]", hidden ? "hidden" : "visible", Object.keys(settings.hotkeys).filter(k => globalShortcut.isRegistered(settings.hotkeys[k])).join(","));
   buildTrayMenu();
+}
+
+// On show / hide, only add or drop the *other* hotkeys. Show / hide itself stays registered the whole time:
+// re-registering it while its keys are still held made Windows fire it again, which flickered the overlay.
+function syncHotkeysToVisibility() {
+  const hidden = !win || !win.isVisible();
+  for (const [action, accel] of Object.entries(settings.hotkeys)) {
+    if (!accel || !ACTIONS[action] || action === "toggle") continue;
+    if (MOUSE_RE.test(accel)) { if (hidden) delete mouseMap[accel.toLowerCase()]; else mouseMap[accel.toLowerCase()] = action; continue; }
+    const on = globalShortcut.isRegistered(accel);
+    if (hidden && on) globalShortcut.unregister(accel);
+    else if (!hidden && !on) { try { globalShortcut.register(accel, ACTIONS[action]); } catch {} }
+  }
+  if (Object.keys(mouseMap).length) startMouse();
+  if (process.env.OMNI_DEBUG) console.log("[hotkeys]", hidden ? "hidden" : "visible", Object.keys(settings.hotkeys).filter(k => globalShortcut.isRegistered(settings.hotkeys[k])).join(","));
 }
 
 function buildTrayMenu() {
@@ -580,9 +599,8 @@ else {
     if (process.env.OMNI_TEST_HIDE) { setTimeout(toggleVisible, 4000); setTimeout(toggleVisible, 7000); }
     setTimeout(() => checkUpdate(false), 6000);
     setInterval(() => checkUpdate(false), 4 * 60 * 60 * 1000);
-    tray = new Tray(path.join(__dirname, "icon.ico"));
-    tray.on("click", toggleVisible);
     registerHotkeys();
+    try { tray = new Tray(path.join(__dirname, "icon.ico")); tray.on("click", toggleVisible); buildTrayMenu(); } catch (e) { tray = null; }
   });
   app.on("before-quit", () => { quitting = true; stopFgWatch(); });
   app.on("will-quit", () => { globalShortcut.unregisterAll(); stopFgWatch(); stopMouse(); });
