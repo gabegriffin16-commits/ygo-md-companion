@@ -498,12 +498,15 @@ html.compact .layout{grid-template-columns:1fr !important}
 html.compact .center main{max-width:560px; padding-left:10px; padding-right:10px}
 html.compact .top{padding:8px 12px}
 html.compact .emblem{width:34px; height:38px}
-html.compact h1{font-size:1.1rem}
+html.compact h1{font-size:1.05rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+html.compact .top > div:first-child, html.compact .top > div:first-child > div{min-width:0}
 html.compact .elements{display:none}
 html.compact .loghead, html.compact .duellog{display:none}
 .ctools{display:flex; gap:4px}
 .ctools .ctool{display:none}
 .ctool, .compactbtn{white-space:nowrap}
+.ctool.cnew{color:var(--gold)}
+.ctool[data-armed], #newDuel[data-armed]{background:var(--red); border-color:var(--red); color:#fff}
 html.compact .compactbtn{padding:2px 9px; font-size:.72rem; border-radius:999px}
 html.compact .ctools .ctool{display:inline-block}
 .ctool{background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:2px 9px; font:600 .72rem var(--display); cursor:pointer}
@@ -571,7 +574,7 @@ html.findopen #cardPane .cd-block{margin-top:10px}
         <div class="elements" id="elementRow" aria-hidden="true"></div>
       </div>
     </div>
-    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><div class="ctools" role="group" aria-label="Compact tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log and New duel">Log</button><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div></div>
+    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><div class="ctools" role="group" aria-label="Compact tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log">Log</button><button type="button" class="ctool cnew" id="cNew" title="Start a new duel">New duel</button><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div></div>
   </header>
 
   <!-- HAND -->
@@ -2397,10 +2400,19 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (!hist.length) return;
     D = JSON.parse(hist.pop()); persist(); renderDuel();
   });
-  document.getElementById("newDuel").addEventListener("click", function(){
-    if (!confirm("Start a new duel? This clears the current duel and its log.")) return;
-    D = freshDuel(D.order); hist = []; persist(); renderDuel();
-  });
+  // New duel: tap once to arm, tap again within 3 seconds to confirm (no pop-up dialog over the game).
+  function armNewDuel(btn, label){
+    if (btn.dataset.armed){
+      clearTimeout(btn._t); delete btn.dataset.armed; btn.textContent = label;
+      D = freshDuel(D.order); hist = []; pending = null; persist(); renderDuel(); renderLP();
+      if (typeof toast === "function") toast("New duel started");
+      return;
+    }
+    btn.dataset.armed = "1"; btn.textContent = label === "New duel" && btn.id === "cNew" ? "Sure?" : "Tap again to clear";
+    btn._t = setTimeout(function(){ delete btn.dataset.armed; btn.textContent = label; }, 3000);
+  }
+  document.getElementById("newDuel").addEventListener("click", function(){ armNewDuel(this, "New duel"); });
+  document.getElementById("cNew").addEventListener("click", function(){ armNewDuel(this, "New duel"); });
 
 
   // ---------- overlay app hotkey commands (the desktop app sends these; harmless on the website) ----------
