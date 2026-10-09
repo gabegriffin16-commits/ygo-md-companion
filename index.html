@@ -459,6 +459,8 @@ body{background:var(--bg) !important; animation:none !important}
 .spill.used{color:var(--muted); text-decoration:line-through}
 .spill.lock{border-color:var(--red); color:var(--red)}
 .statusbox .lr{margin:2px 0; font-size:.88rem}
+.zcard{font:500 .85rem var(--body); color:var(--ink); background:var(--bg); border:1px dashed var(--line); border-radius:999px; padding:1px 9px; margin:1px 4px 1px 0; cursor:pointer}
+.zcard:hover, .zcard:focus-visible{border-color:var(--red); border-style:solid; color:var(--red)}
 .usedline{margin:6px 0 0; font-size:.8rem; color:var(--muted)}
 .pendbox, .trigbox{border-left:4px solid var(--gold)}
 .trigbox{border-left-color:var(--sky)}
@@ -2089,6 +2091,25 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     return P;
   }
+  // The opponent removed one of your cards (destroy, bounce, banish, shuffle). Plays update from the new board.
+  function removedByOpp(x, back){
+    var id = back ? x.replace(/_(t|set)$/, "") : x, extra = F[id] && F[id].zone === "extra";
+    var opts = [{k:"destroy", t:"Destroyed (to GY)"}, {k:"bounce", t:extra ? "Bounced (back to Extra Deck)" : "Bounced to hand"},
+      {k:"banish", t:"Banished"}, {k:"deck", t:extra ? "Shuffled into Extra Deck" : "Shuffled into Deck"}];
+    if (back && !extra && !(F[id] && F[id].monster)) opts[1].t = "Bounced to hand";
+    setPick("What happened to " + nm(x) + "?", opts, function(o){
+      var verb = {destroy:"destroyed", bounce:"bounced", banish:"banished", deck:"shuffled away"}[o.k];
+      act("They " + verb + " " + nm(x), null, function(){
+        var b = B();
+        take(back ? b.back : b.field, x);
+        if (D.madeNormal) delete D.madeNormal[id];
+        if (o.k === "destroy") toGY(id);
+        else if (o.k === "banish") inc(b.ban, id);
+        else if (o.k === "bounce" && !extra) inc(D.hand, id);
+        // shuffled or bounced to the Extra Deck: it's back in the Deck count automatically
+      });
+    });
+  }
   function renderPlays(){
     var b = B();
     var st = box(null); st.className = "dbox statusbox";
@@ -2098,8 +2119,20 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     st.appendChild(row);
     function line(lbl, items){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": ")); p.appendChild(document.createTextNode(items.length ? items.join(", ") : "—")); st.appendChild(p); }
     var cnt = function(o, k){ return nm(k) + (o[k] > 1 ? " ×" + o[k] : ""); };
-    line("Field", b.field.map(function(x){ return dot(x) + nm(x); }));
-    line("Backrow", b.back.map(nm));
+    // Field and backrow cards are tappable: mark what the opponent did to them.
+    function zoneLine(lbl, items, back){
+      var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": "));
+      if (!items.length) p.appendChild(document.createTextNode("\u2014"));
+      items.forEach(function(x, i){
+        var bt = nodes("button", "zcard", (back ? "" : dot(x)) + nm(x)); bt.type = "button";
+        bt.title = "Tap if your opponent destroyed, bounced, or banished it";
+        bt.addEventListener("click", function(){ removedByOpp(x, back); });
+        p.appendChild(bt);
+      });
+      st.appendChild(p);
+    }
+    zoneLine("Field", b.field, false);
+    zoneLine("Backrow", b.back, true);
     line("Hand", Object.keys(D.hand).filter(function(k){ return D.hand[k]; }).map(function(k){ return cnt(D.hand, k); }));
     line("GY", Object.keys(b.gy).filter(function(k){ return F[k] && F[k].monster; }).map(function(k){ return cnt(b.gy, k); }));
     if (Object.keys(b.ban).length) line("Banished", Object.keys(b.ban).map(function(k){ return cnt(b.ban, k); }));
