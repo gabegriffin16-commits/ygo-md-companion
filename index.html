@@ -753,13 +753,13 @@ html.auto #stepNext, html.auto #stepBack, html.auto .lpin, html.auto .lpcol .min
 html.auto #chipArea, html.auto #clearHand, html.auto .drawchips, html.auto .manualtoggle, html.auto .manualonly{display:none !important}
 html.auto .stepnav{display:none}
 html.auto .lpcol{padding-right:12px}
-.manualtog.inbar{position:absolute; top:0; right:30px; height:16px; padding:0 2px; gap:4px; border:0; border-radius:0; background:none !important;
+.manualtog.inbar{position:static; height:16px; padding:0 2px; gap:4px; border:0; border-radius:0; background:none !important;
   font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; color:inherit; opacity:.8; -webkit-app-region:no-drag}
 .manualtog.inbar:hover{opacity:1; color:var(--gold)}
 .manualtog.inbar .sw{width:18px; height:10px} .manualtog.inbar .sw::after{width:6px; height:6px; top:2px; left:2px}
 .manualtog.inbar[aria-checked="true"] .sw::after{transform:translateX(8px)}
 .manualtog.inbar[aria-checked="true"]{color:var(--gold); opacity:1}
-#ovBar .ovb.ovup{left:92px; width:auto; padding:0 8px; height:14px; top:1px; border-radius:999px; background:var(--gold) !important; color:#1B1640 !important; font:700 9px sans-serif; letter-spacing:.06em; text-transform:uppercase; opacity:1}
+#ovBar .ovb.ovup{left:50%; transform:translateX(-50%); width:auto; padding:0 8px; height:14px; top:1px; border-radius:999px; background:var(--gold) !important; color:#1B1640 !important; font:700 9px sans-serif; letter-spacing:.06em; text-transform:uppercase; opacity:1}
 #ovBar .ovb.ovup:disabled{opacity:.85; cursor:default}
 #ovBar:has(.ovup) > span{opacity:0}
 /* fade mode readability: see-through panels, but dark enough behind text, plus a halo on every line */
@@ -991,6 +991,24 @@ header.top{border-bottom:0; box-shadow:inset 0 -1px 0 color-mix(in srgb, var(--g
 .duellog li, .stoplist li{border-left-width:2px; border-radius:12px}
 .pendbox, .trigbox{border-left-width:2px}
 .baithint, .vstips{border-left-width:2px}
+/* ---- desktop app bar: theme on the left, Fade + Manual on the right, update replaces the title ---- */
+#ovBar .ovgrp{position:absolute; top:0; right:30px; height:16px; display:flex; align-items:center; gap:12px; -webkit-app-region:no-drag}
+.fadetog.inbar{width:auto; height:16px; margin:0; padding:0 2px; gap:4px; border:0; border-radius:0; background:none !important;
+  font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; color:inherit; opacity:.8; -webkit-app-region:no-drag}
+.fadetog.inbar:hover{opacity:1; color:var(--gold); background:none}
+.fadetog.inbar .sw{width:18px; height:10px} .fadetog.inbar .sw::after{width:6px; height:6px; top:2px; left:2px}
+.fadetog.inbar[aria-checked="true"] .sw::after{transform:translateX(8px)}
+.fadetog.inbar[aria-checked="true"]{color:var(--gold); opacity:1}
+#ovBar .thememenu.inbar{position:absolute; top:0; left:96px; height:16px; display:flex; align-items:center; -webkit-app-region:no-drag}
+#ovBar .thememenu.inbar .themebtn{height:16px; padding:0 2px; gap:5px; border:0; border-radius:0; background:none !important; color:inherit;
+  font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.8}
+#ovBar .thememenu.inbar .themebtn:hover, #ovBar .thememenu.inbar .themebtn[aria-expanded="true"]{opacity:1; color:var(--gold)}
+#ovBar .thememenu.inbar .tbub{width:10px; height:10px; border-width:1px}
+#ovBar .thememenu.inbar .caret{font-size:8px; color:inherit}
+#ovBar .themepop{z-index:10000; text-transform:none; letter-spacing:normal}
+/* With theme, fade and the full/compact arrow up in the app bar, the banner is just the tabs (plus Deck/Find/Log in compact). */
+html.in-overlay header.top .hdrside{display:none}
+html.in-overlay header.top nav.tabs{flex-basis:100%}
 </style>
 </head>
 <body>
@@ -1476,7 +1494,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   (function dock(tries){
     var bar = document.getElementById("ovBar");
     if (bar){
-      manualItem.classList.add("inbar"); bar.appendChild(manualItem);
+      // Right side of the bar: Fade, then Manual, then the hotkeys cog.
+      var grp = document.getElementById("ovRight");
+      if (!grp){ grp = document.createElement("div"); grp.id = "ovRight"; grp.className = "ovgrp"; bar.appendChild(grp); }
+      fadeItem.classList.add("inbar"); manualItem.classList.add("inbar");
+      grp.appendChild(fadeItem); grp.appendChild(manualItem);
+      // Theme picker sits on the left, after the reload button.
+      var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); bar.appendChild(tm);
       // Reload button beside the expand arrow, same as Reload page in the tray menu.
       if (!document.getElementById("ovRe")){
         var rl = document.createElement("button"); rl.type = "button"; rl.className = "ovb"; rl.id = "ovRe"; rl.title = "Reload the page"; rl.textContent = "\u21BB";
@@ -1517,7 +1541,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     e.stopPropagation();
     var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
     if (open){ var r = themeBtn.getBoundingClientRect();   // fixed so the header can't clip it
-      themePop.style.top = (r.bottom + 6) + "px"; themePop.style.right = Math.max(6, window.innerWidth - r.right) + "px"; }
+      themePop.style.top = (r.bottom + 6) + "px";
+      if (document.getElementById("themeMenu").classList.contains("inbar")){ themePop.style.left = Math.max(6, r.left) + "px"; themePop.style.right = "auto"; }
+      else { themePop.style.left = "auto"; themePop.style.right = Math.max(6, window.innerWidth - r.right) + "px"; } }
   });
   document.addEventListener("click", function(e){ if (!themePop.hidden && !e.target.closest("#themeMenu")) closeTheme(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !themePop.hidden){ closeTheme(); themeBtn.focus(); } });
