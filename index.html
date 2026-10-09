@@ -958,6 +958,14 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
   background:var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23E0B85E' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 13px center}
 .bldsort:hover, .bldsort:focus{border-color:var(--gold); outline:none}
 .bldsort option{background:var(--panel); color:var(--ink)}
+.softrar{--rc:#B5B5BE}
+.sr-SR{--rc:#E0B85E} .sr-R{--rc:#86BEDB} .sr-N{--rc:#B5B5BE} .sr-UR{--rc:#b9a5f2}
+.pill.softrar{display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--rc) 14%, transparent) !important; color:color-mix(in srgb, var(--rc) 70%, var(--ink)) !important;
+  border:1px solid color-mix(in srgb, var(--rc) 50%, transparent) !important; border-radius:999px; padding:2px 10px; font:600 .76rem var(--display); letter-spacing:.02em}
+.pill.softrar::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--rc); flex:none}
+.pill.softrar.sr-UR::before{background:linear-gradient(135deg,#f6b3d8,#b9a5f2,#9fd8f3,#b6f0c2)}
+.pill.softrar.sr-UR{border-image:none; border-color:color-mix(in srgb, #b9a5f2 55%, transparent) !important}
+.pill.softtag{display:inline-flex; align-items:center; background:color-mix(in srgb, var(--muted) 10%, transparent); color:var(--muted); border:1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius:999px; padding:2px 10px; font:600 .76rem var(--display)}
 </style>
 </head>
 <body>
@@ -3655,9 +3663,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (c.atk != null) meta.push("ATK " + c.atk + (c.lk == null && c.def != null ? " / DEF " + c.def : ""));
       body.appendChild(nodes("p", "bimeta", meta.join(" · ")));
       var pills = nodes("div", "bipills");
-      if (c.md) pills.appendChild(nodes("span", "pill rar r-" + c.md, c.md)); else pills.appendChild(nodes("span", "pill", "Not in Master Duel"));
+      var RNAME = {UR:"Ultra Rare", SR:"Super Rare", R:"Rare", N:"Normal"};
+      if (c.md) pills.appendChild(nodes("span", "pill softrar sr-" + c.md, RNAME[c.md] || c.md)); else pills.appendChild(nodes("span", "pill softrar", "Not in Master Duel"));
       if (c.b) pills.appendChild(nodes("span", "pill banpill ban-" + c.b, BAN_NAME[c.b] + (c.b === "F" ? "" : " \u00B7 " + BAN_MAX[c.b])));
-      if (c.ar) pills.appendChild(nodes("span", "pill", c.ar));
+      if (c.ar) pills.appendChild(nodes("span", "pill softtag", c.ar));
       body.appendChild(pills);
       (c.d || "").split("\n").filter(Boolean).forEach(function(p){ body.appendChild(nodes("p", "bitext", p)); });
       var acts = nodes("div", "biacts"), have = copies(c.id);
