@@ -1074,6 +1074,12 @@ html.findopen #cardPane .cd-image img{width:100%; height:100%; object-fit:contai
 .deckpick:hover b{color:var(--ink)}
 html.deckopen #findClose, html.findopen #findClose{top:45px; right:22px; width:34px; height:34px}
 .cd-offtext{white-space:pre-line; font-size:.86rem; line-height:1.5; color:var(--muted, inherit); margin:6px 0 0}
+/* drawer ✕ is placed by placeClose(); the first row leaves room for it */
+html.deckopen #findClose, html.findopen #findClose{right:auto}
+html.deckopen .deckpick, html.findopen .deckpick{width:calc(100% - 44px)}
+html.findopen #cardPane .cdsearch{margin-right:44px}
+/* Find drawer: the card panel's top accent follows the theme, not the card's Attribute */
+html.findopen #cardPane .plate{border-top-color:var(--gold)}
 </style>
 </head>
 <body>
@@ -3326,6 +3332,23 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var s = document.querySelector(".cdsearch input"); if (s){ s.focus(); s.select(); }
   }
   function closeFind(){ document.documentElement.classList.remove("findopen", "deckopen"); }
+  // Put the drawer's ✕ over the column of Attribute dots (12px in from the content edge), so it sits
+  // inside the panel's own space and never crowds the scrollbar. Vertically it lines up with the first row.
+  function placeClose(){
+    var x = document.getElementById("findClose"), h = document.documentElement; if (!x) return;
+    var pane = h.classList.contains("deckopen") ? document.getElementById("deckPane") : h.classList.contains("findopen") ? document.getElementById("cardPane") : null;
+    if (!pane){ x.style.left = x.style.top = ""; return; }
+    var r = pane.getBoundingClientRect(), cs = getComputedStyle(pane);
+    var right = r.left + pane.clientLeft + pane.clientWidth - parseFloat(cs.paddingRight);
+    var row = pane.querySelector(h.classList.contains("deckopen") ? ".deckpick" : ".cdsearch");
+    var rr = row ? row.getBoundingClientRect() : null, w = x.offsetWidth || 34;
+    x.style.right = "auto"; x.style.left = Math.round(right - 12 - w / 2) + "px";
+    x.style.top = Math.round(rr ? rr.top + pane.scrollTop + rr.height / 2 - w / 2 : r.top + 18) + "px";
+  }
+  window.addEventListener("resize", function(){ requestAnimationFrame(placeClose); });
+  if (window.ResizeObserver){ var paneRO = new ResizeObserver(function(){ requestAnimationFrame(placeClose); });
+    ["deckPane", "cardPane"].forEach(function(id){ var el = document.getElementById(id); if (el) paneRO.observe(el); }); }
+  new MutationObserver(function(){ requestAnimationFrame(placeClose); }).observe(document.documentElement, {attributes:true, attributeFilter:["class"]});
   function closeBtn(){
     var x = document.getElementById("findClose");
     if (!x){ x = document.createElement("button"); x.id = "findClose"; x.type = "button"; x.textContent = ""; x.setAttribute("aria-label", "Close"); x.title = "Close";
