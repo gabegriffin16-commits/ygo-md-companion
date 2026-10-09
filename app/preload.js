@@ -12,5 +12,7 @@ contextBridge.exposeInMainWorld("overlayApp", {
   theme: () => ipcRenderer.invoke("hk:theme"),
   installUpdate: () => ipcRenderer.send("update:install"),
   checkUpdate: () => ipcRenderer.send("update:check"),
-  version: () => ipcRenderer.invoke("app:version")
+  version: () => ipcRenderer.invoke("app:version"),
+  getSettings: () => ipcRenderer.invoke("settings:get"),
+  setSetting: (key, value) => ipcRenderer.send("settings:set", { key, value })
 });

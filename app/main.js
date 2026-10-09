@@ -226,7 +226,15 @@ function syncHotkeysToVisibility() {
   if (process.env.OMNI_DEBUG) console.log("[hotkeys]", hidden ? "hidden" : "visible", Object.keys(settings.hotkeys).filter(k => globalShortcut.isRegistered(settings.hotkeys[k])).join(","));
 }
 
+// Settings the page's ⚙ menu shows and changes (opacity, hand reader, click-through lock).
+function settingsSnapshot() {
+  return { opacity: settings.opacity, reader: !!settings.reader, readerLabel: readerState.label || "off", clickThrough: !!settings.clickThrough,
+    lockKey: prettyKey(settings.hotkeys.clickThrough || ""), version: app.getVersion() };
+}
+function pushSettings() { pageEvent("overlay-settings", settingsSnapshot()); }
+function setReader(on) { settings.reader = !!on; saveSettings(); settings.reader ? startReader() : stopReader(); buildTrayMenu(); }
 function buildTrayMenu() {
+  pushSettings();
   if (!tray) return;
   const k = settings.hotkeys;
   const pct = Math.round(settings.opacity * 100);
@@ -241,7 +249,7 @@ function buildTrayMenu() {
     { label: "Reload page", click: () => win && win.reload() },
     { label: "See-through window (restarts the app)", type: "checkbox", checked: !!settings.seeThrough, click: () => { settings.seeThrough = !settings.seeThrough; saveSettings(); setTimeout(() => { const pe = process.env.PORTABLE_EXECUTABLE_FILE; app.relaunch(pe ? { execPath: pe, args: [] } : undefined); app.exit(0); }, 400); } },
     { type: "separator" },
-    { label: "Read my hand from the screen", type: "checkbox", checked: !!settings.reader, click: () => { settings.reader = !settings.reader; saveSettings(); settings.reader ? startReader() : stopReader(); buildTrayMenu(); } },
+    { label: "Read my hand from the screen", type: "checkbox", checked: !!settings.reader, click: () => setReader(!settings.reader) },
     { label: `Hand reader: ${readerState.label || "off"}`, enabled: false },
     { type: "separator" },
     { label: "Cover the taskbar", submenu: [
@@ -332,6 +340,12 @@ async function installUpdate() {
 ipcMain.on("update:install", () => installUpdate());
 ipcMain.on("update:check", () => checkUpdate(true));
 ipcMain.handle("app:version", () => app.getVersion());
+ipcMain.handle("settings:get", () => settingsSnapshot());
+ipcMain.on("settings:set", (e, { key, value }) => {
+  if (key === "opacity") setOpacity(Number(value) || settings.opacity);
+  else if (key === "reader") setReader(!!value);
+  else if (key === "clickThrough"){ settings.clickThrough = !!value; saveSettings(); applyClickThrough(); }
+});
 
 // ---------- hand reader ----------
 // A hidden window watches the Master Duel window, recognizes the cards in your hand,

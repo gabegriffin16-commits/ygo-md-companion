@@ -1123,7 +1123,7 @@ html.deckopen #deckPane .dl-item{border-radius:8px}
 .dmrow.armed .dmdel{opacity:1; color:#fff; background:var(--red)}
 .dmrow.armed .dmitem span{color:var(--red)}
 /* ---- sign-in screen ---- */
-html.authing body > *:not(#authScreen):not(.ambient):not(#ovBar){display:none !important}
+html.authing body > *:not(#authScreen):not(.ambient):not(#ovBar):not(#hbcToast){display:none !important}
 #authScreen{position:fixed; inset:0; z-index:100; display:grid; place-items:center; padding:24px 16px; overflow:auto}
 .authcard{width:min(380px, 100%); box-sizing:border-box; display:flex; flex-direction:column; gap:12px; padding:26px 24px 22px; border-radius:16px;
   background:var(--panel); border:1px solid var(--line); box-shadow:0 18px 44px rgba(0,0,0,.3)}
@@ -1196,13 +1196,50 @@ header.top .acctbtn svg{color:var(--gold)}
 html.in-overlay #t-users{display:none !important}
 .acctmenu{z-index:10001}
 html.compact #ovBar #acctBtn span{max-width:56px}
-html.compact #ovBar #ovUsers span{display:none}
 html.compact #ovBar .ovgrp{gap:10px}
 /* website with accounts: tabs get their own row so all five fit */
 html.cloud:not(.in-overlay) header.top nav.tabs{flex-basis:100%; order:3}
 html.cloud:not(.in-overlay) header.top .hdrside{margin-left:auto}
 html.cloud:not(.in-overlay) header.top{flex-wrap:wrap !important}
 html.cloud:not(.in-overlay) header.top nav.tabs{flex:1 1 100% !important}
+/* ---- app bar v3: left group with labels in full view, right group Users · account · settings ---- */
+#ovBar .ovgrp.ovleft{position:absolute; top:0; left:4px; right:auto; height:16px; display:flex; align-items:center; gap:2px; -webkit-app-region:no-drag}
+#ovBar #ovLeft .ovb{position:static; width:auto; min-width:20px; height:16px; padding:0 4px; display:inline-flex; align-items:center; justify-content:center; gap:4px}
+#ovBar #ovLeft .ovic{font:700 11px sans-serif; line-height:1}
+#ovBar #ovLeft #ovRe .ovic{font-size:12px}
+#ovBar .ovlab{font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase}
+html.compact #ovBar .ovlab{display:none}
+html:not(.compact) #ovBar #ovLeft{gap:8px}
+#ovBar #ovLeft .thememenu.inbar{position:static; margin-left:6px}
+#ovBar .ovgrp:not(.ovleft){right:6px}
+#ovBar #ovRight #ovK{position:static; width:20px; height:16px}
+#ovBar #ovK[aria-expanded="true"]{color:var(--gold); opacity:1}
+/* theme menu: two columns where there's room */
+#ovBar .themepop .themecol{min-width:0}
+html:not(.compact) #ovBar .themepop:not([hidden]){display:grid; grid-template-columns:1fr 1fr; gap:0 8px; min-width:400px}
+/* settings menu */
+.setpop{position:absolute; top:20px; right:6px; z-index:10000; width:300px; max-height:calc(100vh - 40px); overflow:auto; box-sizing:border-box; padding:8px;
+  border-radius:12px; background:var(--panel); border:1px solid var(--line); box-shadow:0 14px 34px rgba(0,0,0,.4);
+  color:var(--ink); font:400 .86rem var(--body); letter-spacing:normal; text-transform:none; text-align:left; -webkit-app-region:no-drag}
+.setpop[hidden]{display:none}
+.setsec{font:600 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:8px 8px 4px}
+.setsec:first-child{padding-top:2px}
+.setrow{display:flex; align-items:center; gap:12px; padding:7px 8px; border-radius:8px}
+.setrow:hover{background:color-mix(in srgb, var(--panel2) 60%, transparent)}
+.setlab{flex:1; min-width:0; display:flex; flex-direction:column; gap:1px}
+.setlab span{font:500 .88rem var(--body); color:var(--ink)}
+.setlab small{font-size:.74rem; color:var(--muted); line-height:1.3}
+#setPop .setsw{flex:none; width:auto; height:auto; margin:0; padding:2px; border:0; border-radius:999px; background:none; cursor:pointer; display:inline-flex}
+#setPop .setsw .sw{position:relative; display:block; width:32px; height:18px; border-radius:999px; background:var(--line); transition:background .15s}
+#setPop .setsw .sw::after{content:""; position:absolute; top:3px; left:3px; width:12px; height:12px; border-radius:50%; background:var(--ink); transition:transform .15s}
+#setPop .setsw[aria-checked="true"] .sw{background:var(--gold)}
+#setPop .setsw[aria-checked="true"] .sw::after{transform:translateX(14px); background:#1B1640}
+#setPop .setsw:focus-visible{outline:2px solid var(--gold); outline-offset:1px}
+.setstep{flex:none; display:inline-flex; align-items:center; border:1px solid var(--line); border-radius:999px; overflow:hidden}
+.setstep button{width:28px; height:26px; padding:0; border:0; background:none; color:var(--ink); font:600 1rem/1 var(--body); cursor:pointer}
+.setstep button:hover{background:color-mix(in srgb, var(--gold) 14%, transparent); color:var(--gold)}
+.setval{min-width:44px; text-align:center; font:600 .8rem var(--display); color:var(--ink); border-left:1px solid var(--line); border-right:1px solid var(--line); line-height:26px}
+#setPop .dmitem{font:500 .88rem var(--body)}
 </style>
 </head>
 <body>
@@ -1764,10 +1801,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     document.documentElement.classList.toggle("fadebg", fadeBg);
   }
   function closeTheme(){ themePop.hidden = true; themeBtn.setAttribute("aria-expanded", "false"); }
-  var lastGrp = null;
+  var lastGrp = null, col = null;
   THEMES.forEach(function(th){
-    if (th.group !== lastGrp){ lastGrp = th.group; var gh = document.createElement("div"); gh.className = "themegrp";
-      gh.textContent = th.group === "attr" ? "Attributes" : "Classic decks"; themePop.appendChild(gh); }
+    if (th.group !== lastGrp){ lastGrp = th.group; col = document.createElement("div"); col.className = "themecol"; themePop.appendChild(col);
+      var gh = document.createElement("div"); gh.className = "themegrp";
+      gh.textContent = th.group === "attr" ? "Attributes" : "Classic decks"; col.appendChild(gh); }
     var b = document.createElement("button");
     b.type = "button"; b.className = "themeitem"; b.dataset.theme = th.id; b.setAttribute("role", "menuitemradio");
     b.appendChild(bubble(th)); b.appendChild(document.createTextNode(th.name));
@@ -1775,7 +1813,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       document.documentElement.setAttribute("data-theme", th.id);
       save("hbc-theme", th.id); paintSwatches(); closeTheme();
     });
-    themePop.appendChild(b);
+    col.appendChild(b);
   });
   var fadeItem = document.createElement("button");
   fadeItem.type = "button"; fadeItem.className = "fadeitem fadetog"; fadeItem.id = "fadeBtn"; fadeItem.setAttribute("role", "switch");
@@ -1799,6 +1837,72 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   manualItem.addEventListener("click", function(){ manualMode = !manualMode; save("hbc-manual", manualMode); paintAuto();
     if (typeof window.onAutoChange === "function") window.onAutoChange(); });
   // In the desktop app, the switch lives in the thin app bar up top, next to the hotkeys cog.
+  // ---- ⚙ settings menu in the app bar: display, duel and window options in one place ----
+  function setupSettings(cog, bar){
+    var pop = document.getElementById("setPop");
+    if (pop) return;
+    pop = document.createElement("div"); pop.id = "setPop"; pop.className = "setpop"; pop.hidden = true; pop.setAttribute("role", "menu");
+    bar.appendChild(pop);
+    var app = window.overlayApp || {}, hasApp = typeof app.setSetting === "function", cur = null;
+    function sec(t){ pop.appendChild(nodes("div", "setsec", t)); }
+    function row(label, sub){ var r = nodes("div", "setrow"); var t = nodes("div", "setlab"); t.appendChild(nodes("span", null, label)); if (sub){ var sm = nodes("small", null, sub); t.appendChild(sm); r._sub = sm; } r.appendChild(t); return r; }
+    function sw(on){ var b = nodes("button", "setsw"); b.type = "button"; b.setAttribute("role", "switch"); b.setAttribute("aria-checked", on ? "true" : "false"); b.appendChild(nodes("span", "sw")); return b; }
+
+    sec("Display");
+    var fr = row("Fade background", "Calmer background so buttons stand out");
+    fadeItem.classList.remove("inbar"); fadeItem.classList.add("setsw"); fadeItem.innerHTML = '<span class="sw" aria-hidden="true"></span>'; fr.appendChild(fadeItem); pop.appendChild(fr);
+    var op = null;
+    if (hasApp){
+      var orow = row("Window opacity"); op = nodes("div", "setstep");
+      var minus = nodes("button", null, "−"), val = nodes("span", "setval", "—"), plus = nodes("button", null, "+");
+      minus.type = plus.type = "button"; minus.title = "Less opaque"; plus.title = "More opaque";
+      minus.addEventListener("click", function(){ if (cur) app.setSetting("opacity", Math.max(0.3, Math.round((cur.opacity - 0.05) * 100) / 100)); });
+      plus.addEventListener("click", function(){ if (cur) app.setSetting("opacity", Math.min(1, Math.round((cur.opacity + 0.05) * 100) / 100)); });
+      op.appendChild(minus); op.appendChild(val); op.appendChild(plus); orow.appendChild(op); pop.appendChild(orow);
+    }
+
+    sec("Duel");
+    var mr = row("Manual mode", "Show the manual buttons if screen reading slips");
+    manualItem.classList.remove("inbar"); manualItem.classList.add("setsw"); manualItem.innerHTML = '<span class="sw" aria-hidden="true"></span>'; mr.appendChild(manualItem); pop.appendChild(mr);
+    var rd = null, rdRow = null;
+    if (hasApp){
+      rdRow = row("Read my hand from the screen", "off"); rd = sw(false);
+      rd.addEventListener("click", function(){ if (cur) app.setSetting("reader", !cur.reader); });
+      rdRow.appendChild(rd); pop.appendChild(rdRow);
+    }
+
+    var lk = null, lkRow = null;
+    if (hasApp){
+      sec("Window");
+      lkRow = row("Click-through lock", "Clicks go to the game"); lk = sw(false);
+      lk.addEventListener("click", function(){
+        if (!cur) return; var on = !cur.clickThrough;
+        if (on){ close(); toast("Locked: clicks go to the game. " + (cur.lockKey ? cur.lockKey + " unlocks it." : ""), 3200); }
+        app.setSetting("clickThrough", on);
+      });
+      lkRow.appendChild(lk); pop.appendChild(lkRow);
+      pop.appendChild(nodes("div", "dmsep"));
+      var hk = nodes("button", "dmitem act", "Hotkeys…"); hk.type = "button"; hk.addEventListener("click", function(){ close(); app.openHotkeys && app.openHotkeys(); }); pop.appendChild(hk);
+    }
+    function paint(st){
+      cur = st || cur; if (!cur) return;
+      if (op) op.querySelector(".setval").textContent = Math.round(cur.opacity * 100) + "%";
+      if (rd){ rd.setAttribute("aria-checked", cur.reader ? "true" : "false"); rdRow._sub.textContent = cur.reader ? (cur.readerLabel && cur.readerLabel !== "off" ? cur.readerLabel.charAt(0).toUpperCase() + cur.readerLabel.slice(1) : "On") : "Off"; }
+      if (lk){ lk.setAttribute("aria-checked", cur.clickThrough ? "true" : "false"); lkRow._sub.textContent = "Clicks go to the game" + (cur.lockKey ? " · " + cur.lockKey + " unlocks" : ""); }
+    }
+    window.addEventListener("overlay-settings", function(e){ paint(e.detail); });
+    window.addEventListener("overlay-reader", function(e){ if (cur && e.detail){ var s2 = e.detail.state; cur.readerLabel = s2 === "reading" ? "reading" : s2 === "searching" ? "waiting for Master Duel" : s2; paint(); } });
+    if (hasApp && app.getSettings) app.getSettings().then(paint).catch(function(){});
+    function close(){ pop.hidden = true; cog.setAttribute("aria-expanded", "false"); }
+    cog.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (!pop.hidden){ close(); return; }
+      pop.hidden = false; cog.setAttribute("aria-expanded", "true");
+      if (hasApp && app.getSettings) app.getSettings().then(paint).catch(function(){});
+    });
+    document.addEventListener("click", function(e){ if (!pop.hidden && !pop.contains(e.target) && e.target !== cog) close(); });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !pop.hidden) close(); });
+  }
   // Account button: your username, with Sign out.
   var acctEl = null;
   if (window.CLOUD && CLOUD.user()){
@@ -1820,13 +1924,35 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     };
     document.addEventListener("click", function(e){ if (!acctMenu.hidden && !acctMenu.contains(e.target)) acctMenu.hidden = true; });
     var hs = document.querySelector("header.top .hdrside"); if (hs) hs.insertBefore(acctEl, hs.firstChild);
+  } else if (window.CLOUD && CLOUD.configured()){
+    // Signed out: the button opens the sign-in card.
+    acctEl = acctButton(); acctEl.classList.remove("inbar");
+    acctEl.querySelector("span").textContent = "Sign in"; acctEl.title = "Sign in";
+    acctEl.onclick = function(){ if (window.showSignIn) window.showSignIn(); };
+    var hs2 = document.querySelector("header.top .hdrside"); if (hs2) hs2.insertBefore(acctEl, hs2.firstChild);
   }
   (function dock(tries){
     var bar = document.getElementById("ovBar");
     if (bar){
-      // Right side of the bar: Users, your account, Fade, Manual, then the hotkeys cog.
+      // Left: snap left/right, full/compact, reload, theme. Labels show in full view, where there's room.
+      var left = document.getElementById("ovLeft");
+      if (!left){ left = document.createElement("div"); left.id = "ovLeft"; left.className = "ovgrp ovleft"; bar.appendChild(left); }
+      if (!document.getElementById("ovRe")){
+        var rl = document.createElement("button"); rl.type = "button"; rl.className = "ovb"; rl.id = "ovRe"; rl.title = "Reload the page"; rl.textContent = "↻";
+        rl.addEventListener("click", function(){ location.reload(); }); bar.appendChild(rl);
+      }
+      var LABELS = {ovL:"Left", ovR:"Right", ovF:"Expand", ovRe:"Reload"};
+      ["ovL", "ovR", "ovF", "ovRe"].forEach(function(id){
+        var el = document.getElementById(id); if (!el) return;
+        if (!el.querySelector(".ovlab")){ var ic = nodes("span", "ovic", el.textContent); el.textContent = ""; el.appendChild(ic); el.appendChild(nodes("span", "ovlab", LABELS[id])); }
+        left.appendChild(el);
+      });
+      var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); left.appendChild(tm);
+      var paintExpand = function(){ var f = document.getElementById("ovF"); if (f){ var l = f.querySelector(".ovlab"); if (l) l.textContent = document.documentElement.classList.contains("compact") ? "Expand" : "Compact"; } };
+      paintExpand(); new MutationObserver(paintExpand).observe(document.documentElement, {attributes:true, attributeFilter:["class"]});
+
+      // Right: Users, your account, settings.
       var grp = ovGroup(bar);
-      fadeItem.classList.add("inbar"); manualItem.classList.add("inbar");
       var ub = document.getElementById("t-users");
       if (ub){
         var ubar = document.getElementById("ovUsers");
@@ -1844,16 +1970,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           .observe(document.getElementById("tab-users"), {attributes:true, attributeFilter:["hidden"]});
       }
       if (acctEl){ acctEl.classList.add("inbar"); grp.appendChild(acctEl); }
-      grp.appendChild(fadeItem); grp.appendChild(manualItem);
-      // Theme picker sits on the left, after the reload button.
-      var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); bar.appendChild(tm);
-      // Reload button beside the expand arrow, same as Reload page in the tray menu.
-      if (!document.getElementById("ovRe")){
-        var rl = document.createElement("button"); rl.type = "button"; rl.className = "ovb"; rl.id = "ovRe"; rl.title = "Reload the page"; rl.textContent = "\u21BB";
-        rl.style.left = "70px"; rl.style.fontSize = "12px";
-        rl.addEventListener("click", function(){ location.reload(); });
-        var f = document.getElementById("ovF"); if (f) f.after(rl); else bar.appendChild(rl);
-      }
+      var cog = document.getElementById("ovK");
+      if (cog){ cog.onclick = null; cog.title = "Settings"; cog.setAttribute("aria-haspopup", "true"); grp.appendChild(cog); setupSettings(cog, bar); }
       paintUpdate();
       return;
     }
@@ -1865,15 +1983,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var b = document.getElementById("ovUp"), bar = document.getElementById("ovBar"); if (!b || !bar) return;
     var full = b.dataset.full || b.textContent; b.textContent = full;
     b.style.left = "50%"; b.style.transform = "translateX(-50%)";
-    var tm = document.getElementById("themeMenu"), g = document.getElementById("ovRight");
-    var L = (tm && tm.classList.contains("inbar") ? tm.getBoundingClientRect().right : 96) + 8, R = (g ? g.getBoundingClientRect().left : bar.clientWidth) - 8;
+    var tm = document.getElementById("ovLeft") || document.getElementById("themeMenu"), g = document.getElementById("ovRight");
+    var L = (tm && tm.isConnected ? tm.getBoundingClientRect().right : 96) + 8, R = (g ? g.getBoundingClientRect().left : bar.clientWidth) - 8;
     var w = b.offsetWidth, mid = bar.clientWidth / 2;
     if (mid - w / 2 >= L && mid + w / 2 <= R) return;
     if (w > R - L){ var st = (upState || {}).state; b.textContent = st === "downloading" ? (upState.pct || 0) + "%" : st === "error" ? "Retry" : st === "restarting" ? "\u2026" : "Update"; w = b.offsetWidth; }
     b.style.left = Math.round(L + Math.max(0, (R - L - w) / 2)) + "px"; b.style.transform = "none";
   }
   window.addEventListener("resize", function(){ requestAnimationFrame(placeUp); });
-  if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["themeMenu", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
+  if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["ovLeft", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
   // Update button in the app bar (shows only when GitHub has a newer version of the app).
   var upState = null;
   function paintUpdate(){
@@ -1883,7 +2001,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (!b){
       b = document.createElement("button"); b.type = "button"; b.className = "ovb ovup"; b.id = "ovUp";
       b.addEventListener("click", function(){ if (upState && (upState.state === "available" || upState.state === "error") && window.overlayApp && overlayApp.installUpdate) overlayApp.installUpdate(); });
-      var rl = document.getElementById("ovRe"); if (rl) rl.after(b); else bar.appendChild(b);
+      bar.appendChild(b);
     }
     var st = upState.state;
     b.textContent = st === "downloading" ? "Updating " + (upState.pct || 0) + "%" : st === "restarting" ? "Restarting\u2026" : st === "error" ? "Update failed: retry" : "Update to v" + upState.version;
@@ -4624,7 +4742,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // ---- sign-in screen ----
   function authScreen(){
-    note.remove();
     try { var th = JSON.parse(localStorage.getItem("hbc-theme") || "null"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
     var mode = "in";
     var box = document.createElement("div"); box.id = "authScreen";
@@ -4662,23 +4779,20 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       go.disabled = true; go.textContent = mode === "up" ? "Creating…" : "Signing in…";
       (mode === "up" ? CLOUD.signUp(u, pw) : CLOUD.signIn(u, pw)).then(function(){
-        box.remove(); document.documentElement.classList.remove("authing");
-        document.body.appendChild(note); return enter();
+        go.textContent = "Loading your decks…"; location.reload();
       }).catch(function(x){ go.disabled = false; go.textContent = mode === "up" ? "Create account" : "Sign in"; bad(x.message); });
     });
     setTimeout(function(){ f.u.focus(); }, 30);
-    (function dockAuth(n){
-      var bar = document.getElementById("ovBar");
-      if (!bar){ if (n < 40) setTimeout(function(){ dockAuth(n + 1); }, 250); return; }
-      if (!document.getElementById("authScreen")) return;
-      var ab = acctButton(); ab.classList.add("inbar"); ab.querySelector("span").textContent = "Sign in"; ab.title = "Sign in";
-      ab.onclick = function(){ setMode("in"); f.u.focus(); };
-      var g = ovGroup(bar); g.insertBefore(ab, g.firstChild);
-    })(0);
+    window.showSignIn = function(){ setMode("in"); f.u.focus(); };
   }
 
   note.textContent = "Signing in…";
-  CLOUD.start().then(function(u){ if (u) return enter(); authScreen(); })
+  CLOUD.start().then(function(u){
+    if (u) return enter();
+    // Signed out: the app runs deckless behind the sign-in card, so the top bar (theme, reload, settings,
+    // full/compact) still works before you sign in.
+    MDC.scope("guest", false); authScreen(); boot();
+  })
     .catch(function(e){ if (window.console) console.error(e); fail("Couldn't reach the sign-in service (" + e.message + "). Check your connection and reload."); });
 })();
 </script>
