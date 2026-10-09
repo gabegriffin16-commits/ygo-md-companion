@@ -21,7 +21,7 @@ Live site: https://gabegriffin16-commits.github.io/ygo-md-companion/
 
 ## Card database
 
-`.github/workflows/update-cards.yml` runs `update_card_db.py` weekly and commits `cards.json` only when the data changed. To run it now: Actions tab → Refresh card database → Run workflow.
+`.github/workflows/update-cards.yml` runs `update_card_db.py` weekly and commits `cards.json` only when the data changed. Card data comes from YGOPRODeck; the Master Duel Forbidden/Limited list (the `b` field: F, L = Limited, S = Semi-Limited) comes from Master Duel Meta's card API, since YGOPRODeck only tracks the TCG/OCG lists. To run it now: Actions tab → Refresh card database → Run workflow.
 
 ## Desktop app
 

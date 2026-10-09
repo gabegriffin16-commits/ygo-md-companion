@@ -821,6 +821,11 @@ html.in-overlay .bld{top:16px}
 .bldempty{margin:2px 4px 4px; font-size:.78rem}
 .nolines h3{margin-bottom:6px}
 html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
+.banb{display:inline-block; margin-left:6px; padding:0 5px; border-radius:4px; font:800 .62rem/1.5 var(--display); letter-spacing:.02em; vertical-align:1px; color:#fff}
+.ban-F{background:#C8323C} .ban-L{background:#D9762B} .ban-S{background:#B89A1E}
+.pill.banpill{color:#fff; border-color:transparent}
+.bldhit.forb .bldhn{text-decoration:line-through; opacity:.7}
+.bldnm.over{color:var(--red)}
 </style>
 </head>
 <body>
@@ -1103,6 +1108,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   var CARD_BY_ID = {}; CARDDB.cards.forEach(function(c){ CARD_BY_ID[c.id] = c; });
+  // Master Duel Forbidden/Limited list (cards.json "b": F = Forbidden, L = Limited, S = Semi-Limited).
+  var BAN_MAX = {F:0, L:1, S:2}, BAN_NAME = {F:"Forbidden", L:"Limited", S:"Semi-Limited"}, BAN_SHORT = {F:"F", L:"L1", S:"L2"};
+  function banMax(c){ return c && c.b ? BAN_MAX[c.b] : 3; }
+  function banBadge(c, cls){ if (!c || !c.b) return null; var e = document.createElement("span"); e.className = "banb ban-" + c.b + (cls ? " " + cls : ""); e.textContent = BAN_SHORT[c.b]; e.title = BAN_NAME[c.b] + " in Master Duel (" + BAN_MAX[c.b] + " allowed)"; return e; }
   // ================= data: deck.json + rules.json + cards.json =================
   // Everything below used to be hand-typed. Now it's generated, so a deck change is a deck.json edit.
   var CARD_BY_NAME = {}; CARDDB.cards.forEach(function(c){ CARD_BY_NAME[c.n] = c; });
@@ -1702,6 +1711,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         else if (MISSING.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (not found in cards.json: check the name)"; }
         else if (UNRULED.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (no play rules yet)"; }
         var dot = b.querySelector(".dot");
+        var bb = banBadge(CARD_BY_NAME[c.name]); if (bb) b.querySelector(".nm").appendChild(bb);
         if (c.attr) dot.textContent = ATTR_DOT[c.attr];
         else if (c.sec === "Spells" || c.sec === "Traps"){
           // Spell/Trap property symbols. Normal cards have no symbol in-game, so they use a star here.
@@ -1790,6 +1800,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
     var meta = mk("div", "cd-meta");
     if (RARITY[c.id]) meta.appendChild(mk("span", "pill rar r-" + RARITY[c.id], RARITY[c.id]));
+    var cdb = CARD_BY_NAME[c.name]; if (cdb && cdb.b) meta.appendChild(mk("span", "pill banpill ban-" + cdb.b, BAN_NAME[cdb.b] + (cdb.b === "F" ? "" : " (" + BAN_MAX[cdb.b] + ")")));
     meta.appendChild(mk("span", "pill", c.n + (c.n > 1 ? " copies" : " copy") + (c.sec === "Extra Deck" ? " in Extra Deck" : " in Main Deck")));
     plate.appendChild(meta);
     cardPane.appendChild(plate);
@@ -1914,6 +1925,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       img.src = "images/" + x.id + ".jpg";
       var meta = mk("div", "cd-meta");
       if (x.md) meta.appendChild(mk("span", "pill rar r-" + x.md, x.md)); else meta.appendChild(mk("span", "pill", "Not in Master Duel"));
+      if (x.b) meta.appendChild(mk("span", "pill banpill ban-" + x.b, BAN_NAME[x.b] + (x.b === "F" ? "" : " (" + BAN_MAX[x.b] + ")")));
       if (x.ar) meta.appendChild(mk("span", "pill", x.ar));
       meta.appendChild(mk("span", "pill", "Not in your deck"));
       plate.appendChild(meta);
@@ -3209,15 +3221,16 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
 
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
+    function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
     function add(c){
-      if (copies(c.id) >= 3){ toast("3 copies max of " + c.n); return; }
+      if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
       var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
       if (row) row.n++; else arr.push({id:c.id, n:1});
       dirty = true; paintDeckList(); paintResults();
     }
     function bump(arr, id, d){
       var row = arr.filter(function(x){ return x.id === id; })[0]; if (!row) return;
-      if (d > 0 && copies(id) >= 3){ toast("3 copies max"); return; }
+      if (d > 0 && copies(id) >= banMax(CARD_BY_ID[id])){ toast(limitMsg(CARD_BY_ID[id])); return; }
       row.n += d; if (row.n <= 0) arr.splice(arr.indexOf(row), 1);
       dirty = true; paintDeckList(); paintResults();
     }
@@ -3232,11 +3245,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (m < 40) warn.push("Main Deck needs " + (40 - m) + " more (40–60)");
       if (m > 60) warn.push("Main Deck is " + (m - 60) + " over 60");
       if (x > 15) warn.push("Extra Deck is " + (x - 15) + " over 15");
+      deck.main.concat(deck.extra).forEach(function(r){
+        var c = CARD_BY_ID[r.id]; if (!c) return;
+        if (r.n > banMax(c)) warn.push(c.b === "F" ? c.n + " is Forbidden" : c.n + " over its limit (" + banMax(c) + ")");
+      });
       stat.innerHTML = "";
       stat.appendChild(nodes("span", "bldct" + (m >= 40 && m <= 60 ? " ok" : ""), "Main " + m));
       stat.appendChild(nodes("span", "bldct" + (x <= 15 ? " ok" : ""), "Extra " + x));
       if (warn.length) stat.appendChild(nodes("span", "bldwarn", warn.join(" · ")));
-      else stat.appendChild(nodes("span", "bldgood", "Legal size"));
+      else stat.appendChild(nodes("span", "bldgood", "Legal for Master Duel"));
     }
     function row(arr, r){
       var c = CARD_BY_ID[r.id]; if (!c) return null;
@@ -3245,7 +3262,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       minus.addEventListener("click", function(){ bump(arr, r.id, -1); });
       var plus = nodes("button", "mini", "+"); plus.type = "button"; plus.title = "Add one";
       plus.addEventListener("click", function(){ bump(arr, r.id, 1); });
-      var nm = nodes("span", "bldnm"); nm.appendChild(nodes("b", null, r.n + "× ")); nm.appendChild(document.createTextNode(c.n));
+      var nm = nodes("span", "bldnm" + (r.n > banMax(c) ? " over" : "")); nm.appendChild(nodes("b", null, r.n + "× ")); nm.appendChild(document.createTextNode(c.n));
+      var bbd = banBadge(c); if (bbd) nm.appendChild(bbd);
       nm.title = c.n + "\n" + typeTag(c) + "\n\n" + (c.d || "");
       el.appendChild(minus); el.appendChild(nm); el.appendChild(plus);
       return el;
@@ -3280,7 +3298,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       hits.forEach(function(c){
         var b = nodes("button", "bldhit"); b.type = "button";
         var have = copies(c.id);
-        b.appendChild(nodes("span", "bldhn", c.n));
+        var hn = nodes("span", "bldhn", c.n); var hb = banBadge(c); if (hb) hn.appendChild(hb);
+        if (c.b === "F") b.classList.add("forb");
+        b.appendChild(hn);
         b.appendChild(nodes("span", "bldht", typeTag(c) + (c.md ? " · " + c.md : "")));
         if (have) b.appendChild(nodes("span", "bldhave", have + "×"));
         b.title = c.d || "";
