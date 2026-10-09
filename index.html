@@ -773,6 +773,54 @@ html.fadebg main{font-weight:500}
 html.fadebg .vsbtn, html.fadebg .stepper li.ph, html.fadebg .tab, html.fadebg .hint, html.fadebg .lpcol .lab, html.fadebg .cgpicklab{color:var(--ink); opacity:1}
 html.fadebg .stepper li.ph.skip{opacity:.6}
 html.fadebg .vsbtn{background:color-mix(in srgb, var(--panel) 60%, transparent)}
+/* deck picker + deck builder */
+.deckpick{display:flex; align-items:baseline; gap:8px; width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--line); padding:2px 2px 8px; margin:0 0 6px; color:var(--ink); cursor:pointer; font:inherit}
+.deckpick .lbl{font:600 .66rem var(--display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted)}
+.deckpick b{font:700 1.15rem var(--display); color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1}
+.deckpick .caret{color:var(--gold)}
+.deckpick:hover b{color:var(--gold)}
+.deckmenu{position:fixed; z-index:75; width:250px; max-height:min(75vh, 560px); overflow:auto; padding:6px; border-radius:12px; background:var(--panel); border:1px solid var(--line); box-shadow:0 14px 34px rgba(0,0,0,.4)}
+.deckmenu[hidden]{display:none}
+.deckmenu .dmhead{font:600 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:4px 8px}
+.deckmenu .dmsep{height:1px; background:var(--line); margin:6px 4px}
+.dmitem{display:flex; align-items:baseline; justify-content:space-between; gap:8px; width:100%; text-align:left; padding:7px 10px; border:0; border-radius:8px; background:none; color:var(--ink); font:500 .86rem var(--body); cursor:pointer}
+.dmitem small{color:var(--muted); font-size:.72rem; white-space:nowrap}
+.dmitem:hover{background:var(--panel2)}
+.dmitem.on{color:var(--gold); font-weight:700}
+.dmitem.on::after{content:"\2713"; color:var(--gold); margin-left:4px}
+.dmitem.act{color:var(--sky)}
+.dmitem.danger{color:var(--red)}
+.dmitem.danger[data-armed]{background:var(--red); color:#fff}
+html.building body{overflow:hidden}
+.bld{position:fixed; inset:0; z-index:90; display:flex; flex-direction:column; gap:8px; padding:14px 16px; background:var(--bg); color:var(--ink)}
+html.in-overlay .bld{top:16px}
+.bldtop{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.bldname{flex:1 1 200px; min-width:0; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:9px 12px; font:700 1.05rem var(--display)}
+.bldname:focus, .bldsearch input:focus{outline:none; border-color:var(--gold)}
+.bldbtns{display:flex; gap:6px}
+.bldbtns button{padding:8px 14px}
+.bldstat{display:flex; flex-wrap:wrap; gap:6px 10px; align-items:center; font:600 .8rem var(--display)}
+.bldct{padding:2px 10px; border-radius:999px; border:1px solid var(--red); color:var(--red)}
+.bldct.ok{border-color:var(--line); color:var(--ink)}
+.bldwarn{color:var(--red)} .bldgood{color:var(--gold)}
+.bldbody{flex:1; min-height:0; display:grid; grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) minmax(0,1.3fr); gap:10px}
+@media (min-width:900px){ .bldbody{grid-template-columns:1fr 1fr; grid-template-rows:minmax(0,1fr)} }
+.bldsearch, .blddeck{min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px}
+.bldsearch{display:flex; flex-direction:column; gap:8px; overflow:hidden}
+.bldsearch input{width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:8px 14px; font:500 .9rem var(--body)}
+.bldres{flex:1; min-height:0; overflow:auto; display:flex; flex-direction:column; gap:2px}
+.bldhit{display:grid; grid-template-columns:1fr auto; gap:0 8px; text-align:left; background:none; border:0; border-radius:8px; padding:6px 8px; color:var(--ink); cursor:pointer}
+.bldhit:hover{background:var(--panel2)}
+.bldhn{font:600 .88rem var(--body)} .bldht{grid-column:1; font-size:.74rem; color:var(--muted)}
+.bldhave{grid-row:1 / span 2; grid-column:2; align-self:center; font:700 .8rem var(--display); color:var(--gold)}
+.bldgrp{display:flex; justify-content:space-between; font:700 .74rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--gold); margin:10px 2px 4px; padding-top:8px; border-top:1px solid var(--line)}
+.bldgrp:first-child{margin-top:0; padding-top:0; border-top:0}
+.bldrow{display:grid; grid-template-columns:auto 1fr auto; gap:8px; align-items:center; padding:3px 2px}
+.bldrow .mini{width:28px; height:26px; padding:0; border-radius:8px; font-size:.95rem}
+.bldnm{font-size:.88rem; overflow:hidden; text-overflow:ellipsis; white-space:nowrap} .bldnm b{color:var(--gold)}
+.bldempty{margin:2px 4px 4px; font-size:.78rem}
+.nolines h3{margin-bottom:6px}
+html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 </style>
 </head>
 <body>
@@ -965,8 +1013,96 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
 })();
 </script>
 <script>
+// ================= decks you build (saved on this device) =================
+// The built-in HERO deck comes from deck.json + rules.json. Decks you build live in localStorage
+// ("mdc-decks") as card ids and copies, and can be moved between people as .ydk files.
+var MDC = (function(){
+  var KEY = "mdc-decks", PILOT = "mdc-pilot";
+  function rd(k, d){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function wr(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+  function list(){ return rd(KEY, []); }
+  function get(id){ return list().filter(function(d){ return d.id === id; })[0] || null; }
+  function put(deck){
+    var l = list(), i = l.findIndex(function(d){ return d.id === deck.id; });
+    deck.updated = Date.now();
+    if (i >= 0) l[i] = deck; else l.push(deck);
+    return wr(KEY, l);
+  }
+  function remove(id){ wr(KEY, list().filter(function(d){ return d.id !== id; })); if (pilot() === id) wr(PILOT, "hero"); }
+  function pilot(){ var p = rd(PILOT, "hero"); return p === "hero" || get(p) ? p : "hero"; }
+  function setPilot(id){ wr(PILOT, id); location.reload(); }
+  function newId(){ return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
+  var EXTRA_RE = /^(fusion|synchro|xyz|link)/;
+  function isExtra(c){ return EXTRA_RE.test(c.f || ""); }
+  function playable(c){ return c && c.f !== "token" && c.f !== "skill" && !/Token|Skill Card/.test(c.t || ""); }
+  // A built deck -> the same shape as deck.json, so the rest of the page doesn't care where it came from.
+  function toDeckData(deck, CARDDB){
+    var byId = {}; CARDDB.cards.forEach(function(c){ byId[c.id] = c; });
+    function rows(arr, zone){
+      return arr.map(function(r){
+        var c = byId[r.id]; if (!c) return null;
+        var t = c.t || "";
+        return {id:"c" + c.id, name:c.n, n:r.n, short:c.n,
+          group:zone === "extra" ? undefined : /Monster/.test(t) ? "Monsters" : /Spell/.test(t) ? "Spells" : "Traps",
+          notes:[]};
+      }).filter(Boolean);
+    }
+    return {name:deck.name, custom:true, deckId:deck.id, main:rows(deck.main || [], "main"), extra:rows(deck.extra || [], "extra")};
+  }
+  // .ydk: "#main" ids, "#extra" ids, "!side" ids, one passcode per line.
+  function toYdk(deck){
+    var out = ["#created by Master Duel Companion App", "#main"];
+    (deck.main || []).forEach(function(r){ for (var i = 0; i < r.n; i++) out.push(String(r.id)); });
+    out.push("#extra");
+    (deck.extra || []).forEach(function(r){ for (var i = 0; i < r.n; i++) out.push(String(r.id)); });
+    out.push("!side", "");
+    return out.join("\r\n");
+  }
+  function fromYdk(text, name, CARDDB){
+    var byId = {}; CARDDB.cards.forEach(function(c){ byId[c.id] = c; });
+    var sec = "main", main = {}, extra = {}, unknown = 0, order = {main:[], extra:[]};
+    text.split(/\r?\n/).forEach(function(line){
+      line = line.trim();
+      if (!line) return;
+      if (/^#main/i.test(line)) { sec = "main"; return; }
+      if (/^#extra/i.test(line)) { sec = "extra"; return; }
+      if (/^!side/i.test(line)) { sec = "side"; return; }
+      if (line[0] === "#" || sec === "side") return;
+      var id = parseInt(line, 10), c = byId[id];
+      if (!c) { unknown++; return; }
+      var bag = isExtra(c) ? extra : main, ord = isExtra(c) ? order.extra : order.main;
+      if (!bag[id]) ord.push(id);
+      bag[id] = (bag[id] || 0) + 1;
+    });
+    return {deck:{id:newId(), name:name || "Imported deck",
+      main:order.main.map(function(id){ return {id:id, n:main[id]}; }),
+      extra:order.extra.map(function(id){ return {id:id, n:extra[id]}; })}, unknown:unknown};
+  }
+  function download(filename, text){
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(new Blob([text], {type:"text/plain"}));
+    a.download = filename; document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  }
+  function pickFile(cb){
+    var inp = document.createElement("input"); inp.type = "file"; inp.accept = ".ydk,text/plain";
+    inp.addEventListener("change", function(){
+      var f = inp.files && inp.files[0]; if (!f) return;
+      var r = new FileReader(); r.onload = function(){ cb(String(r.result || ""), f.name.replace(/\.ydk$/i, "")); }; r.readAsText(f);
+    });
+    inp.click();
+  }
+  return {list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
+    toDeckData:toDeckData, toYdk:toYdk, fromYdk:fromYdk, download:download, pickFile:pickFile};
+})();
+
 function startCompanion(DECKDATA, RULES, CARDDB){
   "use strict";
+  // Decks you build have no play rules or written lines yet; the HERO-only guidance is hidden for them.
+  var HEROMODE = !DECKDATA.custom;
+  var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
+  var PILOT_NAME = DECKDATA.name || "Omni HERO";
+  var CARD_BY_ID = {}; CARDDB.cards.forEach(function(c){ CARD_BY_ID[c.id] = c; });
   // ================= data: deck.json + rules.json + cards.json =================
   // Everything below used to be hand-typed. Now it's generated, so a deck change is a deck.json edit.
   var CARD_BY_NAME = {}; CARDDB.cards.forEach(function(c){ CARD_BY_NAME[c.n] = c; });
@@ -1346,6 +1482,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function evaluate(){
     var out = document.getElementById("result");
     out.innerHTML = "";
+    if (!HEROMODE) return;
     var total = Object.keys(hand).reduce(function(a,k){ return a + (hand[k]||0); }, 0);
     if (!total){
       var e = document.createElement("div"); e.className = "empty";
@@ -1524,6 +1661,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   TIPS.forEach(function(t){ var li = document.createElement("li"); li.textContent = t; tl.appendChild(li); });
 
 
+  if (!HEROMODE){
+    var noLines = '<div class="dbox nolines"><h3>No lines written for ' + PILOT_NAME.replace(/[<>&]/g, "") + ' yet</h3><p class="hint">Combo lines, checkpoints and bait order are written per deck. Ask Claude to write them for this deck and they\'ll show up here. Until then the Duel tab still reads your hand, draws, turns and LP, and Manual tracking covers the rest.</p></div>';
+    document.getElementById("tab-lines").innerHTML = noLines;
+    document.getElementById("tab-check").innerHTML = noLines;
+  }
   // ---------- desktop panes: decklist + card details ----------
   // Effects are summarized in plain words; check the in-game text for exact wording.
   var ATTR_DOT = {fire:"\uD83D\uDD34", wind:"\uD83D\uDFE2", light:"\uD83D\uDFE1", dark:"\uD83D\uDFE3", earth:"\uD83D\uDFE4"};
@@ -1533,9 +1675,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var selected = load("hbc-card", "vyon");
 
   function paintDeck(){
-    deckPane.innerHTML = '<h2>Decklist</h2><div class="sub"></div>';
+    deckPane.innerHTML = '<button type="button" class="deckpick" title="Switch decks, build a new one, import or export"><span class="lbl">Piloting</span><b></b><span class="caret">\u25BE</span></button><div class="sub"></div>';
+    deckPane.querySelector(".deckpick b").textContent = PILOT_NAME;
+    deckPane.querySelector(".deckpick").addEventListener("click", function(e){ e.stopPropagation(); if (deckMenu.hidden) openDeckMenu(this); else closeDeckMenu(); });
     deckPane.querySelector(".sub").textContent = MAIN_COUNT + " main, " + EXTRA_COUNT + " Extra. Select a card for details.";
-    if (UNRULED.length || MISSING.length){
+    if (HEROMODE && (UNRULED.length || MISSING.length)){
       var warn = document.createElement("div"); warn.className = "sub deckwarn";
       warn.textContent = "\u2691 " + (MISSING.length ? MISSING.length + " not found in cards.json. " : "") + (UNRULED.length ? UNRULED.length + " without play rules yet." : "");
       deckPane.appendChild(warn);
@@ -1554,7 +1698,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         b.querySelector(".ct").textContent = c.n + "\u00D7";
         b.querySelector(".nm").textContent = c.name;
         b.title = c.name;
-        if (MISSING.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (not found in cards.json: check the name)"; }
+        if (!HEROMODE){ /* built decks have no play rules by design: no flags */ }
+        else if (MISSING.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (not found in cards.json: check the name)"; }
         else if (UNRULED.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (no play rules yet)"; }
         var dot = b.querySelector(".dot");
         if (c.attr) dot.textContent = ATTR_DOT[c.attr];
@@ -1661,7 +1806,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var off = mk("details", "cd-block cd-official"); off.appendChild(mk("summary", "cd-sec", "Official text"));
       off.appendChild(mk("p", "cd-offtext", c.official)); cardPane.appendChild(off);
     }
-    list("In this deck", c.notes);
+    if (c.notes && c.notes.length) list("In this deck", c.notes);
     cardPane.appendChild(mk("div", "cd-src", "Effects are summarized in plain words. Check the in-game card text for exact wording."));
   }
   var ATTR_WORD_ST = {spell:"\u2726 SPELL", trap:"\u2726 TRAP"};
@@ -1858,6 +2003,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var h = document.createElement("h2"); h.textContent = d.name; card.appendChild(h);
     if (d.note){ var n = document.createElement("p"); n.className = "hint"; n.textContent = d.note; card.appendChild(n); }
     d.sections.forEach(function(s){
+      if (!HEROMODE && s[0] === "Your board") return;      // written for the HERO deck
       var box = document.createElement("div"); box.className = "cg-sec cg-" + s[0].toLowerCase().replace(/[^a-z]+/g, "").replace("maxxcfuwalos","maxxc");
       var t = document.createElement("h3"); t.textContent = s[0]; box.appendChild(t);
       var ul = document.createElement("ul"); ul.className = "notes";
@@ -1869,7 +2015,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   paintCounter();
 
   // ---------- duel flow ----------
-  var DUEL_KEY = "hbc-duel";
+  var DUEL_KEY = HEROMODE ? "hbc-duel" : "hbc-duel-" + DECKDATA.deckId;
   var PHASES = ["setup","opening","draw","main","end"];
   var PH_LABEL = {setup:"Setup", opening:"Opening hand", draw:"Draw", main:"Main", end:"End"};
   var ZONES = [
@@ -2031,6 +2177,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     box.appendChild(hb);
     var body = nodes("div", "vsbody");
     d.sections.forEach(function(s){
+      if (!HEROMODE && s[0] === "Your board") return;      // written for the HERO deck
       if (!/^(Ash this|Don't Ash|Imperm|Maxx)/.test(s[0])) return;
       body.appendChild(nodes("h4", /^Ash/.test(s[0]) ? "ash" : null, s[0]));
       var ul = nodes("ul"); s[1].forEach(function(x){ ul.appendChild(nodes("li", null, x)); }); body.appendChild(ul);
@@ -2053,8 +2200,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(document.getElementById("chipArea"));
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
-    var r = box("Best line for this hand");
-    r.appendChild(document.getElementById("result"));
+    if (HEROMODE){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
     paintChips(); evaluate();
   }
 
@@ -2678,7 +2824,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       pl.appendChild(w4);
       var noRule = UNRULED.filter(function(id){ return D.hand[id] || b.field.indexOf(id) >= 0; });
-      if (noRule.length) pl.appendChild(nodes("p", "hint warnline", "⚑ No play rules yet for " + noRule.map(nm).join(", ") + ". Track them with Manual tracking, and ask to have rules added."));
+      if (HEROMODE && noRule.length) pl.appendChild(nodes("p", "hint warnline", "⚑ No play rules yet for " + noRule.map(nm).join(", ") + ". Track them with Manual tracking, and ask to have rules added."));
     }
 
     var last = D.acts[D.acts.length - 1];
@@ -2713,12 +2859,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function renderMain(){
     B(); syncZones();
     renderPlays();
-    var r = box(null);
-    var det = nodes("details", "planfold"); det.open = D.n === 1 && !D.acts.length;
-    det.appendChild(nodes("summary", null, "Best line for your current hand"));
-    det.appendChild(document.getElementById("result"));
-    r.appendChild(det);
-    evaluate();
+    if (HEROMODE){
+      var r = box(null);
+      var det = nodes("details", "planfold"); det.open = D.n === 1 && !D.acts.length;
+      det.appendChild(nodes("summary", null, "Best line for your current hand"));
+      det.appendChild(document.getElementById("result"));
+      r.appendChild(det);
+      evaluate();
+    }
     var mt = box(null); mt.className = "dbox manualtoggle";
     var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
     mb.addEventListener("click", function(){ D.showManual = !D.showManual; persist(); renderBody(); });
@@ -2728,6 +2876,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   function reminders(){
     var out = [];
+    if (!HEROMODE) return D.stops.length ? ["You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time."] : [];
     if (D.zones.increase === "gy") out.push("Increase is in your GY. If you take damage on their turn, move it to Field / backrow next turn.");
     if (D.zones.increase === "field") out.push("Increase is in your backrow, ready to restart the engine next turn.");
     if (D.opt.destiny) out.push("Fusion Destiny's monster is destroyed at the End Phase of the next turn.");
@@ -2987,6 +3136,186 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     else if (cmd === "find"){ openFind(); }
     else if (cmd === "duel"){ var t = document.getElementById("t-hand"); if (t) t.click(); }
   });
+  // ---------- which deck you're piloting + the deck builder ----------
+  // The current deck as {main:[{id,n}], extra:[{id,n}]} (card passcodes), for export or copying.
+  function currentAsBuilt(){
+    function rows(arr){ return arr.map(function(c){ var d = CARD_BY_NAME[c.name]; return d ? {id:d.id, n:c.n} : null; }).filter(Boolean); }
+    return {id:PILOT_ID, name:PILOT_NAME, main:rows(DECKDATA.main), extra:rows(DECKDATA.extra)};
+  }
+  function fileName(s){ return (s || "deck").replace(/[\\/:*?"<>|]+/g, "").trim() || "deck"; }
+
+  var deckMenu = document.createElement("div"); deckMenu.className = "deckmenu"; deckMenu.hidden = true; deckMenu.setAttribute("role", "menu");
+  document.body.appendChild(deckMenu);
+  function closeDeckMenu(){ deckMenu.hidden = true; }
+  function menuItem(label, cls, fn){
+    var b = document.createElement("button"); b.type = "button"; b.className = "dmitem" + (cls ? " " + cls : ""); b.textContent = label;
+    b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); deckMenu.appendChild(b); return b;
+  }
+  function openDeckMenu(anchor){
+    deckMenu.innerHTML = "";
+    deckMenu.appendChild(nodes("div", "dmhead", "Decks"));
+    var hero = menuItem("Omni HERO", PILOT_ID === "hero" ? "on" : "", function(){ if (PILOT_ID !== "hero") MDC.setPilot("hero"); else closeDeckMenu(); });
+    hero.appendChild(nodes("small", null, "built in"));
+    MDC.list().forEach(function(d){
+      var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
+      var it = menuItem(d.name || "Untitled deck", PILOT_ID === d.id ? "on" : "", function(){ if (PILOT_ID !== d.id) MDC.setPilot(d.id); else closeDeckMenu(); });
+      it.appendChild(nodes("small", null, cnt + " cards"));
+    });
+    deckMenu.appendChild(nodes("div", "dmsep"));
+    menuItem("+ Build a new deck", "act", function(){ closeDeckMenu(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); });
+    if (DECKDATA.custom) menuItem("Edit this deck", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); });
+    else menuItem("Copy this deck to edit", "act", function(){ closeDeckMenu(); var c = currentAsBuilt(); c.id = MDC.newId(); c.name = PILOT_NAME + " (copy)"; openBuilder(c, true); });
+    menuItem("Import a .ydk file", "act", function(){
+      closeDeckMenu();
+      MDC.pickFile(function(text, name){
+        var r = MDC.fromYdk(text, name, CARDDB);
+        if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
+        if (r.unknown) toast(r.unknown + " card" + (r.unknown > 1 ? "s" : "") + " in that file weren't found and were skipped", 3200);
+        openBuilder(r.deck, true);
+      });
+    });
+    menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); });
+    if (DECKDATA.custom) menuItem("Delete this deck", "act danger", function(b){
+      if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME; return; }
+      MDC.remove(PILOT_ID); MDC.setPilot("hero");
+    });
+    var r = anchor.getBoundingClientRect();
+    deckMenu.hidden = false;
+    deckMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - deckMenu.offsetWidth - 8)) + "px";
+    deckMenu.style.top = Math.min(r.bottom + 6, window.innerHeight - deckMenu.offsetHeight - 8) + "px";
+  }
+  document.addEventListener("click", function(e){ if (!deckMenu.hidden && !deckMenu.contains(e.target) && !e.target.closest(".deckpick")) closeDeckMenu(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDeckMenu(); });
+
+  function openBuilder(deck, isNew){
+    var old = document.getElementById("builder"); if (old) old.remove();
+    var dirty = false;
+    var root = nodes("div", "bld"); root.id = "builder"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Deck builder");
+    root.innerHTML =
+      '<div class="bldtop">' +
+        '<input class="bldname" type="text" maxlength="40" placeholder="Deck name">' +
+        '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
+      '</div>' +
+      '<div class="bldstat"></div>' +
+      '<div class="bldbody">' +
+        '<div class="bldsearch"><input type="search" placeholder="Search any card to add it…" autocomplete="off"><div class="bldres"></div></div>' +
+        '<div class="blddeck"></div>' +
+      '</div>';
+    document.body.appendChild(root);
+    document.documentElement.classList.add("building");
+    var nameIn = root.querySelector(".bldname"), stat = root.querySelector(".bldstat"), res = root.querySelector(".bldres"),
+        list = root.querySelector(".blddeck"), q = root.querySelector(".bldsearch input");
+    nameIn.value = deck.name || "";
+    nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
+
+    function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
+    function add(c){
+      if (copies(c.id) >= 3){ toast("3 copies max of " + c.n); return; }
+      var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
+      if (row) row.n++; else arr.push({id:c.id, n:1});
+      dirty = true; paintDeckList(); paintResults();
+    }
+    function bump(arr, id, d){
+      var row = arr.filter(function(x){ return x.id === id; })[0]; if (!row) return;
+      if (d > 0 && copies(id) >= 3){ toast("3 copies max"); return; }
+      row.n += d; if (row.n <= 0) arr.splice(arr.indexOf(row), 1);
+      dirty = true; paintDeckList(); paintResults();
+    }
+    function kind(c){ var t = c.t || ""; return /Monster/.test(t) ? "Monster" : /Spell/.test(t) ? "Spell" : "Trap"; }
+    function typeTag(c){
+      var f = (c.f || "").split("_")[0], t = c.t || "";
+      if (/Spell|Trap/.test(t)) return (c.r && c.r !== "Normal" ? c.r + " " : "") + (/Spell/.test(t) ? "Spell" : "Trap");
+      return (FRAME_NAME[f] || "Effect") + (c.lk ? " · Link-" + c.lk : c.lv != null ? " · Lv " + c.lv : "") + (c.a ? " · " + c.a : "");
+    }
+    function paintStat(){
+      var m = deck.main.reduce(function(a, r){ return a + r.n; }, 0), x = deck.extra.reduce(function(a, r){ return a + r.n; }, 0), warn = [];
+      if (m < 40) warn.push("Main Deck needs " + (40 - m) + " more (40–60)");
+      if (m > 60) warn.push("Main Deck is " + (m - 60) + " over 60");
+      if (x > 15) warn.push("Extra Deck is " + (x - 15) + " over 15");
+      stat.innerHTML = "";
+      stat.appendChild(nodes("span", "bldct" + (m >= 40 && m <= 60 ? " ok" : ""), "Main " + m));
+      stat.appendChild(nodes("span", "bldct" + (x <= 15 ? " ok" : ""), "Extra " + x));
+      if (warn.length) stat.appendChild(nodes("span", "bldwarn", warn.join(" · ")));
+      else stat.appendChild(nodes("span", "bldgood", "Legal size"));
+    }
+    function row(arr, r){
+      var c = CARD_BY_ID[r.id]; if (!c) return null;
+      var el = nodes("div", "bldrow");
+      var minus = nodes("button", "mini", "−"); minus.type = "button"; minus.title = "Remove one";
+      minus.addEventListener("click", function(){ bump(arr, r.id, -1); });
+      var plus = nodes("button", "mini", "+"); plus.type = "button"; plus.title = "Add one";
+      plus.addEventListener("click", function(){ bump(arr, r.id, 1); });
+      var nm = nodes("span", "bldnm"); nm.appendChild(nodes("b", null, r.n + "× ")); nm.appendChild(document.createTextNode(c.n));
+      nm.title = c.n + "\n" + typeTag(c) + "\n\n" + (c.d || "");
+      el.appendChild(minus); el.appendChild(nm); el.appendChild(plus);
+      return el;
+    }
+    function paintDeckList(){
+      list.innerHTML = "";
+      [["Monsters", deck.main, "Monster"], ["Spells", deck.main, "Spell"], ["Traps", deck.main, "Trap"], ["Extra Deck", deck.extra, null]].forEach(function(g){
+        var rows = g[1].filter(function(r){ var c = CARD_BY_ID[r.id]; return c && (!g[2] || kind(c) === g[2]); });
+        var tot = rows.reduce(function(a, r){ return a + r.n; }, 0);
+        var h = nodes("div", "bldgrp"); h.appendChild(nodes("span", null, g[0])); h.appendChild(nodes("span", "t", String(tot)));
+        list.appendChild(h);
+        if (!rows.length){ list.appendChild(nodes("p", "hint bldempty", g[0] === "Extra Deck" ? "Fusion, Synchro, Xyz and Link monsters go here automatically." : "None yet.")); return; }
+        rows.forEach(function(r){ var e = row(g[1], r); if (e) list.appendChild(e); });
+      });
+      paintStat();
+    }
+    function search(s){
+      s = norm(s.trim()); if (s.length < 2) return [];
+      var starts = [], has = [];
+      for (var i = 0; i < CARDDB.cards.length && starts.length < 40; i++){
+        var c = CARDDB.cards[i]; if (!MDC.playable(c)) continue;
+        var n2 = norm(c.n);
+        if (n2.indexOf(s) === 0) starts.push(c); else if (has.length < 40 && n2.indexOf(s) > 0) has.push(c);
+      }
+      return starts.concat(has).slice(0, 40);
+    }
+    function paintResults(){
+      res.innerHTML = "";
+      var hits = search(q.value);
+      if (!q.value.trim()){ res.appendChild(nodes("p", "hint", "Type a card name. Tap a result to add a copy; tap again for more (3 max).")); return; }
+      if (!hits.length){ res.appendChild(nodes("p", "hint", q.value.trim().length < 2 ? "Keep typing…" : "No cards match that.")); return; }
+      hits.forEach(function(c){
+        var b = nodes("button", "bldhit"); b.type = "button";
+        var have = copies(c.id);
+        b.appendChild(nodes("span", "bldhn", c.n));
+        b.appendChild(nodes("span", "bldht", typeTag(c) + (c.md ? " · " + c.md : "")));
+        if (have) b.appendChild(nodes("span", "bldhave", have + "×"));
+        b.title = c.d || "";
+        b.addEventListener("click", function(){ add(c); });
+        res.appendChild(b);
+      });
+    }
+    var st; q.addEventListener("input", function(){ clearTimeout(st); st = setTimeout(paintResults, 120); });
+    root.querySelector(".bldimp").addEventListener("click", function(){
+      MDC.pickFile(function(text, name){
+        var r = MDC.fromYdk(text, name, CARDDB);
+        if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
+        deck.main = r.deck.main; deck.extra = r.deck.extra; if (!deck.name){ deck.name = r.deck.name; nameIn.value = deck.name; }
+        dirty = true; paintDeckList(); paintResults();
+        toast("Imported" + (r.unknown ? " (" + r.unknown + " unknown card" + (r.unknown > 1 ? "s" : "") + " skipped)" : ""), 2400);
+      });
+    });
+    function close(){ root.remove(); document.documentElement.classList.remove("building"); }
+    var cancel = root.querySelector(".bldcancel");
+    cancel.addEventListener("click", function(){
+      if (dirty && !cancel.dataset.armed){ cancel.dataset.armed = "1"; cancel.textContent = "Discard changes?"; setTimeout(function(){ delete cancel.dataset.armed; cancel.textContent = "Close"; }, 3000); return; }
+      close();
+    });
+    root.querySelector(".bldsave").addEventListener("click", function(){
+      deck.name = (nameIn.value || "").trim() || "Untitled deck";
+      if (!deck.main.length){ toast("Add some cards first"); return; }
+      if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
+      close();
+      if (deck.id === PILOT_ID) location.reload();
+      else MDC.setPilot(deck.id);          // switch to the deck you just built
+    });
+    paintDeckList(); paintResults();
+    setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
+  }
+
   syncGlobals(); paintChips(); paintTurn(); renderDuel();
 }
 
@@ -2996,6 +3325,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function get(u){ return fetch(u, {cache:"no-cache"}).then(function(r){ if (!r.ok) throw new Error(u + " (" + r.status + ")"); return r.json(); }); }
   var note = document.createElement("div"); note.id = "bootNote"; note.textContent = "Loading deck and card data\u2026";
   document.body.appendChild(note);
+  var pilot = MDC.pilot();
+  if (pilot !== "hero"){
+    get("cards.json").then(function(cards){
+      note.remove(); startCompanion(MDC.toDeckData(MDC.get(pilot), cards), {cards:{}, locks:{}}, cards);
+    }).catch(function(err){
+      if (window.console) console.error(err);
+      if (!note.parentNode) document.body.appendChild(note);
+      note.className = "err"; note.textContent = "Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload.";
+    });
+    return;
+  }
   Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
     note.remove(); startCompanion(a[0], a[1], a[2]);
   }).catch(function(err){

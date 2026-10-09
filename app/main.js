@@ -72,7 +72,19 @@ function toggleVisible() {
   else win.showInactive(); // don't steal focus from the game
 }
 
+// The hand reader learns the piloted deck's card art when it starts. Switching decks reloads the page,
+// so check the deck after each load and restart the reader if it changed.
+let readerDeckSig = null;
+function checkReaderDeck() {
+  if (!win) return;
+  win.webContents.executeJavaScript("JSON.stringify((window.OMNI_DECK || []).map(c => c.cid))").then(sig => {
+    if (!sig || sig === "[]") return;
+    if (readerDeckSig !== null && sig !== readerDeckSig && readerWin) { stopReader(); setTimeout(startReader, 500); }
+    readerDeckSig = sig;
+  }).catch(() => {});
+}
 function overlayChrome() {
+  setTimeout(checkReaderDeck, 2500);
   if (update) setTimeout(() => updateEvent({ state: "available", version: update.version, notes: update.notes }), 1500);
   // A thin drag bar plus overlay styles, injected into the companion page.
   const css = `

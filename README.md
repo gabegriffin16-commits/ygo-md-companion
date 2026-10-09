@@ -28,3 +28,9 @@ Live site: https://gabegriffin16-commits.github.io/ygo-md-companion/
 The overlay app's source is in `app/`. `.github/workflows/build-app.yml` builds it on a Windows machine whenever `app/` changes and posts `MasterDuelCompanion.exe` on the [Releases page](https://github.com/gabegriffin16-commits/ygo-md-companion/releases/latest). The release number comes from `"version"` in `app/package.json`, so a change only ships when that number goes up.
 
 The app checks for a newer release when it starts (and every few hours). When there is one, an **Update** button shows in its top bar; clicking it downloads the new exe, restarts, and you're on the new version. The tray menu also has **Check for updates**.
+
+## Building more decks
+
+The deck name at the top of the decklist ("Piloting …") opens the deck menu: switch decks, **Build a new deck**, edit or delete one, **Import a .ydk file**, or **Export** the current deck as .ydk. Built decks are saved on that device only (browser/app storage), so friends each keep their own and share lists as .ydk files.
+
+A built deck gets hand/draw reading, LP, turns, the opponent Counter Guide and manual tracking right away. Play rules, combo lines and checkpoints are written per deck (the HERO deck's live in `deck.json`, `rules.json` and `index.html`); ask Claude to add them for a deck.
