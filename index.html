@@ -1207,7 +1207,6 @@ header.top .acctbtn svg{color:var(--gold)}
 #ovBar .acctbtn.inbar svg{width:11px; height:11px; flex:none}
 html.in-overlay #t-users{display:none !important}
 .acctmenu{z-index:10001}
-html.compact #ovBar #acctBtn span{max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 html.compact #ovBar .ovgrp{gap:10px}
 /* website with accounts: tabs get their own row so all five fit */
 html.cloud:not(.in-overlay) header.top nav.tabs{flex-basis:100%; order:3}
@@ -1273,11 +1272,33 @@ html.compact #ovBar .thememenu.inbar .tname{max-width:none}
 #ovBar .ovlater{position:absolute; right:8px; top:0; height:100%; display:flex; align-items:center; padding:0 6px; font:600 9px/16px sans-serif; letter-spacing:.08em; opacity:.7; cursor:pointer}
 #ovBar .ovlater:hover{opacity:1; text-decoration:underline}
 #ovBar.has-update > span{visibility:hidden}
-/* optical nudges, measured: each mark's ink centered on the bar to within a quarter pixel */
-#ovBar .thememenu.inbar .tbub{transform:translateY(.75px)}
-#ovBar .thememenu.inbar .caret svg{transform:translateY(-.4px)}
-#ovBar #ovUsers svg{transform:translateY(-.5px)}
-#ovBar #acctBtn svg{transform:translateY(-.6px)}
+/* ---- app bar v5: 22px tall with breathing room; Settings labeled; nudges measured to the text ---- */
+#ovBar{height:22px !important}
+html.in-overlay body:not(#_){padding-top:22px !important}
+@media (min-width:1220px){ html.in-overlay body:not(#_) .layout{height:calc(100vh - 22px) !important} }
+html.in-overlay .bld{top:22px}
+html.in-overlay #authScreen{top:22px}
+html.in-overlay.deckopen #deckPane, html.in-overlay.findopen #cardPane{top:30px}
+#ovBar .ovgrp, #ovBar #ovLeft{height:22px !important}
+#ovBar #ovLeft .ovb, #ovBar #ovRight > *, #ovBar .thememenu.inbar, #ovBar .thememenu.inbar .themebtn, #ovBar .thememenu.inbar .caret{height:22px !important}
+#ovBar .ovlab, #ovBar .acctbtn.inbar span, #ovBar .thememenu.inbar .tname, #ovBar .setlbl{line-height:22px !important; height:22px !important}
+#ovBar .ovb.ovup, #ovBar .ovlater{line-height:22px}
+#ovBar #ovLeft{left:6px}
+#ovBar .ovgrp:not(.ovleft){right:8px}
+.setpop{top:26px}
+#ovBar #ovRight #ovK{width:auto !important; gap:4px; padding:0 2px}
+#ovBar .setlbl{font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; display:inline-block}
+html:not(.compact) #ovBar #ovRight{gap:14px}
+/* optical nudges, measured at 4x: icons, bubbles and arrows share the labels' center */
+#ovBar .thememenu.inbar .tbub{transform:translateY(-.75px)}
+#ovBar .thememenu.inbar .caret svg{transform:translateY(-.65px)}
+#ovBar #ovUsers svg{transform:translateY(-.75px)}
+#ovBar #acctBtn svg{transform:translateY(-.85px)}
+.themeitem .tbub{transform:translateY(-1px)}
+html.compact #ovBar #ovRight{gap:10px}
+html.compact #ovBar #ovLeft{gap:4px}
+html.compact #ovBar #ovLeft .thememenu.inbar{margin-left:4px}
+html.compact #ovBar #ovRight{gap:9px}
 </style>
 </head>
 <body>
@@ -1945,7 +1966,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var acctEl = null;
   if (window.CLOUD && CLOUD.user()){
     acctEl = acctButton(); acctEl.classList.remove("inbar");
-    acctEl.querySelector("span").textContent = (CLOUD.profile() || {}).username || "Account"; acctEl.title = "Your account";
+    // Long usernames are shortened in the bar so it stays tidy; the full name is in the tooltip and the menu.
+    var uname = (CLOUD.profile() || {}).username || "Account";
+    acctEl.querySelector("span").textContent = uname.length > 10 ? uname.slice(0, 9) + "\u2026" : uname; acctEl.title = uname;
     var acctMenu = document.createElement("div"); acctMenu.className = "deckmenu acctmenu"; acctMenu.hidden = true; document.body.appendChild(acctMenu);
     acctEl.onclick = function(e){
       e.stopPropagation();
@@ -2022,7 +2045,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       if (acctEl){ acctEl.classList.add("inbar"); grp.appendChild(acctEl); }
       var cog = document.getElementById("ovK");
-      if (cog){ cog.onclick = null; cog.title = "Settings"; cog.setAttribute("aria-label", "Settings"); cog.setAttribute("aria-haspopup", "true"); cog.innerHTML = BAR_ICON.ovK; grp.appendChild(cog); setupSettings(cog, bar); }
+      if (cog){ cog.onclick = null; cog.title = "Settings"; cog.setAttribute("aria-label", "Settings"); cog.setAttribute("aria-haspopup", "true"); cog.innerHTML = BAR_ICON.ovK + '<span class="setlbl">Settings</span>'; grp.appendChild(cog); setupSettings(cog, bar); }
       var tc = document.querySelector("#themeBtn .caret"); if (tc) tc.innerHTML = BAR_ICON.caret;
       paintUpdate();
       return;
