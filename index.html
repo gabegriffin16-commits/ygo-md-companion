@@ -646,7 +646,7 @@ html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html
 header.top{flex-wrap:wrap; row-gap:7px; margin-top:4px}
 header.top nav.tabs{position:static; display:block; background:none !important; border:0; padding:0; z-index:auto; flex:1 1 auto; min-width:0; order:1}
 header.top .hdrside{order:2}
-header.top nav.tabs .wrap{display:grid !important; grid-template-columns:repeat(5, minmax(0,1fr)); gap:3px; max-width:none; margin:0; padding:3px; border-radius:999px;
+header.top nav.tabs .wrap{display:grid !important; grid-template-columns:repeat(4, minmax(0,1fr)); gap:3px; max-width:none; margin:0; padding:3px; border-radius:999px;
   background:color-mix(in srgb, var(--bg) 45%, transparent); border:1px solid color-mix(in srgb, var(--line) 80%, transparent)}
 header.top .tab{border:0 !important; margin:0; border-radius:999px; padding:7px 6px; font:600 .86rem var(--display); color:var(--muted); background:none}
 header.top .tab:hover{color:var(--ink)}
@@ -739,6 +739,12 @@ html.fadebg .vstips, html.fadebg .vsbtn{background:color-mix(in srgb, var(--pane
 .themegrp{font:600 .66rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); padding:8px 8px 3px}
 .themegrp:first-child{padding-top:3px}
 .themepop .fadeitem{margin-top:4px; border-top:1px solid var(--line); border-radius:0 0 8px 8px}
+.fadetog{width:auto; height:26px; box-sizing:border-box; margin:0; padding:0 4px 0 10px; gap:7px; border:1px solid var(--line); border-radius:999px; background:color-mix(in srgb, var(--bg) 55%, transparent); font:600 .74rem var(--display); white-space:nowrap}
+.fadetog:hover{border-color:var(--gold); background:color-mix(in srgb, var(--bg) 55%, transparent)}
+html.fadebg .fadetog{background:var(--panel2); border-color:color-mix(in srgb, var(--muted) 45%, var(--line))}
+.fadetog .sw{width:26px; height:15px} .fadetog .sw::after{width:11px; height:11px}
+.fadetog[aria-checked="true"] .sw::after{transform:translateX(11px)}
+.hdrside{gap:6px}
 </style>
 </head>
 <body>
@@ -1082,7 +1088,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     themeBtn.replaceChild(bubble(th), themeBtn.querySelector(".tbub"));
     themeBtn.querySelector(".tname").textContent = th.name;
     themePop.querySelectorAll(".themeitem").forEach(function(b){ b.setAttribute("aria-checked", b.dataset.theme === cur ? "true" : "false"); });
-    var fs = themePop.querySelector(".fadeitem"); if (fs) fs.setAttribute("aria-checked", fadeBg ? "true" : "false");
+    var fs = document.getElementById("fadeBtn"); if (fs) fs.setAttribute("aria-checked", fadeBg ? "true" : "false");
     document.documentElement.classList.toggle("fadebg", fadeBg);
   }
   function closeTheme(){ themePop.hidden = true; themeBtn.setAttribute("aria-expanded", "false"); }
@@ -1100,11 +1106,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     themePop.appendChild(b);
   });
   var fadeItem = document.createElement("button");
-  fadeItem.type = "button"; fadeItem.className = "fadeitem"; fadeItem.setAttribute("role", "menuitemcheckbox");
-  fadeItem.innerHTML = '<span>Fade background</span><span class="sw" aria-hidden="true"></span>';
+  fadeItem.type = "button"; fadeItem.className = "fadeitem fadetog"; fadeItem.id = "fadeBtn"; fadeItem.setAttribute("role", "switch");
+  fadeItem.innerHTML = '<span>Fade</span><span class="sw" aria-hidden="true"></span>';
   fadeItem.title = "Calms the moving background so buttons stand out";
   fadeItem.addEventListener("click", function(){ fadeBg = !fadeBg; save("hbc-fade", fadeBg); paintSwatches(); });
-  themePop.appendChild(fadeItem);
+  document.getElementById("themeMenu").after(fadeItem);
   themeBtn.addEventListener("click", function(e){
     e.stopPropagation();
     var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
