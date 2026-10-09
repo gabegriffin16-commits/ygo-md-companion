@@ -418,7 +418,6 @@ html.compact .lpcol{padding-left:8px}
 .cg-maxxc{border-left-color:#B07A4A}
 .cg-also{border-left-color:var(--sky)}
 .cg-yourboard{border-left-color:var(--gold)} .cg-yourboard h3{color:var(--gold)}
-#cgPick{flex-wrap:wrap; overflow:visible}
 
 /* ambient motion v2: one GPU-friendly moving layer instead of repainting panel backgrounds */
 body{background:var(--bg) !important; animation:none !important}
@@ -695,6 +694,13 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
 .plan.folded > ol{display:none}
 .plan.folded{padding-top:10px; padding-bottom:10px}
 .foldall{display:flex; justify-content:flex-end; margin-bottom:-28px}
+
+/* counter guide: deck dropdown */
+.cgpicklab{display:block; font:600 .74rem var(--display); letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:2px 0 4px}
+.cgpick{width:100%; max-width:420px; appearance:none; -webkit-appearance:none; background:var(--panel) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23E0B85E' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 12px center;
+  color:var(--ink); border:1px solid var(--line); border-radius:10px; padding:9px 34px 9px 12px; font:600 .95rem var(--display); cursor:pointer; margin-bottom:10px}
+.cgpick:hover, .cgpick:focus{border-color:var(--gold); outline:none}
+.cgpick optgroup, .cgpick option{background:var(--panel); color:var(--ink)}
 </style>
 </head>
 <body>
@@ -786,7 +792,8 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
 
   <!-- COUNTER GUIDE -->
   <section id="tab-counter" hidden aria-labelledby="t-counter">
-    <div class="filter" role="group" aria-label="Pick their deck" id="cgPick"></div>
+    <label class="cgpicklab" for="cgPick">Their deck</label>
+    <select id="cgPick" class="cgpick"></select>
     <div id="cgList"></div>
   </section>
 </main>
@@ -1663,7 +1670,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // ---------- counter guide ----------
   var COUNTERS = [
-    {id:"any", name:"Any deck", rules:true, sections:[
+    {id:"any", name:"Any deck", group:"general", rules:true, sections:[
       ["Ash this", ["The effect their whole hand depends on, not just the first one they activate. Ask: if this gets negated, can they still keep going?",
         "A starter's search or Deck summon right after they've used their Normal Summon on it. They can't Normal Summon another starter."]],
       ["Don't Ash", ["A small search early in the turn while they still hold a full hand. That's often bait to draw out your Ash."]],
@@ -1674,7 +1681,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["Your board", ["DPE: destroy the monster that's about to make their big play, before its effect activates. Its Quick Effect also destroys one of your own cards, so pick one you can spare.",
         "Favorite Contact: flip it once their key pieces are on the field, before their final payoff."]]
     ]},
-    {id:"elf", name:"Elfnote Stardust", note:"Covers the Junk / Synchron variant too", sections:[
+    {id:"elf", name:"Elfnote Stardust", group:"meta", note:"Covers the Junk / Synchron variant too", sections:[
       ["Ash this", ["1st: Elfnote Regina summoning an Elfnote from the Deck. It's their best starter and can summon itself on either turn.",
         "2nd: Elfnote Lucina's search, which usually grabs Power Patron or Regina."]],
       ["Don't Ash", ["Elfnote Tinia. She places a Continuous Spell from the Deck, and Ash can't stop placing."]],
@@ -1685,12 +1692,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["Your board", ["Baronne de Fleur negates any card or effect, but only once while it's face-up. Bait it with your least important card or effect before your key play, then it's spent.",
         "It also has a once-per-turn targeted destroy, so expect it to pick off a card on your field."]]
     ]},
-    {id:"be", name:"Blue-Eyes", sections:[
+    {id:"be", name:"Blue-Eyes", group:"other", sections:[
       ["Ash this", ["1st: Wishes for Eyes of Blue. One discard for two searches: a Level 1 LIGHT Tuner and a Spell/Trap that mentions Blue-Eyes White Dragon. Strong players hold Ash specifically for it.",
         "2nd: Roar of the Blue-Eyed Dragons summoning Blue-Eyes White Dragon from the Deck."]],
       ["Don't Ash", ["Sage with Eyes of Blue's Normal Summon search while Wishes could still be in their hand. It's the classic bait."]]
     ]},
-    {id:"chim", name:"Chimera", note:"With Predaplant Dragostapelia", sections:[
+    {id:"chim", name:"Chimera", group:"other", note:"With Predaplant Dragostapelia", sections:[
       ["Ash this", ["1st: Big-Winged Berfomet's search. It adds a Level 4 Beast and/or Chimera Fusion, two key pieces off one effect.",
         "2nd: Mirror Swordknight tributing itself to summon from the Deck. That's usually how Berfomet arrives."]],
       ["Don't Ash", ["Cornfield Coatl's discard search early in the turn, unless it's clearly their only starter."]],
@@ -1699,7 +1706,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         "Shining Neos Wingman's destruction doesn't target, so Coatl can't stop it. Mirror Swordknight still can, since it's a monster effect, so bait the Swordknight first.",
         "Predaplant Dragostapelia negates the effects of your monsters that have a Predator Counter. Use DPE's or Shining Neos Wingman's effects on monsters it hasn't marked, or clear Dragostapelia first."]]
     ]},
-    {id:"gp", name:"Galaxy Photon", sections:[
+    {id:"gp", name:"Galaxy Photon", group:"other", sections:[
       ["Ash this", ["1st: Galaxy Photon Dragon (the Rank 4 Xyz) detaching to add or send a Photon or Galaxy card from the Deck. It's their main engine piece. Imperm also stops it, since it's a monster effect on the field.",
         "Photon Vanisher's search (adds Galaxy-Eyes Photon Dragon when it's Special Summoned) is a decent target too, but it's an extender, not the core.",
         "2nd: Galaxy Soldier's search when it's Special Summoned (adds a Galaxy monster)."]],
@@ -1707,17 +1714,31 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         "On your turn, Photon Lord can also pull a Photon or Galaxy card from their Deck. That's a solid Ash target on your turn.",
         "Imperm Photon Lord at the start of your turn to shut off its negate before you combo.",
         "Fuwalos is strong here: their Xyz summons all come from the Extra Deck."]]
-    ]}
+    ]},
+    {"id": "draco", "name": "Dracotail", "group": "meta", "note": "Branded Fusion engine. The top deck right now.", "sections": [["Ash this", ["1st: Dracotail Lukias's search when it's summoned. It's their most common opener and grabs the Dracotail they fuse with.", "Ketu Dracotail (adds a Dracotail from the Deck), Rahu Dracotail and Branded Fusion (both use materials from the Deck). Any of these is a good hit if it's their only starter."]], ["Don't Ash", ["The “Set 1 Dracotail Spell/Trap from your Deck” effects when their monsters are used as Fusion material. Setting isn't adding, summoning or sending, so Ash can't touch them."]], ["Imperm", ["Dracotail Mululu when it uses its Quick Effect to fuse from the field. Dracotail Faimena fuses by discarding itself from the hand, so Imperm can't reach it.", "Going second: Imperm Dracotail Gulamel early. Each turn it destroys one of your cards when they activate a Dracotail card."]], ["Maxx “C” / Fuwalos", ["Decent but not a lock. They only make a few Fusion Summons a turn."]], ["Your board", ["Polymerization and Fusion Destiny send 2 materials to the GY at once, which lets Dracotail Arthalion, Gulamel or Shaulas come back from their GY. Miracle Fusion (banishes) and Favorite Contact (returns to the Deck) don't trigger it.", "Dracotail Horn returns an Attack Position monster to the hand or Extra Deck. If you don't need to attack, leave DPE and Shining Neos Wingman in Defense Position.", "Dracotail Flame negates a face-up Spell, so expect it on Polymerization or Miracle Fusion. Favorite Contact is a Trap, so Flame can't stop it.", "Destroying one of their Fusion Monsters lets Dracotail Pan bring a Dracotail back from their GY."]]]},
+    {"id": "kewl", "name": "Kewl Tune", "group": "meta", "note": "Tuner Synchro deck. Kewl Tune Rotary can look at your hand, so they may know about your handtraps.", "sections": [["Ash this", ["1st: Kewl Tune Cue's Normal Summon effect when it Special Summons a Tuner from the Deck.", "Kewl Tune Mix or Reco's search, Kewl Tune Track Maker's search, Kewl Tune Synchro, and JJ “Kewl Tune” Tributing a Tuner to pull a Kewl Tune from the Deck."]], ["Don't Ash", ["Kewl Tune Rotary revealing itself to Normal Summon a Tuner. It doesn't touch the Deck."]], ["Imperm", ["Track Maker, Mix or Reco on the field when their summon effect triggers.", "Kewl Tune Loudness War stops you from targeting their other Tuners, but not itself."]], ["Maxx “C” / Fuwalos", ["Very good. They Synchro Summon from the Extra Deck over and over, and Cue summons from the Deck."]], ["Also", ["Zalen the Shackled Dragon negates either effect when one is chained to another. Chaining Ash or Imperm to their effect builds that chain, so with Zalen up your handtrap will likely be negated. Make it spend that first.", "Kewl Tune Clip can Special Summon itself from the hand during your Main Phase and Synchro Summon right away, so they can interrupt on your turn."]], ["Your board", ["Kewl Tune Crackle banishes a card from your Extra Deck until the End Phase when it's Synchro Summoned, and 2 more if it comes back. Have a backup Fusion in mind if Sunrise or Shining Neos Wingman gets pulled.", "Kewl Tune Clip's GY effect banishes a random face-down card from your Extra Deck for good.", "Loudness War answers your activations by replaying a Kewl Tune's GY effect: Mix destroys a monster, Reco destroys a Spell/Trap, Track Maker bounces a card.", "Kewl Tune RS negates a face-up card during the Main Phase. If it targets DPE, chain DPE's Quick Effect in response.", "Kewl Tune B2B brings back a Tuner and Synchro Summons when you activate a monster effect, up to twice a turn."]]]},
+    {"id": "branded", "name": "Branded / Despia", "group": "meta", "note": "Fallen of Albaz Fusion deck.", "sections": [["Ash this", ["1st: Branded Fusion. It uses 2 materials from the hand or Deck and is usually their whole turn.", "Guiding Quem's send from the Deck, Branded Opening (takes a Despia from the Deck), and Branded in High Spirits' search."]], ["Don't Ash", ["Aluber the Jester of Despia's search early on. It's classic bait, and they have other ways in. Ash it only if it's clearly their only starter.", "Fallen of Albaz's fusion and Blazing Cartesia's Quick Effect fusion. Neither touches the Deck."]], ["Imperm", ["Fallen of Albaz when its summon effect triggers, before it fuses. Guiding Quem or Aluber on the field are good targets too."]], ["Maxx “C” / Fuwalos", ["Good. They make several Fusion Summons from the Extra Deck."]], ["Your board", ["Super Polymerization can't be responded to and can use your monsters as material. Shining Neos Wingman's protection from destruction doesn't stop that.", "Mirrorjade the Iceblade Dragon banishes a monster each turn. If your card removes it, all your monsters are destroyed in that End Phase. Shining Neos Wingman survives that, since it can't be destroyed by card effects.", "Rindbrumm the Striking Dragon negates an Extra Deck monster's effect, including DPE's Quick Effect and Shining Neos Wingman's destroy. Bait it with Sunrise's search first.", "Branded Retribution negates any effect that Special Summons: Faris, Increase, Polymerization, Instant Contact, Fusion Destiny.", "Despian Proskenion can banish or steal a Fusion Monster from your GY, like a destroyed DPE.", "Despian Quaeritis drops every monster's ATK to 0 except Level 8+ Fusions. DPE and Shining Neos Wingman keep theirs; Sunrise doesn't."]]]},
+    {"id": "mitsu", "name": "Mitsurugi", "group": "meta", "note": "Ritual deck. Its monsters search when Tributed and often come right back.", "sections": [["Ash this", ["1st: Ame no Habakiri no Mitsurugi revealed from the hand to Special Summon a Mitsurugi from the Deck. It's once per Duel, so stopping it really hurts.", "Pre-Preparation of Rites, Mitsurugi Ritual's Ritual Summon from the Deck, and Mitsurugi Prayers' search."]], ["Don't Ash", ["The searches when their Mitsurugi monsters are Tributed. There are too many to stop, and Kusanagi takes from the GY or banishment, where Ash doesn't reach."]], ["Imperm", ["Mitsurugi no Mikoto, Saji or Aramasa on the field when their summon effect triggers. Once they're Tributed, the effect starts in the GY and Imperm can't reach it."]], ["Maxx “C” / Fuwalos", ["Maxx “C” is fine. Fuwalos only counts their summons from the Deck, like Habakiri's and Mitsurugi Ritual's, not Rituals from the hand."]], ["Also", ["Mitsurugi Great Purification negates and destroys your card by Tributing a Level 5+ Reptile. Their Mikoto monsters can also Tribute themselves to save other Reptiles from destruction."]], ["Your board", ["Futsu no Mitama no Mitsurugi revives a Reptile from their GY when you Special Summon. If that's Ame no Murakumo no Mitsurugi, it destroys all your monsters when it lands. Expect your first Special Summon to set it off.", "Ame no Murakumo's negate lets you discard a card instead of losing your effect. Keep a spare card in hand for it.", "Mitsurugi Sacred Boundary stops Extra Deck monsters from targeting their Rituals. DPE's Quick Effect and Shining Neos Wingman's destroy don't target, so they still work.", "Habakiri makes your monsters lose 800 ATK while it's face-up."]]]},
+    {"id": "typhoon", "name": "Radiant Typhoon", "group": "meta", "note": "Quick-Play Spell deck built around Mystical Space Typhoon (MST). Often mixed with Zoodiac.", "sections": [["Ash this", ["1st: their first search, from Radiant Typhoon Swen, Eldam or Krosea when summoned, or Radiant Typhoon Chant.", "Radiant Typhoon Meghala Special Summoning from the Deck, and Varuroon, the Marine Eidolon adding MST from the Deck when it's Link Summoned."]], ["Don't Ash", ["Swen, Eldam and Meghala summoning themselves from the hand. That isn't an effect Ash can hit.", "Varuroon, the Marine Eidolon placing a Continuous Trap from the Deck. Placing isn't covered by Ash."]], ["Imperm", ["Meghala or Varuroon, the Marine Eidolon on the field."]], ["Maxx “C” / Fuwalos", ["Maxx “C” is good. Fuwalos is weaker, since many of their monsters come from the hand."]], ["Also", ["Use handtraps early. Once MST is in their GY, Radiant Typhoon Varuroon, the Vibrant Vortex can negate your monster effects, handtraps included, and destroys the monster if 2+ MST are there.", "Their Radiant Typhoon spells only Set themselves again when MST destroys them, so Stratos's backrow destroy sticks."]], ["Your board", ["Radiant Typhoon Fonix, the Great Flame shuffles up to 2 of your cards into the Deck whenever a Quick-Play Spell is activated. Protection from destruction doesn't help.", "Radiant Typhoon Mandate negates one of your face-up cards when MST is activated, DPE included."]]]},
+    {"id": "maliss", "name": "Maliss", "group": "meta", "note": "Banish-based Link deck. Its monsters Special Summon themselves from banishment for 300 LP.", "sections": [["Ash this", ["Maliss <C> TB-11 Special Summoning from the Deck, and Maliss <C> MTP-07 adding from the Deck."]], ["Don't Ash", ["Maliss <P> Dormouse banishing from the Deck, and Maliss <P> White Rabbit Setting a Trap. Banishing and Setting aren't covered by Ash."]], ["Imperm", ["1st: Maliss <P> Dormouse on the field when it activates. It's their main starter.", "White Rabbit on the field when its summon effect triggers. Their banished monsters summon themselves from banishment, where Imperm can't reach."]], ["Maxx “C” / Fuwalos", ["Maxx “C” is excellent: it's the deck's biggest weakness. Fuwalos is weaker, since summons from banishment don't count."]], ["Also", ["Their Maliss Traps can be activated the turn they're Set."]], ["Your board", ["Maliss <Q> Hearts Crypter banishes a card as a Quick Effect, and can't be negated while it points to a monster. Banishing gets around Shining Neos Wingman's protection.", "Links pointing to Dormouse can't be destroyed by card effects, and Links pointing to March Hare can't be targeted. Your destroys don't target, but the Dormouse protection still stops them, so take out Dormouse first.", "Maliss in Underground forces your attacks onto their Maliss Links, and Maliss in the Mirror negates one of your monsters."]]]},
+    {"id": "vs", "name": "Vanquish Soul", "group": "meta", "note": "Usually with the K9 engine. Their monsters reveal Attributes in the hand to use Quick Effects.", "sections": [["Ash this", ["Vanquish Soul Razen's search, Dr. Mad Love's Spell/Trap search, Stake your Soul! and Vanquish Soul, Start!. These are their ways into the combo.", "Hollie Sue's FIRE + DARK effect (Special Summons from the Deck) and Jiaolong's 2 FIRE search."]], ["Imperm", ["Any Vanquish Soul monster on the field, since their reveal effects are Quick Effects there. Rock of the Vanquisher is a good target too."]], ["Maxx “C” / Fuwalos", ["Weak. Most of their monsters come from the hand, and using a handtrap turns on their K9 cards (below)."]], ["Also", ["K9 cards like K9-17 Izuna switch on once you activate a monster effect in the hand or GY. That includes your handtraps and your own Shadow Mist and Malicious GY effects.", "K9-17 “Ripper” negates monster effects in the hand or GY: your handtraps, Shadow Mist's GY search, and Malicious's GY summon. Make it spend that on the least important one."]], ["Your board", ["Vanquish Soul Calamity Caesar negates effects that target their cards. DPE and Shining Neos Wingman don't target, so they get through.", "Vanquish Soul Caesar Valius can make itself unaffected by your effects for the turn by revealing an EARTH monster. Beat it in battle instead.", "Dr. Mad Love can bounce the monster with the lowest DEF, and Pluton HG gains 3000 ATK or DEF on your turn."]]]}
   ];
   var cgSel = load("hbc-cg", "any");
   function paintCounter(){
-    var pick = document.getElementById("cgPick"); pick.innerHTML = "";
-    COUNTERS.forEach(function(d){
-      var b = document.createElement("button"); b.type = "button"; b.textContent = d.name;
-      b.setAttribute("aria-pressed", d.id === cgSel ? "true" : "false");
-      b.addEventListener("click", function(){ cgSel = d.id; save("hbc-cg", cgSel); paintCounter(); });
-      pick.appendChild(b);
-    });
+    var pick = document.getElementById("cgPick");
+    if (!pick.options.length){
+      var GROUPS = [["general","General"],["meta","Meta right now"],["other","Other decks"]];
+      GROUPS.forEach(function(g){
+        var og = document.createElement("optgroup"); og.label = g[1];
+        COUNTERS.filter(function(d){ return (d.group || "other") === g[0]; })
+          .sort(function(a, b){ return g[0] === "other" ? a.name.localeCompare(b.name) : 0; })
+          .forEach(function(d){ var o = document.createElement("option"); o.value = d.id; o.textContent = d.name; og.appendChild(o); });
+        pick.appendChild(og);
+      });
+      pick.addEventListener("change", function(){ cgSel = pick.value; save("hbc-cg", cgSel); paintCounter(); });
+    }
+    if (!COUNTERS.some(function(d){ return d.id === cgSel; })) cgSel = "any";
+    pick.value = cgSel;
     var list = document.getElementById("cgList"); list.innerHTML = "";
     var d = COUNTERS.filter(function(x){ return x.id === cgSel; })[0] || COUNTERS[0];
     var card = document.createElement("div"); card.className = "cg";
