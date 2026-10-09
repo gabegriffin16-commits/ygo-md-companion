@@ -320,18 +320,25 @@ body{
 @keyframes ambientFlow2{ from{background-position:0 0, 0% 0%} to{background-position:0 0, 100% 100%} }
 @media (prefers-reduced-motion: reduce){ body, .side.left, .side.right{animation:none} }
 /* ---- duel flow ---- */
-.lpbar{position:sticky; top:0; z-index:5; display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:8px 0 10px; margin-bottom:4px;
+.lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px;
   background:linear-gradient(var(--bg) 80%, transparent)}
-.lpbar .turnlab{grid-column:1/-1; font:600 1rem var(--display); color:var(--gold)}
-.lpcol{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px 12px}
-.lphead{display:flex; align-items:baseline; justify-content:space-between}
-.lphead .lab{font:600 .85rem var(--display); color:var(--muted)}
-.lpval{font:700 1.6rem var(--display); color:var(--ink)}
+.lpbar .turnlab{flex:1 1 0; min-width:0; font:600 .82rem var(--display); color:var(--gold); white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+.lpcol{display:flex; align-items:center; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px}
+.lpcol .lab{font:600 .72rem var(--display); color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
+.lpval{font:700 1.05rem var(--display); color:var(--ink); min-width:3.2em; text-align:right; font-variant-numeric:tabular-nums}
 .lpval.low{color:var(--red)}
-.lpbtns{display:flex; flex-wrap:wrap; gap:6px; margin-top:6px}
+.lpval.flash{animation:lpFlash .5s ease}
+@keyframes lpFlash{ from{color:var(--gold)} }
+.turnlab .tl-short{display:none}
+html.compact .turnlab .tl-long{display:none} html.compact .turnlab .tl-short{display:inline}
+html.compact .lpin{width:40px}
+html.compact .lpcol{padding-left:8px}
+.lpcol .mini{padding:2px 7px; font-size:.72rem; border-radius:999px; background:transparent}
 .mini{background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:5px 10px; font:600 .82rem var(--display); cursor:pointer}
 .mini:hover{border-color:var(--gold)}
-.lpin{width:84px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:5px 8px; font:600 .85rem var(--body)}
+.lpin{width:52px; background:transparent; color:var(--ink); border:1px solid transparent; border-radius:999px; padding:2px 6px; font:600 .78rem var(--body); text-align:center}
+.lpin:hover, .lpin:focus{border-color:var(--line); background:var(--bg); outline:none}
+.lpin::placeholder{color:var(--muted); opacity:.7}
 .stepper{list-style:none; display:flex; gap:6px; padding:0; margin:6px 0 14px}
 .stepper li{flex:1; text-align:center; font:600 .85rem var(--display); padding:8px 4px; border-radius:10px; background:var(--panel); color:var(--muted); border:1px solid var(--line)}
 .stepper li.done{color:var(--ink)}
@@ -1568,33 +1575,43 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       (D.order === "second" ? " Your first draw comes next." : "");
   }
 
+  var lastLP = {};
   function renderLP(){
     var bar = document.getElementById("lpBar"); bar.innerHTML = "";
-    var lab = nodes("div", "turnlab", D.phase === "setup" || D.phase === "opening" ? "Before the duel" :
-      "Your turn " + D.n + " (duel turn " + duelTurnNo() + ")");
+    var pre = D.phase === "setup" || D.phase === "opening";
+    var lab = nodes("div", "turnlab");
+    lab.appendChild(nodes("span", "tl-long", pre ? "Before the duel" : "Turn " + D.n + " \u00B7 duel turn " + duelTurnNo()));
+    lab.appendChild(nodes("span", "tl-short", pre ? "Pre" : "T" + D.n));
+    lab.title = pre ? "Before the duel" : "Your turn " + D.n + ", duel turn " + duelTurnNo();
     bar.appendChild(lab);
-    [["me","You"],["opp","Opponent"]].forEach(function(w){
-      var col = nodes("div", "lpcol");
-      var head = nodes("div", "lphead");
-      head.appendChild(nodes("span", "lab", w[1]));
-      var v = nodes("span", "lpval" + (D.lp[w[0]] <= 2000 ? " low" : ""), String(D.lp[w[0]]));
-      head.appendChild(v); col.appendChild(head);
-      var btns = nodes("div", "lpbtns");
-      function setLP(x){ D.lp[w[0]] = Math.max(0, Math.round(x)); persist(); renderLP(); }
-      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = w[0] === "me" ? "Instant Contact cost or 1000 damage" : "1000 damage";
-      b1.addEventListener("click", function(){ setLP(D.lp[w[0]] - 1000); }); btns.appendChild(b1);
-      if (w[0] === "me"){
-        var bh = nodes("button", "mini", "Half"); bh.type = "button"; bh.title = "A Hero Lives cost";
-        bh.addEventListener("click", function(){ setLP(Math.floor(D.lp.me / 2)); }); btns.appendChild(bh);
+    [["me","You"],["opp","Opp"]].forEach(function(w){
+      var k = w[0], col = nodes("div", "lpcol");
+      col.appendChild(nodes("span", "lab", w[1]));
+      var v = nodes("span", "lpval" + (D.lp[k] <= 2000 ? " low" : ""), String(D.lp[k]));
+      if (lastLP[k] !== undefined && lastLP[k] !== D.lp[k]) v.classList.add("flash");
+      lastLP[k] = D.lp[k];
+      col.appendChild(v);
+      function setLP(x){ D.lp[k] = Math.max(0, Math.round(x)); persist(); renderLP(); }
+      // One small box: 500 = take 500 damage, +500 = gain 500, =4000 = set it. Enter to apply.
+      var inp = nodes("input", "lpin"); inp.type = "text"; inp.inputMode = "numeric"; inp.placeholder = "\u00B1"; inp.autocomplete = "off";
+      inp.title = "Type 500 and press Enter for 500 damage, +500 to gain, =4000 to set";
+      inp.setAttribute("aria-label", w[1] + " LP change: number for damage, plus to gain, equals to set");
+      inp.addEventListener("keydown", function(e){
+        if (e.key === "Escape"){ inp.value = ""; inp.blur(); return; }
+        if (e.key !== "Enter") return;
+        var s = inp.value.replace(/[\s,]/g, ""), m = /^([+=-]?)(\d+)$/.exec(s);
+        if (!m){ inp.value = ""; return; }
+        var n = +m[2];
+        setLP(m[1] === "+" ? D.lp[k] + n : m[1] === "=" ? n : D.lp[k] - n);
+      });
+      col.appendChild(inp);
+      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = k === "me" ? "Instant Contact cost or 1000 damage" : "1000 damage";
+      b1.addEventListener("click", function(){ setLP(D.lp[k] - 1000); }); col.appendChild(b1);
+      if (k === "me"){
+        var bh = nodes("button", "mini", "\u00BD"); bh.type = "button"; bh.title = "Halve your LP (A Hero Lives cost)";
+        bh.addEventListener("click", function(){ setLP(Math.floor(D.lp.me / 2)); }); col.appendChild(bh);
       }
-      var inp = nodes("input", "lpin"); inp.type = "number"; inp.step = "100"; inp.min = "0"; inp.placeholder = "Amount";
-      inp.setAttribute("aria-label", w[1] + " LP amount");
-      var bm = nodes("button", "mini", "\u2212"); bm.type = "button"; bm.setAttribute("aria-label", "Subtract from " + w[1] + " LP");
-      var bp = nodes("button", "mini", "+"); bp.type = "button"; bp.setAttribute("aria-label", "Add to " + w[1] + " LP");
-      bm.addEventListener("click", function(){ var a = +inp.value; if (a) setLP(D.lp[w[0]] - a); });
-      bp.addEventListener("click", function(){ var a = +inp.value; if (a) setLP(D.lp[w[0]] + a); });
-      btns.appendChild(inp); btns.appendChild(bm); btns.appendChild(bp);
-      col.appendChild(btns); bar.appendChild(col);
+      bar.appendChild(col);
     });
   }
 
