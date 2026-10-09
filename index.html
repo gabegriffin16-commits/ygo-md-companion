@@ -1430,6 +1430,8 @@ html.authing #ovBar #ovLeft .thememenu{display:none}
 .authrem{flex:0 0 auto; white-space:nowrap}
 .authrow .authgo{flex:1 1 auto}
 #ovBar .themepop .tbub, #ovBar .themepop .bgchip{width:16px; height:16px}
+/* top bar: solid theme color (no fade into the background); the red locked state still wins */
+html:not(.ov-locked) #ovBar{background:var(--panel) !important; box-shadow:inset 0 -1px 0 var(--line)}
 </style>
 </head>
 <body>
