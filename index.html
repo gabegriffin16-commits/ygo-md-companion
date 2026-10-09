@@ -1016,6 +1016,44 @@ html.compact #ovBar .thememenu.inbar .tname{max-width:72px; overflow:hidden; tex
 .ctools.below{display:none}
 html.compact .ctools.below{display:flex; gap:6px; margin:0 0 10px}
 html.compact .ctools.below .ctool{display:inline-flex; flex:1 1 0; justify-content:center; height:28px; font:600 .78rem var(--display)}
+/* ---- compact Deck / Find drawers: same card panel as full view, quieter chrome ---- */
+html.deckopen #deckPane, html.findopen #cardPane{top:24px; left:8px; right:8px; bottom:8px; border:1px solid var(--line); border-radius:16px; padding:18px 18px 20px;
+  background:radial-gradient(120% 40% at 50% 0%, var(--panel2) 0%, var(--panel) 70%) !important; box-shadow:0 18px 44px rgba(0,0,0,.35)}
+html.deckopen #findClose, html.findopen #findClose{top:38px; right:22px; width:30px; height:30px; padding:0; display:grid; place-items:center; border-radius:50%;
+  background:color-mix(in srgb, var(--bg) 60%, transparent); color:var(--muted); border:1px solid var(--line); font:600 0/1 var(--display)}
+html.deckopen #findClose::before, html.findopen #findClose::before{content:"\2715"; font-size:.8rem}
+html.deckopen #findClose:hover, html.findopen #findClose:hover{color:var(--ink); border-color:var(--gold)}
+html.deckopen .deckpick, html.findopen .deckpick{padding-right:40px}
+html.findopen #cardPane .cdsearch{margin-right:40px}
+/* decklist drawer rows */
+html.deckopen #deckPane .deckgrp{border-top:0; border-bottom:1px solid var(--line); margin:18px 0 6px; padding:4px 2px 6px}
+html.deckopen #deckPane .dl-item[aria-current="true"]{outline:0; background:color-mix(in srgb, var(--gold) 12%, transparent); box-shadow:inset 0 0 0 1px color-mix(in srgb, var(--gold) 40%, transparent)}
+/* card panel inside the Find drawer (the full view's styles only exist at 1220px+) */
+html.findopen #cardPane {font-size:.95rem; line-height:1.5}
+html.findopen #cardPane .plate{position:relative; border-radius:16px; padding:16px 16px 14px; margin-bottom:14px; background:var(--bg); border:1px solid var(--line); border-top:3px solid var(--pa, var(--gold)); box-shadow:0 10px 26px rgba(0,0,0,.16)}
+html.findopen #cardPane .plate .cd-image{float:none; display:grid; width:min(100%, 260px); margin:2px auto 14px; aspect-ratio:421/614; border-radius:10px; border:1px solid var(--line); background:var(--panel); box-shadow:0 12px 28px rgba(0,0,0,.3)}
+html.findopen #cardPane .plate-head{display:flex; align-items:flex-start; justify-content:space-between; gap:12px}
+html.findopen #cardPane .plate .cd-title{font-size:1.3rem; line-height:1.2; margin:0}
+html.findopen #cardPane .plate-attr{flex:none; display:inline-flex; align-items:center; font:600 .74rem var(--display); letter-spacing:.04em; color:color-mix(in srgb, var(--pa, var(--gold)) 75%, var(--ink));
+  background:color-mix(in srgb, var(--pa, var(--gold)) 12%, transparent); border:1px solid color-mix(in srgb, var(--pa, var(--gold)) 45%, transparent); border-radius:999px; padding:2px 10px; margin-top:3px; white-space:nowrap}
+html.findopen #cardPane .plate-line{display:flex; flex-wrap:wrap; gap:6px 14px; margin:8px 0 2px; color:var(--muted); font-size:.88rem}
+html.findopen #cardPane .plate-line .stars{color:var(--gold); letter-spacing:.06em}
+html.findopen #cardPane .plate-stats{display:flex; gap:10px; margin-top:12px}
+html.findopen #cardPane .plate-stats .stat{flex:1; display:flex; align-items:baseline; justify-content:space-between; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:7px 12px}
+html.findopen #cardPane .plate-stats .k{font:600 .74rem var(--display); color:var(--muted); letter-spacing:.06em}
+html.findopen #cardPane .plate-stats .v{font:700 1.3rem var(--display); color:var(--ink)}
+html.findopen #cardPane .plate .cd-meta{margin:12px 0 0}
+html.findopen #cardPane .cd-block{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:12px 14px 10px; margin:0 0 12px}
+html.findopen #cardPane .cd-block .cd-sec{margin:0 0 6px; font-size:1rem}
+html.findopen #cardPane .cd-block .cd-list li{margin-bottom:5px}
+html.findopen #cardPane .cd-src{border-top:0; padding-top:0; margin-top:6px; text-align:center}
+html.findopen #cardPane .plate-art{height:200px; border-radius:12px; margin:0 0 14px; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:12px;
+  background:radial-gradient(circle at 50% 38%, var(--fr2) 0%, var(--fr1) 72%)}
+html.findopen #cardPane .cdsearch input{border-color:var(--line)}
+.pa-fire{--pa:var(--fire)} .pa-wind{--pa:var(--wind)} .pa-light{--pa:var(--light)} .pa-dark{--pa:var(--dark)} .pa-earth{--pa:#A97F55} .pa-spell{--pa:var(--spell)} .pa-trap{--pa:var(--trap)}
+.fr-effect{--fr1:#6E4A35; --fr2:#A9744F} .fr-normal{--fr1:#7A6638; --fr2:#B89A5A} .fr-fusion{--fr1:#4E3C6E; --fr2:#7C63A3} .fr-link{--fr1:#2D4A6A; --fr2:#4F79A3} .fr-spell{--fr1:#285C52; --fr2:#3F8E7D} .fr-trap{--fr1:#5E2F55; --fr2:#935081}
+html.findopen #cardPane .plate .cd-image{overflow:hidden; place-items:center}
+html.findopen #cardPane .cd-image img{width:100%; height:100%; object-fit:contain}
 </style>
 </head>
 <body>
