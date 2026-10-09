@@ -855,7 +855,7 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .frange input{width:72px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:4px 6px; font:600 .8rem var(--body)}
 .bldgrid{flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(92px, 1fr)); gap:10px 8px; align-content:start; padding:9px 7px 4px}
 .bldhint{font-size:.74rem; color:var(--muted)}
-.deckgrid{overflow:visible; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr)); margin-bottom:6px}
+.deckgrid{overflow:visible; grid-template-columns:repeat(auto-fill, minmax(var(--dtile, 84px), 1fr)); margin-bottom:6px}
 .bldnone{grid-column:1 / -1}
 .bt{position:relative; display:block; padding:0; border:0; background:none; cursor:pointer; border-radius:6px; aspect-ratio:421 / 614; overflow:visible}
 .bt img{display:block; width:100%; height:100%; object-fit:cover; border-radius:5px; box-shadow:0 2px 6px rgba(0,0,0,.35); transition:transform .1s}
@@ -895,7 +895,7 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 @media (max-width:760px){
   .bldviews{display:flex}
   .bldbody{grid-template-columns:1fr !important}
-  .bld[data-view="browse"] .blddeck, .bld[data-view="deck"] .bldbrowse{display:none}
+  .bld[data-view="browse"] .blddeck, .bld[data-view="deck"] .bldbrowse{display:none !important}
   .bldtop .bldbtns{width:100%} .bldtop .bldbtns button{flex:1; padding:7px 6px}
   .bibox{flex-direction:column} .bibox img{width:60%; align-self:center}
   .bldgrid{grid-template-columns:repeat(auto-fill, minmax(84px, 1fr))}
@@ -942,6 +942,14 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
   .simhand{grid-template-columns:repeat(4, 1fr); gap:8px}
   .simrow{grid-template-columns:1fr 44px 50px 50px; font-size:.8rem}
 }
+.bldbar{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px}
+.bldbar .bldstat{flex:1 1 auto; min-width:0}
+.bld .bldviews{max-width:none; width:auto; align-self:auto; flex:none}
+.bld .bldviews button{padding:5px 16px; white-space:nowrap}
+.bldpager .bldhint{flex:1 1 auto; flex-basis:auto; text-align:right; order:9}
+.bldpager .pgcount{margin-left:12px; order:10}
+.bld{gap:6px}
+@media (max-width:760px){ .bld .bldviews{flex:1 1 100%} .bldpager .bldhint{flex-basis:100%} }
 </style>
 </head>
 <body>
@@ -3352,8 +3360,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<input class="bldname" type="text" maxlength="40" placeholder="Deck name">' +
         '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
-      '<div class="bldstat"></div>' +
-      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div>' +
+      '<div class="bldbar"><div class="bldstat"></div>' +
+      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div></div>' +
       '<div class="bldbody">' +
         '<section class="bldbrowse">' +
           '<div class="bldtools">' +
@@ -3387,7 +3395,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var y0 = e.clientY, h0 = notesIn.offsetHeight, maxH = Math.max(120, list.parentNode.clientHeight - 120);
       grip.classList.add("drag");
       function mv(ev){ notesIn.style.height = Math.max(60, Math.min(maxH, h0 + (y0 - ev.clientY))) + "px"; }
-      function up(){ grip.classList.remove("drag"); grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); save("hbc-notesh", notesIn.offsetHeight); }
+      function up(){ grip.classList.remove("drag"); grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); save("hbc-notesh", notesIn.offsetHeight); fitDeck(); }
       grip.addEventListener("pointermove", mv); grip.addEventListener("pointerup", up); grip.addEventListener("pointercancel", up);
     });
 
@@ -3483,7 +3491,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!tile || !grid.clientHeight) return PER;
       var th = tile.getBoundingClientRect().height, avail = grid.clientHeight - (parseFloat(cs.paddingTop) || 0) - (parseFloat(cs.paddingBottom) || 0);
       var rows = Math.max(2, Math.floor((avail + gap) / (th + gap)));
-      return Math.max(12, cols * rows);
+      return Math.max(8, cols * rows);
     }
     function paintGrid(keepPage){
       lastRes = results();
@@ -3492,8 +3500,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       grid.innerHTML = "";
       if (!lastRes.length) grid.appendChild(nodes("p", "hint bldnone", "No cards match. Try clearing a filter."));
       lastRes.slice(page * PER, page * PER + PER).forEach(function(c){ grid.appendChild(tile(c)); });
-      var want = fitPer();
-      if (want !== PER && !keepPage){ var first = page * PER; PER = want; page = Math.floor(first / PER); return paintGrid(true); }
       pager.innerHTML = "";
       function pbtn(label, to, cur){ var b = nodes("button", "pg" + (cur ? " cur" : ""), label); b.type = "button"; b.disabled = to < 0 || to >= pages || cur; b.addEventListener("click", function(){ page = to; paintGrid(); grid.scrollTop = 0; }); pager.appendChild(b); }
       pbtn("«", 0); pbtn("‹", page - 1);
@@ -3502,6 +3508,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       pbtn("›", page + 1); pbtn("»", pages - 1);
       pager.appendChild(nodes("span", "pgcount", lastRes.length.toLocaleString() + " cards"));
       pager.appendChild(nodes("span", "bldhint", "Click or drag a card to your deck to add it \u00B7 drag it back to remove \u00B7 right-click for details"));
+      // Size the page to the panel (after the pager is in place), never leaving a scrollbar.
+      var want = fitPer();
+      if (want !== PER && !keepPage){ var first = page * PER; PER = want; page = Math.floor(first / PER); return paintGrid(true); }
+      if (grid.scrollHeight > grid.clientHeight + 2 && PER > 8){
+        var cols = getComputedStyle(grid).gridTemplateColumns.split(" ").filter(Boolean).length || 4;
+        var first2 = page * PER; PER = Math.max(8, PER - cols); page = Math.floor(first2 / PER); return paintGrid(true);
+      }
     }
 
     // ---- filter menu ----
@@ -3584,6 +3597,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       else stat.appendChild(nodes("span", "bldgood", "Legal for Master Duel"));
       var dv = root.querySelector('.bldviews [data-v="deck"]'); if (dv) dv.textContent = "Your deck (" + (m + x) + ")";
     }
+    // Shrink the deck's cards until both sections fit without scrolling (down to a readable minimum).
+    function fitDeck(){
+      var size = 84; list.style.setProperty("--dtile", size + "px");
+      while (list.scrollHeight > list.clientHeight + 2 && size > 54){ size -= 4; list.style.setProperty("--dtile", size + "px"); }
+      if (list.scrollHeight > list.clientHeight + 2) list.style.setProperty("--dtile", "84px");   // can't fit anyway: keep cards readable and scroll
+    }
     function paintDeckList(){
       list.innerHTML = "";
       function order(a, b){
@@ -3609,6 +3628,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         list.appendChild(w);
       });
       paintStat();
+      if (list.offsetParent) fitDeck();
     }
 
     // ---- card details ----
@@ -3758,7 +3778,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           o.setAttribute("aria-selected", v === view || (o.dataset.v === "build" && view === "deck") ? "true" : "false");
         });
         if (view === "sim"){ if (!simHand.length && mainPile().length >= 5) newHand(); else paintSim(); }
-        else paintGrid();
+        else { paintGrid(); if (list.offsetParent) fitDeck(); }
       });
     });
     root.dataset.view = "browse";
@@ -3789,7 +3809,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       else MDC.setPilot(deck.id);          // switch to the deck you just built
     });
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
-    var rsz; window.addEventListener("resize", function(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ paintGrid(); }, 150); });
+    var rsz; window.addEventListener("resize", function(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ paintGrid(); if (list.offsetParent) fitDeck(); }, 150); });
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
   }
 
