@@ -745,6 +745,8 @@ html.fadebg .fadetog{background:var(--panel2); border-color:color-mix(in srgb, v
 .fadetog .sw{width:26px; height:15px} .fadetog .sw::after{width:11px; height:11px}
 .fadetog[aria-checked="true"] .sw::after{transform:translateX(11px)}
 .hdrside{gap:6px}
+.stepnav{display:grid; grid-template-columns:1fr auto 1fr}
+.stepnav #stepBack{justify-self:start} .stepnav #stepNext{justify-self:end} .stepnav #newDuel{justify-self:center}
 </style>
 </head>
 <body>
@@ -776,6 +778,7 @@ html.fadebg .fadetog{background:var(--panel2); border-color:color-mix(in srgb, v
     <div id="stepBody"></div>
     <div class="stepnav">
       <button type="button" class="ghost" id="stepBack">Back</button>
+      <button type="button" class="ghost" id="newDuel" title="Start a new duel (tap twice)">New duel</button>
       <button type="button" class="primary" id="stepNext">Next</button>
     </div>
     <div class="loghead"><h2>Duel log</h2></div>
@@ -1876,10 +1879,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     vb.appendChild(nodes("span", "vsn", vsDeck() ? "vs " + vsDeck().name : "Their deck?"));
     vb.appendChild(nodes("span", "caret", "\u25BE"));
     vb.addEventListener("click", function(e){ e.stopPropagation(); toggleVs(vb); });
-    vli.appendChild(vb);
-    var nb = nodes("button", "vsbtn newduel", "New duel"); nb.type = "button"; nb.id = "newDuel"; nb.title = "Start a new duel (tap twice)";
-    nb.addEventListener("click", function(e){ e.stopPropagation(); armNewDuel(nb, "New duel"); });
-    vli.appendChild(nb); st.appendChild(vli);
+    vli.appendChild(vb); st.appendChild(vli);
     renderVsTips();
     var list = pre ? ["setup","opening"] : ["draw","main","end"];
     var idx = PHASES.indexOf(D.phase);
@@ -2743,6 +2743,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (!hist.length) return;
     D = JSON.parse(hist.pop()); persist(); renderDuel();
   });
+  document.getElementById("newDuel").addEventListener("click", function(){ armNewDuel(this, "New duel"); });
   // New duel: tap once to arm, tap again within 3 seconds to confirm (no pop-up dialog over the game).
   function armNewDuel(btn, label){
     if (btn.dataset.armed){
