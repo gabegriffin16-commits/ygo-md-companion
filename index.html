@@ -1184,6 +1184,25 @@ html.in-overlay #authScreen{top:16px}
 .ucopies{position:absolute; right:4px; bottom:4px; font:700 .7rem var(--display); color:#fff; background:rgba(0,0,0,.65); border-radius:999px; padding:1px 7px}
 html.compact .ugrid{grid-template-columns:repeat(auto-fill, minmax(64px, 1fr))}
 .unotes h3.cd-sec{margin:0}
+/* ---- account + Users buttons ---- */
+.acctbtn{display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap}
+header.top .acctbtn{height:26px; box-sizing:border-box; padding:0 11px 0 9px; border-radius:999px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 55%, transparent); color:var(--ink); font:600 .74rem var(--display)}
+header.top .acctbtn:hover{border-color:var(--gold)}
+header.top .acctbtn svg{color:var(--gold)}
+#ovBar .acctbtn.inbar{height:16px; padding:0 2px; gap:4px; border:0; background:none; color:inherit; font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; opacity:.8; -webkit-app-region:no-drag}
+#ovBar .acctbtn.inbar span{max-width:110px; overflow:hidden; text-overflow:ellipsis}
+#ovBar .acctbtn.inbar:hover, #ovBar .acctbtn.inbar[aria-pressed="true"]{opacity:1; color:var(--gold)}
+#ovBar .acctbtn.inbar svg{width:11px; height:11px; flex:none}
+html.in-overlay #t-users{display:none !important}
+.acctmenu{z-index:10001}
+html.compact #ovBar #acctBtn span{max-width:56px}
+html.compact #ovBar #ovUsers span{display:none}
+html.compact #ovBar .ovgrp{gap:10px}
+/* website with accounts: tabs get their own row so all five fit */
+html.cloud:not(.in-overlay) header.top nav.tabs{flex-basis:100%; order:3}
+html.cloud:not(.in-overlay) header.top .hdrside{margin-left:auto}
+html.cloud:not(.in-overlay) header.top{flex-wrap:wrap !important}
+html.cloud:not(.in-overlay) header.top nav.tabs{flex:1 1 100% !important}
 </style>
 </head>
 <body>
@@ -1495,7 +1514,19 @@ var MDC = (function(){
 // ================= accounts + shared decks (Supabase) =================
 // Fill these in to turn accounts on. Both values are public by design: the database rules in
 // supabase/schema.sql decide who can read or change what. Leave them empty to run without accounts.
-window.MDC_CLOUD = window.MDC_CLOUD || {url:"", key:""};
+window.MDC_CLOUD = window.MDC_CLOUD || {url:"https://hopdbvllzumhywaxerno.supabase.co", key:"sb_publishable_F6Q8lBvzyy4x71O-CVg81g_WkFVjyY8"};
+// The account button: "Sign in" or your username. Lives in the desktop app's top bar, or the banner on the website.
+function acctButton(){
+  var b = document.getElementById("acctBtn");
+  if (!b){ b = document.createElement("button"); b.type = "button"; b.id = "acctBtn"; b.className = "acctbtn";
+    b.innerHTML = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8.5" r="4"/><path d="M4.5 20c1.4-3.6 4.2-5.4 7.5-5.4s6.1 1.8 7.5 5.4"/></svg><span></span>'; }
+  return b;
+}
+function ovGroup(bar){
+  var g = document.getElementById("ovRight");
+  if (!g){ g = document.createElement("div"); g.id = "ovRight"; g.className = "ovgrp"; bar.appendChild(g); }
+  return g;
+}
 var CLOUD = (function(){
   var cfg = window.MDC_CLOUD, sb = null, user = null, profile = null;
   var LIB = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
@@ -1516,7 +1547,7 @@ var CLOUD = (function(){
     if (/already registered|already exists/i.test(m)) return "That username is taken. Pick another.";
     if (/Password should be/i.test(m)) return "Use a password with at least 6 characters.";
     if (/Email logins are disabled|Signups not allowed/i.test(m)) return "Sign-ups are turned off right now.";
-    if (/confirm/i.test(m)) return "This account still needs email confirmation. Ask the admin to turn off “Confirm email” in Supabase.";
+    if (/confirm/i.test(m)) return "This account can't sign in yet. Try again in a minute.";
     return m;
   }
   function signIn(name, pass){
@@ -1548,7 +1579,7 @@ var CLOUD = (function(){
       .then(function(r){ if (r.error) throw err(r.error); });
   }
   function deleteDeck(id){ return client().from("decks").delete().eq("id", id).eq("owner", user.id).then(function(r){ if (r.error) throw err(r.error); }); }
-  // Everyone you can see, with the decks the rules let you see (yours, shared ones, or all for the admin).
+  // Everyone you can see, with the decks the database rules let you see.
   function directory(){
     return Promise.all([
       client().from("profiles").select("id, username, is_admin, created_at").order("username"),
@@ -1568,7 +1599,8 @@ var CLOUD = (function(){
 function startCompanion(DECKDATA, RULES, CARDDB){
   "use strict";
   // Decks you build have no play rules or written lines yet; the HERO-only guidance is hidden for them.
-  var HEROMODE = !DECKDATA.custom;
+  // Copies of Omni HERO (base "hero") keep its play rules, lines, checkpoints and counter tips.
+  var HEROMODE = !DECKDATA.custom || !!DECKDATA.heroRules;
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   // The Users tab only exists with accounts on.
@@ -1767,13 +1799,51 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   manualItem.addEventListener("click", function(){ manualMode = !manualMode; save("hbc-manual", manualMode); paintAuto();
     if (typeof window.onAutoChange === "function") window.onAutoChange(); });
   // In the desktop app, the switch lives in the thin app bar up top, next to the hotkeys cog.
+  // Account button: your username, with Sign out.
+  var acctEl = null;
+  if (window.CLOUD && CLOUD.user()){
+    acctEl = acctButton(); acctEl.classList.remove("inbar");
+    acctEl.querySelector("span").textContent = (CLOUD.profile() || {}).username || "Account"; acctEl.title = "Your account";
+    var acctMenu = document.createElement("div"); acctMenu.className = "deckmenu acctmenu"; acctMenu.hidden = true; document.body.appendChild(acctMenu);
+    acctEl.onclick = function(e){
+      e.stopPropagation();
+      if (!acctMenu.hidden){ acctMenu.hidden = true; return; }
+      acctMenu.innerHTML = "";
+      var who = nodes("div", "dmwho"); who.appendChild(nodes("span", null, "Signed in as ")); who.appendChild(nodes("b", null, (CLOUD.profile() || {}).username || "")); acctMenu.appendChild(who);
+      acctMenu.appendChild(nodes("div", "dmsep"));
+      var so = nodes("button", "dmitem act", "Sign out"); so.type = "button"; so.addEventListener("click", function(){ CLOUD.signOut().then(function(){ location.reload(); }); }); acctMenu.appendChild(so);
+      acctMenu.hidden = false;
+      var r = acctEl.getBoundingClientRect();
+      acctMenu.style.width = "200px";
+      acctMenu.style.left = Math.max(8, Math.min(r.right - 200, window.innerWidth - 208)) + "px";
+      acctMenu.style.top = (r.bottom + 6) + "px";
+    };
+    document.addEventListener("click", function(e){ if (!acctMenu.hidden && !acctMenu.contains(e.target)) acctMenu.hidden = true; });
+    var hs = document.querySelector("header.top .hdrside"); if (hs) hs.insertBefore(acctEl, hs.firstChild);
+  }
   (function dock(tries){
     var bar = document.getElementById("ovBar");
     if (bar){
-      // Right side of the bar: Fade, then Manual, then the hotkeys cog.
-      var grp = document.getElementById("ovRight");
-      if (!grp){ grp = document.createElement("div"); grp.id = "ovRight"; grp.className = "ovgrp"; bar.appendChild(grp); }
+      // Right side of the bar: Users, your account, Fade, Manual, then the hotkeys cog.
+      var grp = ovGroup(bar);
       fadeItem.classList.add("inbar"); manualItem.classList.add("inbar");
+      var ub = document.getElementById("t-users");
+      if (ub){
+        var ubar = document.getElementById("ovUsers");
+        if (!ubar){ ubar = document.createElement("button"); ubar.type = "button"; ubar.id = "ovUsers"; ubar.className = "acctbtn inbar"; ubar.title = "Players and their shared decks";
+          ubar.innerHTML = '<svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="9" cy="8.5" r="3.5"/><path d="M2.5 19.5c1.1-3 3.6-4.6 6.5-4.6s5.4 1.6 6.5 4.6"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M18.2 14.6c1.6.7 2.7 2.4 3.3 4.9"/></svg><span>Users</span>';
+          ubar.addEventListener("click", function(){
+            var sec = document.getElementById("tab-users");
+            if (sec && !sec.hidden){ var back = document.getElementById("t-" + (window.lastTab || "hand")); if (back) back.click(); }
+            else ub.click();
+          });
+        }
+        grp.appendChild(ubar);
+        var tcg = document.getElementById("t-counter"); if (tcg) tcg.textContent = "Counter Guide";
+        new MutationObserver(function(){ var sec = document.getElementById("tab-users"); ubar.setAttribute("aria-pressed", sec && !sec.hidden ? "true" : "false"); })
+          .observe(document.getElementById("tab-users"), {attributes:true, attributeFilter:["hidden"]});
+      }
+      if (acctEl){ acctEl.classList.add("inbar"); grp.appendChild(acctEl); }
       grp.appendChild(fadeItem); grp.appendChild(manualItem);
       // Theme picker sits on the left, after the reload button.
       var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); bar.appendChild(tm);
@@ -1789,6 +1859,21 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
     if (tries < 40) setTimeout(function(){ dock(tries + 1); }, 250);
   })(0);
+  // Keep the update button centered on the bar, unless that would run into the buttons on either side:
+  // then center it in the free space between them, and shorten its text if it still doesn't fit.
+  function placeUp(){
+    var b = document.getElementById("ovUp"), bar = document.getElementById("ovBar"); if (!b || !bar) return;
+    var full = b.dataset.full || b.textContent; b.textContent = full;
+    b.style.left = "50%"; b.style.transform = "translateX(-50%)";
+    var tm = document.getElementById("themeMenu"), g = document.getElementById("ovRight");
+    var L = (tm && tm.classList.contains("inbar") ? tm.getBoundingClientRect().right : 96) + 8, R = (g ? g.getBoundingClientRect().left : bar.clientWidth) - 8;
+    var w = b.offsetWidth, mid = bar.clientWidth / 2;
+    if (mid - w / 2 >= L && mid + w / 2 <= R) return;
+    if (w > R - L){ var st = (upState || {}).state; b.textContent = st === "downloading" ? (upState.pct || 0) + "%" : st === "error" ? "Retry" : st === "restarting" ? "\u2026" : "Update"; w = b.offsetWidth; }
+    b.style.left = Math.round(L + Math.max(0, (R - L - w) / 2)) + "px"; b.style.transform = "none";
+  }
+  window.addEventListener("resize", function(){ requestAnimationFrame(placeUp); });
+  if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["themeMenu", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
   // Update button in the app bar (shows only when GitHub has a newer version of the app).
   var upState = null;
   function paintUpdate(){
@@ -1804,6 +1889,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.textContent = st === "downloading" ? "Updating " + (upState.pct || 0) + "%" : st === "restarting" ? "Restarting\u2026" : st === "error" ? "Update failed: retry" : "Update to v" + upState.version;
     b.title = st === "error" ? (upState.note || "") : st === "available" ? ("Version " + upState.version + " is ready. Click to download it and restart." + (upState.notes ? "\n\n" + upState.notes : "")) : "";
     b.disabled = st === "downloading" || st === "restarting";
+    b.dataset.full = b.textContent; placeUp();
   }
   window.addEventListener("overlay-update", function(e){
     var d = e.detail || {};
@@ -1847,6 +1933,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       document.getElementById("tab-" + t.dataset.tab).hidden = !on;
     });
     save("hbc-tab", name);
+    if (name !== "users") window.lastTab = name;
     window.scrollTo(0,0);
   }
   tabs.forEach(function(t){ t.addEventListener("click", function(){ showTab(t.dataset.tab); }); });
@@ -2549,7 +2636,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   paintCounter();
 
   // ---------- duel flow ----------
-  var DUEL_KEY = HEROMODE ? "hbc-duel" : "hbc-duel-" + DECKDATA.deckId;
+  var DUEL_KEY = DECKDATA.custom ? "hbc-duel-" + DECKDATA.deckId : "hbc-duel";
   var PHASES = ["setup","opening","draw","main","end"];
   var PH_LABEL = {setup:"Setup", opening:"Opening hand", draw:"Draw", main:"Main", end:"End"};
   var ZONES = [
@@ -3706,7 +3793,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // The current deck as {main:[{id,n}], extra:[{id,n}]} (card passcodes), for export or copying.
   function currentAsBuilt(){
     function rows(arr){ return arr.map(function(c){ var d = CARD_BY_NAME[c.name]; return d ? {id:d.id, n:c.n} : null; }).filter(Boolean); }
-    return {id:PILOT_ID, name:PILOT_NAME, main:rows(DECKDATA.main), extra:rows(DECKDATA.extra)};
+    var mine = DECKDATA.custom ? MDC.get(PILOT_ID) : null, out = mine ? JSON.parse(JSON.stringify(mine)) : {};
+    out.id = PILOT_ID; out.name = PILOT_NAME; out.main = rows(DECKDATA.main); out.extra = rows(DECKDATA.extra);
+    if (HEROMODE) out.base = "hero";
+    delete out.owner; delete out.unsynced;
+    return out;
   }
   function importYdk(){
     MDC.pickFile(function(text, name){
@@ -3736,7 +3827,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     MDC.list().forEach(function(d){
       var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
       var it = menuItem(d.name || "Untitled deck", PILOT_ID === d.id ? "on" : "", function(){ if (PILOT_ID !== d.id) MDC.setPilot(d.id); else closeDeckMenu(); });
-      it.appendChild(nodes("small", null, cnt + " cards"));
+      it.appendChild(nodes("small", null, cnt + (cnt === 1 ? " card" : " cards")));
     });
     deckMenu.appendChild(nodes("div", "dmsep"));
     menuItem("+ Build a new deck", "act", function(){ closeDeckMenu(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); });
@@ -3748,13 +3839,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME; return; }
       MDC.remove(PILOT_ID); MDC.setPilot(MDC.heroAllowed() ? "hero" : null);
     });
-    if (CLOUD.user()){
-      deckMenu.appendChild(nodes("div", "dmsep"));
-      var who = nodes("div", "dmwho"); who.appendChild(nodes("span", null, "Signed in as ")); who.appendChild(nodes("b", null, (CLOUD.profile() || {}).username || ""));
-      if ((CLOUD.profile() || {}).is_admin) who.appendChild(nodes("small", "dmadmin", "admin"));
-      deckMenu.appendChild(who);
-      menuItem("Sign out", "act", function(){ closeDeckMenu(); CLOUD.signOut().then(function(){ location.reload(); }); });
-    }
+
     var r = anchor.getBoundingClientRect();
     deckMenu.hidden = false;
     deckMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - deckMenu.offsetWidth - 8)) + "px";
@@ -3784,7 +3869,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       '<div class="bldtop">' +
         '<div class="bldnames"><input class="bldname" type="text" maxlength="40" placeholder="Deck name" aria-label="Deck name">' +
         '<button type="button" class="bldpick" aria-haspopup="true" aria-expanded="false" title="Open one of your saved decks to edit it"><span class="bldpicklbl">Saved decks</span><span class="caret" aria-hidden="true"></span></button></div>' +
-        '<div class="bldbtns"><button type="button" class="fadeitem fadetog bldshare" role="switch" title="Shared decks show in the Users tab for everyone. Private ones only you (and the admin) can see."><span>Shared</span><span class="sw" aria-hidden="true"></span></button><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
+        '<div class="bldbtns"><button type="button" class="fadeitem fadetog bldshare" role="switch" title="Shared decks show in the Users tab for other players. Unlisted decks don\u2019t."><span>Shared</span><span class="sw" aria-hidden="true"></span></button><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldbar"><div class="bldstat"></div>' +
       '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div></div>' +
@@ -3814,7 +3899,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (deck.shared === undefined) deck.shared = true;
     if (!CLOUD.user()) shareBtn.remove();
     else {
-      var paintShare = function(){ shareBtn.setAttribute("aria-checked", deck.shared ? "true" : "false"); shareBtn.querySelector("span").textContent = deck.shared ? "Shared" : "Private"; };
+      var paintShare = function(){ shareBtn.setAttribute("aria-checked", deck.shared ? "true" : "false"); shareBtn.querySelector("span").textContent = deck.shared ? "Shared" : "Unlisted"; };
       paintShare();
       shareBtn.addEventListener("click", function(){ deck.shared = !deck.shared; dirty = true; paintShare(); });
     }
@@ -4319,13 +4404,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var d = Math.round(h / 24); return d < 30 ? d + (d === 1 ? " day ago" : " days ago") : new Date(t).toLocaleDateString();
     }
     function count(rows){ return (rows || []).reduce(function(a, r){ return a + r.n; }, 0); }
-    // Omni HERO, built from deck.json, shown under the admin so anyone can copy it.
+    // Omni HERO, built from deck.json, listed under the owner's profile so anyone can copy it.
     function heroDeck(){
       if (heroCache) return Promise.resolve(heroCache);
       return fetch("deck.json", {cache:"no-cache"}).then(function(r){ return r.json(); }).then(function(d){
         function rows(a){ return (a || []).map(function(c){ var x = CARD_BY_NAME[c.name]; return x ? {id:x.id, n:c.n} : null; }).filter(Boolean); }
         heroCache = {id:"hero", name:"Omni HERO", main:rows(d.main), extra:rows(d.extra), shared:true, builtin:true,
-          notes:"The built-in deck. Its play lines, checkpoints and counter tips stay with the admin's account; a copy gets the cards."};
+          notes:"The built-in HERO deck. A copy comes with its play lines, checkpoints and counter tips."};
         return heroCache;
       });
     }
@@ -4367,7 +4452,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var av = nodes("span", "uav", (u.username || "?").slice(0, 1).toUpperCase()); row.appendChild(av);
         var nm = nodes("span", "unm"); nm.appendChild(nodes("b", null, u.username));
         if (u.id === me.id) nm.appendChild(nodes("small", "utag", "you"));
-        if (u.is_admin) nm.appendChild(nodes("small", "utag gold", "admin"));
         row.appendChild(nm);
         var n = u.decks.length; row.appendChild(nodes("span", "ucount", n ? n + (n === 1 ? " deck" : " decks") : "no decks"));
         row.appendChild(chev());
@@ -4385,7 +4469,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var row = nodes("button", "urow"); row.type = "button";
         var nm = nodes("span", "unm"); nm.appendChild(nodes("b", null, d.name || "Untitled deck"));
         if (d.builtin) nm.appendChild(nodes("small", "utag gold", "built in"));
-        else if (d.shared === false) nm.appendChild(nodes("small", "utag", "private"));
+        else if (d.shared === false) nm.appendChild(nodes("small", "utag", "unlisted"));
         row.appendChild(nm);
         row.appendChild(nodes("span", "ucount", count(d.main) + " + " + count(d.extra) + (d.updated && !d.builtin ? " · " + ago(d.updated) : "")));
         row.appendChild(chev());
@@ -4428,15 +4512,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var ed = nodes("button", "ghost", "Edit"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
         var sh = nodes("button", "fadeitem fadetog ushare"); sh.type = "button"; sh.setAttribute("role", "switch");
         sh.innerHTML = '<span></span><span class="sw" aria-hidden="true"></span>';
-        var paintSh = function(){ sh.setAttribute("aria-checked", d.shared !== false ? "true" : "false"); sh.querySelector("span").textContent = d.shared !== false ? "Shared" : "Private"; };
+        var paintSh = function(){ sh.setAttribute("aria-checked", d.shared !== false ? "true" : "false"); sh.querySelector("span").textContent = d.shared !== false ? "Shared" : "Unlisted"; };
         paintSh();
-        sh.addEventListener("click", function(){ var x = MDC.get(d.id); if (!x) return; x.shared = !(x.shared !== false); d.shared = x.shared; MDC.put(x); paintSh(); toast(x.shared ? "Shared with everyone" : "Only you (and the admin) can see it now"); });
+        sh.addEventListener("click", function(){ var x = MDC.get(d.id); if (!x) return; x.shared = !(x.shared !== false); d.shared = x.shared; MDC.put(x); paintSh(); toast(x.shared ? "Shared in the Users tab" : "Unlisted: no longer in the Users tab"); });
         acts.appendChild(sh);
       } else if (!mine) {
         var cp = nodes("button", "primary", "Copy to my decks"); cp.type = "button";
         cp.addEventListener("click", function(){
-          var c = {id:MDC.newId(), name:(d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")"), main:JSON.parse(JSON.stringify(d.main || [])), extra:JSON.parse(JSON.stringify(d.extra || [])),
-            notes:d.builtin ? "" : (d.notes || ""), starters:(d.starters || []).slice(), shared:true};
+          // Everything the creator has: cards, notes, starters, and (for Omni HERO copies) its play lines and checkpoints.
+          var c = JSON.parse(JSON.stringify(d));
+          delete c.owner; delete c.updated; delete c.unsynced; delete c.builtin;
+          c.id = MDC.newId(); c.name = (d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")"); c.shared = true;
+          if (d.builtin){ c.base = "hero"; c.notes = ""; }
           if (!MDC.put(c)){ toast("Couldn't save: storage is full or blocked"); return; }
           toast("Copied to your decks");
           dir = null;   // your deck list changed
@@ -4470,7 +4557,24 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function fail(msg){ if (!note.parentNode) document.body.appendChild(note); note.className = "err"; note.textContent = msg; }
   function boot(){
     note.textContent = "Loading deck and card data…";
-    var pilot = MDC.pilot();
+    var pilot = MDC.pilot(), mineDeck = pilot && pilot !== "hero" ? MDC.get(pilot) : null;
+    if (mineDeck && mineDeck.base === "hero"){
+      // Your copy of Omni HERO: the HERO play data, with your card counts and any cards you added.
+      Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
+        note.remove();
+        var base = a[0], cards = a[2], byId = {}; cards.cards.forEach(function(c){ byId[c.id] = c; });
+        var byName = {}; base.main.concat(base.extra || []).forEach(function(c){ byName[c.name] = c; });
+        var plain = MDC.toDeckData(mineDeck, cards);
+        function merge(rows, zone){ return rows.map(function(r){ var c = byId[r.id]; if (!c) return null; var b = byName[c.n];
+          if (b){ b = JSON.parse(JSON.stringify(b)); b.n = r.n; return b; }
+          return (plain[zone].filter(function(x){ return x.name === c.n; })[0]) || null; }).filter(Boolean); }
+        var deck = JSON.parse(JSON.stringify(base));
+        deck.name = mineDeck.name; deck.custom = true; deck.heroRules = true; deck.deckId = mineDeck.id;
+        deck.main = merge(mineDeck.main || [], "main"); deck.extra = merge(mineDeck.extra || [], "extra");
+        startCompanion(deck, a[1], cards);
+      }).catch(function(err){ if (window.console) console.error(err); fail("Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload."); });
+      return;
+    }
     if (pilot !== "hero"){
       get("cards.json").then(function(cards){
         note.remove();
@@ -4533,7 +4637,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<label class="authf authup"><span>Confirm password</span><input name="p2" type="password" autocomplete="new-password" minlength="6"></label>' +
         '<p class="autherr" role="alert" hidden></p>' +
         '<button type="submit" class="primary authgo">Sign in</button>' +
-        '<p class="authnote authup">Your decks are saved to your account. Decks you mark Shared show in the Users tab for everyone; the app’s admin can see all decks.</p>' +
+        '<p class="authnote authup">Your decks are saved to your account. Decks you mark Shared show in the Users tab for other players.</p>' +
       '</form>';
     document.body.appendChild(box);
     document.documentElement.classList.add("authing");
@@ -4563,6 +4667,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }).catch(function(x){ go.disabled = false; go.textContent = mode === "up" ? "Create account" : "Sign in"; bad(x.message); });
     });
     setTimeout(function(){ f.u.focus(); }, 30);
+    (function dockAuth(n){
+      var bar = document.getElementById("ovBar");
+      if (!bar){ if (n < 40) setTimeout(function(){ dockAuth(n + 1); }, 250); return; }
+      if (!document.getElementById("authScreen")) return;
+      var ab = acctButton(); ab.classList.add("inbar"); ab.querySelector("span").textContent = "Sign in"; ab.title = "Sign in";
+      ab.onclick = function(){ setMode("in"); f.u.focus(); };
+      var g = ovGroup(bar); g.insertBefore(ab, g.firstChild);
+    })(0);
   }
 
   note.textContent = "Signing in…";
