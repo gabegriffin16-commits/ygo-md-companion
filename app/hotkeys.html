@@ -41,10 +41,9 @@ function applyTheme(){
 applyTheme(); window.addEventListener("focus", applyTheme);
 const LABELS = {
   toggle:["Show / hide overlay",""], clickThrough:["Click-through lock","Clicks pass to the game"],
-  opacityUp:["Opacity up",""], opacityDown:["Opacity down",""], fade:["Fade background","See-through panels on / off"], compact:["Compact / full view",""],
-  next:["Next duel step","Draw → Main → End → next turn"], undo:["Undo last play",""],
+  opacityUp:["Opacity up",""], opacityDown:["Opacity down",""], fade:["Fade background","See-through panels on / off"], compact:["Compact / full view","Side column, or fill the monitor"],
   ash:["Mark Ash","On the current trigger or last play"], imp:["Mark Imperm",""], neg:["Mark other negate",""],
-  find:["Card lookup",""], snapLeft:["Snap left","Again to jump to the monitor on the left"], snapRight:["Snap right","Again to jump to the monitor on the right"], expand:["Full view / compact","Fill the monitor, or back to the side column"]
+  find:["Card lookup",""], snapLeft:["Snap left","Again to jump to the monitor on the left"], snapRight:["Snap right","Again to jump to the monitor on the right"]
 };
 const CODE = {Space:"Space",Tab:"Tab",Enter:"Enter",Backspace:"Backspace",Delete:"Delete",Insert:"Insert",Home:"Home",End:"End",PageUp:"PageUp",PageDown:"PageDown",
   ArrowUp:"Up",ArrowDown:"Down",ArrowLeft:"Left",ArrowRight:"Right",Minus:"-",Equal:"=",BracketLeft:"[",BracketRight:"]",Backslash:"\\",Semicolon:";",Quote:"'",
@@ -59,8 +58,7 @@ function keyName(e){
 }
 function pretty(a){ return (a || "—").replace(/Control/g,"Ctrl").replace("Mouse3","Middle click").replace("Mouse4","Mouse back").replace("Mouse5","Mouse forward").replace(/\+/g," + ").replace("Super","Win"); }
 const GROUPS = [
-  ["Overlay window", ["toggle","clickThrough","opacityUp","opacityDown","fade","compact","expand","snapLeft","snapRight"]],
-  ["Duel", ["next","undo","find"]],
+  ["Overlay window", ["toggle","clickThrough","opacityUp","opacityDown","fade","compact","snapLeft","snapRight","find"]],
   ["Mark a stop", ["ash","imp","neg"]]
 ];
 let hk = {}, capturing = null;

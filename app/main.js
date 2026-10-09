@@ -21,15 +21,12 @@ const DEFAULT_HOTKEYS = {
   opacityDown:  "Control+Shift+Down",
   fade:         "Control+Shift+B",    // fade background on / off
   compact:      "Control+Shift+C",    // compact / full view
-  next:         "Control+Shift+N",    // next duel step (Draw -> Main -> End -> next turn)
-  undo:         "Control+Shift+Z",    // undo last play
   ash:          "Control+Shift+A",    // mark Ash on the current trigger / last play
   imp:          "Control+Shift+I",    // mark Imperm
   neg:          "Control+Shift+X",    // mark other negate
   find:         "Control+Shift+F",    // jump to card search
   snapLeft:     "Control+Shift+Left", // snap to the left edge (again: walk to the next edge / monitor)
-  snapRight:    "Control+Shift+Right",
-  expand:       "Control+Shift+E"     // full view across the monitor / back to compact
+  snapRight:    "Control+Shift+Right"
 };
 const DEFAULTS = { bounds: null, opacity: 0.95, clickThrough: false, source: "online", hotkeys: DEFAULT_HOTKEYS, firstRun: true, reader: true, seeThrough: true, coverTaskbar: "focus",
   layout: { mode: "compact", side: "right", display: -1 } };
@@ -40,7 +37,10 @@ let win = null, tray = null, saveTimer = null;
 function loadSettings() {
   try {
     const s = JSON.parse(fs.readFileSync(SETTINGS_FILE, "utf8"));
-    return Object.assign({}, DEFAULTS, s, { hotkeys: Object.assign({}, DEFAULT_HOTKEYS, s.hotkeys || {}) });
+    // Keep only actions that still exist (old ones like a separate "expand" key were folded in or removed).
+    const hk = Object.assign({}, DEFAULT_HOTKEYS);
+    for (const k of Object.keys(s.hotkeys || {})) if (k in DEFAULT_HOTKEYS) hk[k] = s.hotkeys[k];
+    return Object.assign({}, DEFAULTS, s, { hotkeys: hk });
   } catch { return JSON.parse(JSON.stringify(DEFAULTS)); }
 }
 function saveSettings() {
@@ -145,14 +145,11 @@ const ACTIONS = {
   opacityDown: () => setOpacity(settings.opacity - 0.1),
   compact: () => send("compact"),
   fade: () => send("fade"),
-  next: () => send("next"),
-  undo: () => send("undo"),
   ash: () => send("ash"),
   imp: () => send("imp"),
   neg: () => send("neg"),
   snapLeft: () => snap("left"),
   snapRight: () => snap("right"),
-  expand: () => send("compact"),
   find: () => { if (!win) return; if (settings.clickThrough) { settings.clickThrough = false; applyClickThrough(); } win.show(); win.focus(); send("find"); }
 };
 let failedKeys = [];
@@ -219,7 +216,7 @@ function buildTrayMenu() {
       { label: "Always", type: "radio", checked: settings.coverTaskbar === "always", click: () => setCover("always") },
       { label: "Never", type: "radio", checked: settings.coverTaskbar === "never", click: () => setCover("never") } ] },
     { label: "Reset position (compact, right side)", click: () => { settings.layout = { mode: settings.layout.mode, side: "right", display: -1 }; saveSettings(); if (settings.layout.mode === "full") send("compact"); else applyLayout(); } },
-    { label: `Full view / compact  (${prettyKey(k.expand)})`, click: () => send("compact") },
+    { label: `Full view / compact  (${prettyKey(k.compact)})`, click: () => send("compact") },
     { label: `Snap left  (${prettyKey(k.snapLeft)})`, click: () => snap("left") },
     { label: `Snap right  (${prettyKey(k.snapRight)})`, click: () => snap("right") },
     { label: "Hotkeys…", click: openHotkeys },
