@@ -74,6 +74,8 @@ function toggleVisible() {
   lastToggle = now;
   if (win.isVisible()) win.hide();
   else win.showInactive(); // don't steal focus from the game
+  // Windows doesn't always send a "show" event for showInactive, so sync the hotkeys directly too.
+  setTimeout(syncHotkeysToVisibility, 50);
 }
 
 // The hand reader learns the piloted deck's card art when it starts. Switching decks reloads the page,
@@ -137,7 +139,7 @@ function createWindow() {
   });
   win.setAlwaysOnTop(true, "screen-saver"); // stay above a borderless-windowed game
   win.setOpacity(settings.opacity);
-  win.once("ready-to-show", () => { win.showInactive(); applyClickThrough(); });
+  win.once("ready-to-show", () => { win.showInactive(); applyClickThrough(); setTimeout(syncHotkeysToVisibility, 50); });
   win.webContents.on("did-finish-load", overlayChrome);
   if (process.env.OMNI_TEST_SHOT) win.webContents.on("did-finish-load", () => setTimeout(() => {
     win.webContents.capturePage().then(img => fs.writeFileSync(process.env.OMNI_TEST_SHOT, img.toPNG()));
@@ -156,7 +158,7 @@ function createWindow() {
 
 const ACTIONS = {
   toggle: toggleVisible,
-  clickThrough: () => { settings.clickThrough = !settings.clickThrough; saveSettings(); applyClickThrough(); if (win && !win.isVisible()) win.showInactive(); },
+  clickThrough: () => { settings.clickThrough = !settings.clickThrough; saveSettings(); applyClickThrough(); if (win && !win.isVisible()) { win.showInactive(); setTimeout(syncHotkeysToVisibility, 50); } },
   opacityUp: () => setOpacity(settings.opacity + 0.1),
   opacityDown: () => setOpacity(settings.opacity - 0.1),
   compact: () => send("compact"),
@@ -166,7 +168,7 @@ const ACTIONS = {
   neg: () => send("neg"),
   snapLeft: () => snap("left"),
   snapRight: () => snap("right"),
-  find: () => { if (!win) return; if (settings.clickThrough) { settings.clickThrough = false; applyClickThrough(); } win.show(); win.focus(); send("find"); }
+  find: () => { if (!win) return; if (settings.clickThrough) { settings.clickThrough = false; applyClickThrough(); } win.show(); win.focus(); syncHotkeysToVisibility(); send("find"); }
 };
 let failedKeys = [];
 // Mouse buttons (middle, back, forward, with or without Ctrl/Alt/Shift) can't go through globalShortcut,
@@ -562,7 +564,8 @@ ipcMain.handle("hk:theme", async () => {
 ipcMain.on("snap", (e, side) => snap(side === "left" ? "left" : "right"));
 ipcMain.on("layout", (e, mode) => setMode(mode));
 ipcMain.on("hk:close", () => { if (hkWin) hkWin.close(); });
-ipcMain.on("hk:capture", (e, on) => { mousePaused = !!on; if (on) globalShortcut.unregisterAll(); else registerHotkeys(); }); // pause hotkeys while recording one
+let hkCapturing = false;
+ipcMain.on("hk:capture", (e, on) => { hkCapturing = mousePaused = !!on; if (on) globalShortcut.unregisterAll(); else registerHotkeys(); }); // pause hotkeys while recording one
 ipcMain.handle("hk:get", () => settings.hotkeys);
 ipcMain.handle("hk:reset", () => { settings.hotkeys = Object.assign({}, DEFAULT_HOTKEYS); saveSettings(); registerHotkeys(); return settings.hotkeys; });
 ipcMain.handle("hk:set", (e, { action, accel }) => {
@@ -585,7 +588,7 @@ ipcMain.handle("hk:set", (e, { action, accel }) => {
 
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
-  app.on("second-instance", () => { if (win) { win.show(); win.focus(); } });
+  app.on("second-instance", () => { if (win) { win.show(); win.focus(); syncHotkeysToVisibility(); } });
   app.whenReady().then(() => {
     protocol.handle("app", (req) => {
       const rel = decodeURIComponent(new URL(req.url).pathname).replace(/^\/+/, "") || "index.html";
@@ -600,6 +603,14 @@ else {
     setTimeout(() => checkUpdate(false), 6000);
     setInterval(() => checkUpdate(false), 4 * 60 * 60 * 1000);
     registerHotkeys();
+    setInterval(() => {
+      if (!win || hkCapturing) return;
+      const visible = win.isVisible();
+      const off = visible && Object.entries(settings.hotkeys).some(([a, k]) => a !== "toggle" && k && ACTIONS[a] && !MOUSE_RE.test(k) && !failedKeys.includes(k) && !globalShortcut.isRegistered(k));
+      if (off || (settings.hotkeys.toggle && !MOUSE_RE.test(settings.hotkeys.toggle) && !globalShortcut.isRegistered(settings.hotkeys.toggle) && !failedKeys.includes(settings.hotkeys.toggle))) {
+        if (!globalShortcut.isRegistered(settings.hotkeys.toggle)) registerHotkeys(); else syncHotkeysToVisibility();
+      }
+    }, 3000);
     try { tray = new Tray(path.join(__dirname, "icon.ico")); tray.on("click", toggleVisible); buildTrayMenu(); } catch (e) { tray = null; }
   });
   app.on("before-quit", () => { quitting = true; stopFgWatch(); });
