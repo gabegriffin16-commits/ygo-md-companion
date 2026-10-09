@@ -1135,7 +1135,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     "Tribute Faris (not Stratos) to Special Summon Increase, then its effect summons Vyon from your Deck.",
     "Vyon: send a HERO from Deck to GY. If no Shadow Mist effect has been used this turn, dump Shadow Mist and have it search Neos. If one already searched (say, the Faris discard), dump Neos instead. Either way, Neos leaves the Deck for Favorite Contact later.",
     "Vyon: banish a HERO from your GY to add Polymerization. Keep Shadow Mist and Neos in the GY if you still need them.",
-    "Polymerization: a non-DARK HERO (Stratos on the field, or Neos from your hand) + Increase into Sunrise, which searches Miracle Fusion. Keep Vyon on the field.",
+    "Polymerization: a non-DARK HERO + Increase into Sunrise, which searches Miracle Fusion. Use Stratos on the field, or Neos from your hand if Shadow Mist searched it (a dumped Neos is in the GY, where Polymerization can't use it). Keep Vyon on the field.",
     "Miracle Fusion: banish 2 Elemental HEROs with different Attributes from field or GY into Infernal Rage, which searches Favorite Contact. Set it for their turn.",
     "Their turn: flip Favorite Contact. Neos (from hand, field, GY, or banished) + Infernal Rage into Shining Neos Wingman. If Neos is still in your Deck, it can make DPE from two Malicious in your GY or banished instead.",
     "Last: Fusion Destiny, Malicious + Malicious from Deck into Destroyer Phoenix Enforcer."
@@ -1154,11 +1154,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     "Save Instant Contact, Miracle Fusion, and Polymerization for the turn you draw a starter."
   ];
   var ENTRIES = [
-    {t:"A Hero Lives", s:["Activate it first, while you control no monsters. Pay half your LP to summon Stratos from your Deck.","Stratos searches Faris (or Shadow Mist if you already have Faris).","Your Normal Summon is still open. Go into the core engine."]},
+    {t:"A Hero Lives", s:["Activate it first, while you control no face-up monsters. Pay half your LP to summon Stratos from your Deck.","Stratos searches Faris (or Shadow Mist if you already have Faris).","Your Normal Summon is still open. Go into the core engine."]},
     {t:"Stratos", s:["Normal Summon Stratos and search Faris.","Discard another HERO to Special Summon Faris. Malicious or Shadow Mist are the best discards.","Keep Stratos on the field. It's your WIND HERO for Sunrise.","Go into the core engine."]},
     {t:"Faris + another HERO", s:["Discard the other HERO to Special Summon Faris. Your Normal Summon stays open for Stratos or Vyon.","Go into the core engine."]},
     {t:"Faris alone", s:["Faris is Level 5, so Normal Summoning it needs a Tribute. If you already control a monster, Tribute Summon Faris. Its effect works on a Normal Summon too.","Otherwise, hold it until you draw or search another HERO to discard.","Go into the core engine."]},
-    {t:"Fusion Destiny", s:["Use Malicious + Malicious from your Deck to make Destroyer Phoenix Enforcer.","You can only summon DARK HEROs after this, so play it last.","Later: banish a Malicious from your GY to summon another from your Deck."]},
+    {t:"Fusion Destiny", s:["Use Malicious + Malicious from your Deck to make Destroyer Phoenix Enforcer.","You can only Special Summon DARK HEROs for the rest of the turn, so play it last.","Later: banish a Malicious from your GY to summon the third one from your Deck.","Fusion Destiny destroys DPE at the End Phase of your next turn. That still triggers DPE: it brings back a Destiny HERO from your GY in the Standby Phase after."]},
     {t:"Vyon only", s:["Normal Summon Vyon and send Shadow Mist to the GY. Search Stratos or Faris for next turn.","Banish a HERO from your GY to add Polymerization."]}
   ];
 
@@ -1188,10 +1188,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   document.getElementById("coreLine").appendChild(planHTML("Faris \u2192 Increase \u2192 Vyon \u2192 Fusions", CORE));
   document.getElementById("attrLine").appendChild(planHTML("Your engine is DARK. You need one non-DARK HERO", [
     "Keep Stratos: Normal Summon Stratos, Special Summon Faris, tribute Faris for Increase. Stratos (WIND) + Increase into Sunrise.",
-    "No Stratos in hand: Faris uses a discard, so your Normal Summon is open. Vyon dumps Shadow Mist, which searches Stratos. Normal Summon it.",
+    "No Stratos in hand: Faris uses a discard, so your Normal Summon is open. Get Stratos from Shadow Mist's search (Vyon dumps it, or it was your Faris discard), then Normal Summon it. Its own search can grab Neos.",
     "From your hand: Polymerization can use Neos (LIGHT) from your hand with Increase on the field.",
     "Skip the check: once Neos is in your GY, Instant Contact summons Sunrise directly with its effects working.",
-    "For Infernal Rage: Miracle Fusion needs 2 Elemental HEROs. Shadow Mist in the GY is your DARK half; pair it with Stratos or Neos.",
+    "For Infernal Rage: Miracle Fusion needs 2 Elemental HEROs with different Attributes from your field or GY. Shadow Mist (DARK) pairs with Stratos (WIND), Neos (LIGHT) or Sunrise (LIGHT).",
     "Non-DARK HEROs in this deck: Stratos (WIND) and Neos (LIGHT)."
   ], "alt"));
   document.getElementById("breakerLine").appendChild(planHTML("Shining Neos Wingman on your turn", BREAKER, "alt"));
@@ -1224,7 +1224,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
 
     if (n("ahl")){
-      var s = ["Activate A Hero Lives first, while you control no monsters. Pay half your LP and summon Stratos from your Deck."];
+      var s = ["Activate A Hero Lives first, while you control no face-up monsters. Pay half your LP and summon Stratos from your Deck."];
       if (n("faris")){
         s.push("Stratos searches Shadow Mist. Discard it to Special Summon Faris, and Shadow Mist's GY effect searches Neos for Favorite Contact later. That's your one Shadow Mist effect this turn.");
       } else {
@@ -1260,12 +1260,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
 
     if (usesFaris){
-      if (n("increase") >= 2) plans.push({t:"Watch out", s:["Both Increase copies are in your hand, so Faris has nothing to place. Use Increase as discard fodder and look for another line."], cls:"warn"});
+      if (n("increase") >= 2) plans.push({t:"Watch out", s:["Both Increase copies are in your hand, so Faris has nothing useful to place (Vyon does nothing in the backrow). Use Increase as discard fodder and look for another line."], cls:"warn"});
       else plans.push({t:"Core engine", s:CORE});
     }
 
     if (n("destiny")){
-      if (plans.length) notes.push("Fusion Destiny: finish with it after your other Fusions. Malicious + Malicious from Deck into Destroyer Phoenix Enforcer. It locks you to DARK HEROs.");
+      if (plans.length) notes.push("Fusion Destiny: finish with it after your other Fusions. Malicious + Malicious from Deck into Destroyer Phoenix Enforcer. It locks your Special Summons to DARK HEROs for the rest of the turn.");
       else plans.push({t:"Start with Fusion Destiny", s:ENTRIES[4].s});
     }
 
@@ -1284,7 +1284,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     // notes
     if (usesFaris){
       var nonDark = n("stratos") || n("ahl") || n("ecall") || n("neos");
-      if (!nonDark) notes.push("No non-DARK HERO in hand: have Vyon dump Shadow Mist to search Stratos, then Normal Summon it and fuse it with Increase for Sunrise.");
+      if (!nonDark) notes.push("No non-DARK HERO in hand: get Stratos from Shadow Mist's search (Vyon dumps it, or it was your Faris discard), Normal Summon it, and fuse it with Increase for Sunrise. Only one Shadow Mist effect per turn, so spend it on Stratos here.");
       notes.push("Fuse with Increase, not Vyon. Increase can come back from the GY, and Vyon searches Polymerization again next turn.");
     }
     if (n("malicious") && usesFaris) notes.push("Malicious is your best Faris discard: banish it from the GY later to summon another from your Deck.");
@@ -1739,8 +1739,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var PHASES = ["setup","opening","draw","main","end"];
   var PH_LABEL = {setup:"Setup", opening:"Opening hand", draw:"Draw", main:"Main", end:"End"};
   var ZONES = [
-    {k:"neos", t:"Neos", hints:{deck:"Vyon can dump it; Shadow Mist or E-Call can search it.", hand:"Polymerization material for Shining Neos Wingman.", field:"Instant Contact summons keep their effects.", gy:"Instant Contact summons keep their effects.", banished:"Favorite Contact can still use it, but Instant Contact needs it on the field or in the GY."}},
-    {k:"mist", t:"Shadow Mist", hints:{deck:"Vyon can dump it to search a HERO.", hand:"Best Faris discard: it searches when it hits the GY.", field:"Not doing much there. Fusion material or Faris tribute.", gy:"Your DARK half for Miracle Fusion into Infernal Rage.", banished:"Used up. Find another DARK Elemental HERO for Miracle Fusion."}},
+    {k:"neos", t:"Neos", hints:{deck:"Vyon can dump it; Shadow Mist or E-Call can search it.", hand:"Polymerization material: Sunrise with Increase, or Shining Neos Wingman with a Wingman Fusion on the field.", field:"Instant Contact summons keep their effects.", gy:"Instant Contact summons keep their effects.", banished:"Favorite Contact can still use it, but Instant Contact needs it on the field or in the GY."}},
+    {k:"mist", t:"Shadow Mist", hints:{deck:"Vyon can dump it to search a HERO.", hand:"Best Faris discard: it searches when it hits the GY.", field:"Not doing much there. Fusion material or Faris tribute.", gy:"Your DARK half for Miracle Fusion into Infernal Rage.", banished:"Used up. For Infernal Rage, pair Stratos (WIND) with Neos or Sunrise (LIGHT) instead."}},
     {k:"increase", t:"Increase", hints:{deck:"Faris can place it in your backrow.", hand:"Good Faris discard fodder.", field:"In the backrow: tribute a HERO in your Main Phase to summon it, then pull Vyon.", gy:"If you take damage, it returns to your backrow for next turn.", banished:"Gone for this duel."}}
   ];
   var ZONE_OPTS = [["deck","Deck"],["hand","Hand"],["field","Field / backrow"],["gy","GY"],["banished","Banished"]];

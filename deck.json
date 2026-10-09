@@ -11,7 +11,7 @@
    ],
    "group": "Starters",
    "notes": [
-    "Your best Normal Summon. Search Faris if you have a HERO to discard, otherwise Shadow Mist.",
+    "Your best Normal Summon. Search Faris if you have another HERO to discard for it. Already holding Faris? Search Shadow Mist as its discard.",
     "Your main non-DARK HERO. Tribute Faris for Increase and keep Stratos to pair with Increase for Sunrise.",
     "A Hero Lives can summon it from the Deck, and its search still triggers.",
     "Going second, the backrow destroy mode can clear a floodgate if you control other HEROs."
@@ -192,8 +192,9 @@
    "group": "Starters",
    "notes": [
     "Malicious + Malicious from Deck makes Destroyer Phoenix Enforcer.",
-    "Play it last, after your Sunrise, Infernal Rage, and Shining Neos Wingman.",
-    "Using Deck materials makes it Ash-able, so protect it."
+    "Play it last on your turn: after it resolves you can only Special Summon DARK HEROs, so Sunrise, Infernal Rage and Shining Neos Wingman have to come first.",
+    "Using Deck materials makes it Ash-able, so protect it.",
+    "It destroys DPE at the End Phase of your next turn, which triggers DPE to bring back a Destiny HERO in the next Standby Phase."
    ]
   },
   {
@@ -303,13 +304,13 @@
    ],
    "notes": [
     "Your best end board. Save the Quick Effect for their turn.",
-    "Going second, pop their negater at the start of your Main Phase."
+    "Going second, Fusion Destiny locks you to DARK HEROs, so make DPE last and use its Quick Effect on whatever your breakers left."
    ],
    "role": [
     "end",
     "break"
    ],
-   "when": "Going first as your end board, or at the start of your turn going second.",
+   "when": "Going first as your end board. Going second, as your last summon to destroy what's left.",
    "why": "Quick Effect: destroy 1 of your cards and 1 card on the field. Comes back with a Destiny HERO from the GY if destroyed."
   },
   {
@@ -389,13 +390,13 @@
    ],
    "notes": [
     "Instant Contact target once Neos is in place.",
-    "A Wingman for Shining Neos Wingman without spending a Fusion spell."
+    "Instant Contact gives you a Wingman without spending a Fusion spell. You still need one (Miracle Fusion, Polymerization or Favorite Contact) to make Shining Neos Wingman."
    ],
    "role": [
     "bridge"
    ],
    "when": "Once Neos is on your field or in your GY.",
-   "why": "A Wingman for Shining Neos Wingman without spending a Fusion spell."
+   "why": "A Wingman from Instant Contact, so your Fusion spell goes straight to Shining Neos Wingman."
   },
   {
    "id": "dangerous",
@@ -435,7 +436,7 @@
    "role": [
     "break"
    ],
-   "when": "Going second for an extra destroy once Dangerous changes its ATK. Its burn needs a Level 4 or lower Destiny HERO, which this deck no longer runs.",
+   "when": "Rarely. It needs a second Fusion besides Fusion Destiny, plus Dangerous to change its ATK, and its burn needs a Level 4 or lower Destiny HERO this deck doesn't run.",
    "why": "Burns for a Level 4 or lower Destiny HERO's ATK. Destroys a card once its ATK has changed."
   },
   {
