@@ -911,6 +911,11 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
   linear-gradient(var(--muted), var(--muted)) center 5px / 18px 2px no-repeat,
   linear-gradient(var(--muted), var(--muted)) center 9px / 18px 2px no-repeat; opacity:.7}
 .bldgrip:hover, .bldgrip.drag{opacity:1; background-color:var(--panel2)}
+.bld.dragadd .blddeck, .bld.dragrm .bldbrowse{outline:2px dashed color-mix(in srgb, var(--gold) 60%, transparent); outline-offset:-4px}
+.blddeck.dropover, .bldbrowse.dropover{outline:2px solid var(--gold) !important; background:color-mix(in srgb, var(--gold) 10%, var(--panel))}
+.bld.dragrm .bldbrowse::after{content:"Drop here to remove one"; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); padding:10px 18px; border-radius:999px; background:var(--red); color:#fff; font:700 .9rem var(--display); pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.bld.dragadd .blddeck::after{content:"Drop here to add"; position:absolute; left:50%; top:40%; transform:translate(-50%,-50%); padding:10px 18px; border-radius:999px; background:var(--gold); color:#1B1640; font:700 .9rem var(--display); pointer-events:none; box-shadow:0 8px 24px rgba(0,0,0,.4)}
+.blddeck{position:relative}
 </style>
 </head>
 <body>
@@ -3390,6 +3395,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (have && !opts.deck) b.appendChild(nodes("span", "bthave", have + "×"));
       if (opts.deck) b.appendChild(nodes("span", "btcount", opts.n + "×"));
       b.addEventListener("click", function(){ if (opts.deck) showInfo(c); else add(c); });
+      // Drag from the card list onto your deck to add, or from your deck back to the list to remove.
+      b.draggable = true; img.draggable = false;
+      b.addEventListener("dragstart", function(e){
+        e.dataTransfer.effectAllowed = opts.deck ? "move" : "copy";
+        e.dataTransfer.setData(opts.deck ? "application/x-mdc-rm" : "application/x-mdc-add", String(c.id));
+        e.dataTransfer.setData("text/plain", c.n);
+        root.classList.add(opts.deck ? "dragrm" : "dragadd");
+      });
+      b.addEventListener("dragend", function(){ root.classList.remove("dragrm", "dragadd"); });
       b.addEventListener("contextmenu", function(e){ e.preventDefault(); showInfo(c); });
       var lp; b.addEventListener("touchstart", function(){ lp = setTimeout(function(){ lp = "done"; showInfo(c); }, 480); }, {passive:true});
       b.addEventListener("touchend", function(e){ if (lp === "done"){ e.preventDefault(); } clearTimeout(lp); lp = null; });
@@ -3455,7 +3469,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       for (var i = from; i < to; i++) pbtn(String(i + 1), i, i === page);
       pbtn("›", page + 1); pbtn("»", pages - 1);
       pager.appendChild(nodes("span", "pgcount", lastRes.length.toLocaleString() + " cards"));
-      pager.appendChild(nodes("span", "bldhint", "Click a card to add it \u00B7 right-click or hold for details"));
+      pager.appendChild(nodes("span", "bldhint", "Click or drag a card to your deck to add it \u00B7 drag it back to remove \u00B7 right-click or hold for details"));
     }
 
     // ---- filter menu ----
@@ -3594,6 +3608,22 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       box.appendChild(x); box.appendChild(img); box.appendChild(body); info.appendChild(box);
     }
     info.addEventListener("click", function(e){ if (e.target === info) info.hidden = true; });
+
+    // ---- drag and drop between the two sides ----
+    function dropZone(el, type, fn){
+      el.addEventListener("dragover", function(e){
+        if ([].indexOf.call(e.dataTransfer.types, type) < 0) return;
+        e.preventDefault(); e.dataTransfer.dropEffect = type === "application/x-mdc-add" ? "copy" : "move"; el.classList.add("dropover");
+      });
+      el.addEventListener("dragleave", function(e){ if (!el.contains(e.relatedTarget)) el.classList.remove("dropover"); });
+      el.addEventListener("drop", function(e){
+        el.classList.remove("dropover"); root.classList.remove("dragrm", "dragadd");
+        var id = +e.dataTransfer.getData(type); if (!id) return;
+        e.preventDefault(); var c = CARD_BY_ID[id]; if (c) fn(c);
+      });
+    }
+    dropZone($(".blddeck"), "application/x-mdc-add", add);
+    dropZone($(".bldbrowse"), "application/x-mdc-rm", sub);
 
     // ---- top bar ----
     root.querySelectorAll(".bldviews button").forEach(function(b){
