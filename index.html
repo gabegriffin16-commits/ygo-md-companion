@@ -762,6 +762,17 @@ html.auto .lpcol{padding-right:12px}
 #ovBar .ovb.ovup{left:92px; width:auto; padding:0 8px; height:14px; top:1px; border-radius:999px; background:var(--gold) !important; color:#1B1640 !important; font:700 9px sans-serif; letter-spacing:.06em; text-transform:uppercase; opacity:1}
 #ovBar .ovb.ovup:disabled{opacity:.85; cursor:default}
 #ovBar:has(.ovup) > span{opacity:0}
+/* fade mode readability: see-through panels, but dark enough behind text, plus a halo on every line */
+html.fadebg .dbox, html.fadebg .lpcol, html.fadebg .duellog li, html.fadebg .card, html.fadebg .plan, html.fadebg .vstips, html.fadebg .cg, html.fadebg .cg-sec{background:color-mix(in srgb, var(--panel) 48%, transparent) !important}
+html.fadebg .top{background:color-mix(in srgb, var(--panel) 55%, transparent) !important}
+html.fadebg header.top nav.tabs .wrap{background:color-mix(in srgb, var(--bg) 50%, transparent)}
+html.fadebg .side.left, html.fadebg .side.right{background:color-mix(in srgb, var(--panel) 45%, transparent) !important}
+html.fadebg .stepper{background:color-mix(in srgb, var(--panel) 48%, transparent); border-radius:10px; padding-left:8px; padding-right:8px}
+html.fadebg main, html.fadebg .side, html.fadebg nav.tabs, html.fadebg .stepper, html.fadebg header.top{text-shadow:0 0 2px var(--bg), 0 0 4px var(--bg), 0 0 7px var(--bg), 0 1px 2px var(--bg)}
+html.fadebg main{font-weight:500}
+html.fadebg .vsbtn, html.fadebg .stepper li.ph, html.fadebg .tab, html.fadebg .hint, html.fadebg .lpcol .lab, html.fadebg .cgpicklab{color:var(--ink); opacity:1}
+html.fadebg .stepper li.ph.skip{opacity:.6}
+html.fadebg .vsbtn{background:color-mix(in srgb, var(--panel) 60%, transparent)}
 </style>
 </head>
 <body>
