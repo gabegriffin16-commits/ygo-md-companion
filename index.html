@@ -653,6 +653,30 @@ html.fadebg button.ghost, html.fadebg .stopbtn{background:var(--panel2) !importa
 html.fadebg .stopbtn.s-ash{border-color:var(--red)} html.fadebg .stopbtn.s-imp{border-color:var(--sky)}
 html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html.fadebg .compactbtn, html.fadebg .themebtn, html.fadebg button.primary, html.fadebg button.ghost{text-shadow:none}
 #elementRow{display:none !important}
+
+/* ---- tabs live in the banner now ---- */
+header.top{flex-wrap:wrap; row-gap:7px; margin-top:4px}
+header.top nav.tabs{position:static; display:block; background:none !important; border:0; padding:0; z-index:auto; flex:1 1 auto; min-width:0; order:1}
+header.top .hdrside{order:2}
+header.top nav.tabs .wrap{display:grid !important; grid-template-columns:repeat(5, minmax(0,1fr)); gap:3px; max-width:none; margin:0; padding:3px; border-radius:999px;
+  background:color-mix(in srgb, var(--bg) 45%, transparent); border:1px solid color-mix(in srgb, var(--line) 80%, transparent)}
+header.top .tab{border:0 !important; margin:0; border-radius:999px; padding:7px 6px; font:600 .86rem var(--display); color:var(--muted); background:none}
+header.top .tab:hover{color:var(--ink)}
+header.top .tab[aria-selected="true"]{color:#1B1640; background:var(--gold)}
+header.top{padding:9px 12px !important}
+main{padding-bottom:28px !important}
+html.compact header.top .ctools{order:1}
+html.compact header.top .hdrside{order:2}
+html.compact header.top nav.tabs{order:3; flex-basis:100%}
+html.compact header.top .tab{font-size:.74rem; padding:4px 2px}
+html.compact header.top{padding:8px 10px !important}
+html.fadebg header.top nav.tabs .wrap{background:color-mix(in srgb, var(--bg) 25%, transparent)}
+html.fadebg header.top .tab[aria-selected="true"]{text-shadow:none}
+/* inside the desktop app: sit a little below the overlay's top bar */
+html.in-overlay header.top{margin-top:10px}
+html:not(.compact) header.top{flex-wrap:nowrap}
+html:not(.compact) header.top nav.tabs{flex:1 1 0}
+html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
 </style>
 </head>
 <body>
@@ -666,6 +690,15 @@ html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html
     <div class="elements" id="elementRow" hidden></div>
     <div class="ctools" role="group" aria-label="Duel tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log">Log</button><button type="button" class="ctool cnew" id="cNew" title="Start a new duel">New duel</button></div>
     <div class="hdrside"><div class="thememenu" id="themeMenu"><button type="button" class="themebtn" id="themeBtn" aria-haspopup="true" aria-expanded="false" title="Theme"><span class="tbub"></span><span class="tname"></span><span class="caret" aria-hidden="true">▾</span></button><div class="themepop" id="themePop" role="menu" aria-label="Theme" hidden></div></div><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div>
+    <nav class="tabs" role="tablist" aria-label="Sections">
+      <div class="wrap">
+        <button class="tab" role="tab" id="t-hand" aria-selected="true" aria-controls="tab-hand" data-tab="hand">Duel</button>
+        <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
+        <button class="tab" role="tab" id="t-extra" aria-selected="false" aria-controls="tab-extra" data-tab="extra">Extra Deck</button>
+        <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
+        <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
+      </div>
+    </nav>
   </header>
 
   <!-- HAND -->
@@ -739,15 +772,7 @@ html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html
   </section>
 </main>
 
-<nav class="tabs" role="tablist" aria-label="Sections">
-  <div class="wrap">
-    <button class="tab" role="tab" id="t-hand" aria-selected="true" aria-controls="tab-hand" data-tab="hand">Duel</button>
-    <button class="tab" role="tab" id="t-lines" aria-selected="false" aria-controls="tab-lines" data-tab="lines">Lines</button>
-    <button class="tab" role="tab" id="t-extra" aria-selected="false" aria-controls="tab-extra" data-tab="extra">Extra Deck</button>
-    <button class="tab" role="tab" id="t-check" aria-selected="false" aria-controls="tab-check" data-tab="check">Checkpoints</button>
-    <button class="tab" role="tab" id="t-counter" aria-selected="false" aria-controls="tab-counter" data-tab="counter">Counter Guide</button>
-  </div>
-</nav>
+
 </div>
 <aside class="side right" id="cardPane" aria-label="Card details" aria-live="polite"></aside>
 </div>
@@ -1024,7 +1049,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // ---------- compact (overlay-friendly) mode ----------
   var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
-  function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact"; }
+  function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact";
+    // In the desktop app the window follows along: compact docks to a side, full fills the monitor.
+    if (window.overlayApp && window.overlayApp.layout) window.overlayApp.layout(compact ? "compact" : "full"); }
   document.getElementById("compactBtn").addEventListener("click", function(){ compact = !compact; save("hbc-compact", compact); paintCompact(); });
   paintCompact();
 
