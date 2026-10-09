@@ -1,4 +1,4 @@
-# Omni HERO Duel Companion
+# Master Duel Companion App
 
 Live site: https://gabegriffin16-commits.github.io/ygo-md-companion/
 
