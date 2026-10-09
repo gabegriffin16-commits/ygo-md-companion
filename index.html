@@ -2983,6 +2983,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (clickFirst(".trigbox .stopbtn." + cls) || clickFirst(".actlog .stopbtn." + cls)) toast(lbl + " marked"); else toast("Nothing to mark " + lbl + " on");
     }
     else if (cmd === "compact"){ clickFirst("#compactBtn"); }
+    else if (cmd === "fade"){ var fb = document.getElementById("fadeBtn"); if (fb){ fb.click(); toast(fb.getAttribute("aria-checked") === "true" ? "Background faded" : "Background back to normal"); } }
     else if (cmd === "find"){ openFind(); }
     else if (cmd === "duel"){ var t = document.getElementById("t-hand"); if (t) t.click(); }
   });

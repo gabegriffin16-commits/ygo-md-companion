@@ -19,6 +19,7 @@ const DEFAULT_HOTKEYS = {
   clickThrough: "Control+Shift+L",    // lock: clicks pass through to the game
   opacityUp:    "Control+Shift+Up",
   opacityDown:  "Control+Shift+Down",
+  fade:         "Control+Shift+B",    // fade background on / off
   compact:      "Control+Shift+C",    // compact / full view
   next:         "Control+Shift+N",    // next duel step (Draw -> Main -> End -> next turn)
   undo:         "Control+Shift+Z",    // undo last play
@@ -142,6 +143,7 @@ const ACTIONS = {
   opacityUp: () => setOpacity(settings.opacity + 0.1),
   opacityDown: () => setOpacity(settings.opacity - 0.1),
   compact: () => send("compact"),
+  fade: () => send("fade"),
   next: () => send("next"),
   undo: () => send("undo"),
   ash: () => send("ash"),
