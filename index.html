@@ -826,6 +826,80 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .pill.banpill{color:#fff; border-color:transparent}
 .bldhit.forb .bldhn{text-decoration:line-through; opacity:.7}
 .bldnm.over{color:var(--red)}
+/* deck builder v2: card grid + filters (layout modeled on Master Duel Meta's deck tester) */
+.bld{gap:8px; padding:12px 14px}
+.bldviews{display:none; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px}
+.bldviews button{flex:1; border:0; background:none; color:var(--muted); font:600 .82rem var(--display); padding:6px; border-radius:999px; cursor:pointer}
+.bldviews button[aria-selected="true"]{background:var(--gold); color:#1B1640}
+.bldbody{display:grid !important; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; gap:12px; flex:1; min-height:0}
+.bldbrowse, .blddeck{position:relative; min-height:0; display:flex; flex-direction:column; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px}
+.blddeck{overflow:auto; display:block}
+.bldtools{display:flex; gap:6px; align-items:center}
+.bldq{flex:1; min-width:0}
+.bldq input{width:100%; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:8px 14px; font:500 .9rem var(--body)}
+.bldq input:focus{outline:none; border-color:var(--gold)}
+.bldsort{background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:7px 10px; font:600 .8rem var(--display)}
+.bldfbtn.on, .blddir.on{border-color:var(--gold); color:var(--gold)}
+.bldfilters{position:absolute; left:10px; right:10px; top:54px; z-index:5; max-height:min(70%, 520px); overflow:auto; background:var(--panel2); border:1px solid var(--line); border-radius:12px; padding:10px 12px; box-shadow:0 16px 34px rgba(0,0,0,.4)}
+.bldfilters[hidden]{display:none}
+.ftop{display:flex; flex-wrap:wrap; gap:6px 14px; align-items:center; margin-bottom:4px}
+.fcheck{font-size:.8rem; color:var(--ink); display:flex; align-items:center; gap:4px; cursor:pointer}
+.fclear{margin-left:auto; padding:4px 10px; font-size:.76rem}
+.fgrp{margin-top:8px}
+.fhead{font:700 .66rem var(--display); letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin-bottom:4px}
+.fchips{display:flex; flex-wrap:wrap; gap:4px}
+.fchip{border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:999px; padding:3px 10px; font:600 .76rem var(--body); cursor:pointer}
+.fchip[aria-pressed="true"]{background:var(--gold); border-color:var(--gold); color:#1B1640}
+.frow{display:flex; flex-wrap:wrap; gap:4px 18px}
+.frange{display:flex; align-items:center; gap:6px; font-size:.78rem; color:var(--muted)}
+.frange input{width:72px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:4px 6px; font:600 .8rem var(--body)}
+.bldgrid{flex:1; min-height:0; overflow:auto; display:grid; grid-template-columns:repeat(auto-fill, minmax(92px, 1fr)); gap:10px 8px; align-content:start; padding:9px 7px 4px}
+.bldhint{font-size:.74rem; color:var(--muted)}
+.deckgrid{overflow:visible; grid-template-columns:repeat(auto-fill, minmax(78px, 1fr)); margin-bottom:6px}
+.bldnone{grid-column:1 / -1}
+.bt{position:relative; display:block; padding:0; border:0; background:none; cursor:pointer; border-radius:6px; aspect-ratio:421 / 614; overflow:visible}
+.bt img{display:block; width:100%; height:100%; object-fit:cover; border-radius:5px; box-shadow:0 2px 6px rgba(0,0,0,.35); transition:transform .1s}
+.bt:hover img{transform:translateY(-2px); box-shadow:0 6px 14px rgba(0,0,0,.45)}
+.bt.forb img{filter:grayscale(.85) brightness(.6)}
+.btface{display:flex; align-items:center; justify-content:center; text-align:center; width:100%; height:100%; padding:6px; border-radius:5px; font:600 .7rem/1.2 var(--body); color:#fff; background:#7A5A3A}
+.btface[data-k="Spell"]{background:#2C7A6A} .btface[data-k="Trap"]{background:#8A3E7E}
+.btrar{position:absolute; top:-5px; right:-3px; font:800 .58rem/1 var(--display); padding:3px 5px; border-radius:4px; color:#1B1640; box-shadow:0 1px 3px rgba(0,0,0,.4)}
+.btrar.r-UR{background:linear-gradient(90deg,#f6b3d8,#b9a5f2,#9fd8f3,#b6f0c2)} .btrar.r-SR{background:#E0B85E} .btrar.r-R{background:#86BEDB} .btrar.r-N{background:#B5B5BE}
+.btban{position:absolute; top:-6px; left:-6px; width:20px; height:20px; border-radius:50%; display:flex; align-items:center; justify-content:center; font:800 .72rem var(--display); color:#fff; border:2px solid #111; box-shadow:0 1px 3px rgba(0,0,0,.5)}
+.btban.ban-F{background:#C8323C} .btban.ban-L{background:#D9762B} .btban.ban-S{background:#B89A1E}
+.bthave, .btcount{position:absolute; bottom:4px; right:4px; font:800 .78rem var(--display); padding:2px 6px; border-radius:6px; background:rgba(10,12,24,.82); color:#fff}
+.btcount{left:50%; right:auto; transform:translateX(-50%); bottom:6px; font-size:.86rem}
+.dcell{display:flex; flex-direction:column; gap:4px}
+.dcell.over .bt img{outline:2px solid var(--red); outline-offset:1px}
+.dctl{display:flex; justify-content:center; gap:4px}
+.dctl .mini{width:28px; height:24px; padding:0; border-radius:6px; font-size:.95rem}
+.bldpager{display:flex; flex-wrap:wrap; align-items:center; gap:3px}
+.bldpager .pg{min-width:30px; height:28px; border:1px solid var(--line); background:var(--bg); color:var(--ink); border-radius:6px; font:600 .78rem var(--display); cursor:pointer}
+.bldpager .pg.cur{background:var(--gold); color:#1B1640; border-color:var(--gold)}
+.bldpager .pg:disabled:not(.cur){opacity:.4; cursor:default}
+.bldhint{flex-basis:100%; text-align:right}
+.pgcount{margin-left:auto; font:600 .78rem var(--display); color:var(--muted)}
+.bldrar{padding:2px 8px; border-radius:999px; font:700 .74rem var(--display); color:#1B1640}
+.bldrar.r-UR{background:linear-gradient(90deg,#f6b3d8,#b9a5f2,#9fd8f3,#b6f0c2)} .bldrar.r-SR{background:#E0B85E} .bldrar.r-R{background:#86BEDB} .bldrar.r-N{background:#B5B5BE}
+.bldinfo{position:absolute; inset:0; z-index:10; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:16px}
+.bldinfo[hidden]{display:none}
+.bibox{position:relative; display:flex; gap:16px; max-width:760px; width:100%; max-height:100%; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:16px; box-shadow:0 20px 50px rgba(0,0,0,.5)}
+.bibox img{width:min(260px, 38%); align-self:flex-start; border-radius:8px}
+.bibody{flex:1; min-width:0}
+.bibody h3{font-size:1.15rem; margin:0 26px 4px 0}
+.bimeta{color:var(--muted); font-size:.82rem; margin:0 0 6px}
+.bipills{display:flex; flex-wrap:wrap; gap:4px; margin-bottom:8px}
+.bitext{font-size:.86rem; line-height:1.45; margin:0 0 6px}
+.biacts{display:flex; gap:8px; margin-top:10px}
+.bix{position:absolute; top:8px; right:10px; border:0; background:none; color:var(--muted); font-size:1.1rem; cursor:pointer}
+@media (max-width:760px){
+  .bldviews{display:flex}
+  .bldbody{grid-template-columns:1fr !important}
+  .bld[data-view="browse"] .blddeck, .bld[data-view="deck"] .bldbrowse{display:none}
+  .bldtop .bldbtns{width:100%} .bldtop .bldbtns button{flex:1; padding:7px 6px}
+  .bibox{flex-direction:column} .bibox img{width:60%; align-self:center}
+  .bldgrid{grid-template-columns:repeat(auto-fill, minmax(84px, 1fr))}
+}
 </style>
 </head>
 <body>
@@ -3213,129 +3287,312 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function openBuilder(deck, isNew){
     var old = document.getElementById("builder"); if (old) old.remove();
     var dirty = false;
+    var ART = window.ART_BASE || "";
+    var RAR_ORDER = {UR:0, SR:1, R:2, N:3};
+    var MTYPES = ["Normal","Effect","Ritual","Fusion","Synchro","Xyz","Link","Pendulum","Tuner","Flip","Spirit","Union","Gemini","Toon"];
+    var ATTRS = ["DARK","LIGHT","EARTH","WATER","FIRE","WIND","DIVINE"];
+    var RACES = ["Aqua","Beast","Beast-Warrior","Cyberse","Dinosaur","Divine-Beast","Dragon","Fairy","Fiend","Fish","Illusion","Insect","Machine","Plant","Psychic","Pyro","Reptile","Rock","Sea Serpent","Spellcaster","Thunder","Warrior","Winged Beast","Wyrm","Zombie"];
+    var PROPS = ["Normal","Quick-Play","Continuous","Field","Equip","Ritual","Counter"];
+    function kind(c){ var t = c.t || ""; return /Monster/.test(t) ? "Monster" : /Spell/.test(t) ? "Spell" : "Trap"; }
+    function isMon(c){ return kind(c) === "Monster"; }
+    var POOL_ALL = CARDDB.cards.filter(MDC.playable);
+    var F0 = function(){ return {kind:{}, mtype:{}, attr:{}, race:{}, prop:{}, rar:{}, ban:{}, lvMin:"", lvMax:"", atkMin:"", atkMax:"", defMin:"", defMax:"", text:false, all:false}; };
+    var flt = F0(), sortBy = "pop", sortDir = 1, page = 0, PER = 40, view = "browse";
+
     var root = nodes("div", "bld"); root.id = "builder"; root.setAttribute("role", "dialog"); root.setAttribute("aria-label", "Deck builder");
     root.innerHTML =
       '<div class="bldtop">' +
         '<input class="bldname" type="text" maxlength="40" placeholder="Deck name">' +
-        '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
+        '<div class="bldbtns"><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldstat"></div>' +
+      '<div class="bldviews" role="tablist"><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button></div>' +
       '<div class="bldbody">' +
-        '<div class="bldsearch"><input type="search" placeholder="Search any card to add it…" autocomplete="off"><div class="bldres"></div></div>' +
-        '<div class="blddeck"></div>' +
-      '</div>';
+        '<section class="bldbrowse">' +
+          '<div class="bldtools">' +
+            '<div class="bldq"><input type="search" placeholder="Search cards…" autocomplete="off"></div>' +
+            '<button type="button" class="ghost bldfbtn" aria-expanded="false">Filters</button>' +
+            '<select class="bldsort" aria-label="Sort by"><option value="pop">Popularity</option><option value="name">Name</option><option value="lv">Level / Rank</option><option value="atk">ATK</option><option value="def">DEF</option><option value="rar">Rarity</option></select>' +
+            '<button type="button" class="ghost blddir" title="Reverse order">⇅</button>' +
+          '</div>' +
+          '<div class="bldfilters" hidden></div>' +
+          '<div class="bldgrid"></div>' +
+          '<div class="bldpager"></div>' +
+        '</section>' +
+        '<section class="blddeck"></section>' +
+      '</div>' +
+      '<div class="bldinfo" hidden></div>';
     document.body.appendChild(root);
     document.documentElement.classList.add("building");
-    var nameIn = root.querySelector(".bldname"), stat = root.querySelector(".bldstat"), res = root.querySelector(".bldres"),
-        list = root.querySelector(".blddeck"), q = root.querySelector(".bldsearch input");
+    var $ = function(s){ return root.querySelector(s); };
+    var nameIn = $(".bldname"), stat = $(".bldstat"), grid = $(".bldgrid"), pager = $(".bldpager"), list = $(".blddeck"),
+        q = $(".bldq input"), fpanel = $(".bldfilters"), fbtn = $(".bldfbtn"), info = $(".bldinfo");
     nameIn.value = deck.name || "";
     nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
 
+    // ---- deck edits ----
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
+    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
       var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
       if (row) row.n++; else arr.push({id:c.id, n:1});
-      dirty = true; paintDeckList(); paintResults();
+      changed();
     }
-    function bump(arr, id, d){
-      var row = arr.filter(function(x){ return x.id === id; })[0]; if (!row) return;
-      if (d > 0 && copies(id) >= banMax(CARD_BY_ID[id])){ toast(limitMsg(CARD_BY_ID[id])); return; }
-      row.n += d; if (row.n <= 0) arr.splice(arr.indexOf(row), 1);
-      dirty = true; paintDeckList(); paintResults();
+    function sub(c){
+      var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
+      if (!row) return; row.n--; if (row.n <= 0) arr.splice(arr.indexOf(row), 1);
+      changed();
     }
-    function kind(c){ var t = c.t || ""; return /Monster/.test(t) ? "Monster" : /Spell/.test(t) ? "Spell" : "Trap"; }
-    function typeTag(c){
-      var f = (c.f || "").split("_")[0], t = c.t || "";
-      if (/Spell|Trap/.test(t)) return (c.r && c.r !== "Normal" ? c.r + " " : "") + (/Spell/.test(t) ? "Spell" : "Trap");
-      return (FRAME_NAME[f] || "Effect") + (c.lk ? " · Link-" + c.lk : c.lv != null ? " · Lv " + c.lv : "") + (c.a ? " · " + c.a : "");
+
+    // ---- card tiles ----
+    function tile(c, opts){
+      opts = opts || {};
+      var b = nodes("button", "bt" + (c.b === "F" ? " forb" : "")); b.type = "button";
+      b.title = c.n + (opts.deck ? "" : "\nClick to add · right-click for details");
+      var img = document.createElement("img"); img.loading = "lazy"; img.decoding = "async"; img.alt = c.n; img.width = 421; img.height = 614;
+      img.onerror = function(){ var t = nodes("span", "btface", c.n); t.dataset.k = kind(c); img.replaceWith(t); };
+      img.src = ART + c.id + ".avif";
+      b.appendChild(img);
+      if (c.md) b.appendChild(nodes("span", "btrar r-" + c.md, c.md));
+      if (c.b) { var bb = nodes("span", "btban ban-" + c.b, c.b === "F" ? "✕" : String(BAN_MAX[c.b])); bb.title = BAN_NAME[c.b]; b.appendChild(bb); }
+      var have = copies(c.id);
+      if (have && !opts.deck) b.appendChild(nodes("span", "bthave", have + "×"));
+      if (opts.deck) b.appendChild(nodes("span", "btcount", opts.n + "×"));
+      b.addEventListener("click", function(){ if (opts.deck) showInfo(c); else add(c); });
+      b.addEventListener("contextmenu", function(e){ e.preventDefault(); showInfo(c); });
+      var lp; b.addEventListener("touchstart", function(){ lp = setTimeout(function(){ lp = "done"; showInfo(c); }, 480); }, {passive:true});
+      b.addEventListener("touchend", function(e){ if (lp === "done"){ e.preventDefault(); } clearTimeout(lp); lp = null; });
+      return b;
     }
+
+    // ---- browse: filter + sort + page ----
+    function num(v){ return v === "" || v == null ? null : +v; }
+    function setCount(o){ return Object.keys(o).filter(function(k){ return o[k]; }).length; }
+    function inSet(o, v){ return !setCount(o) || !!o[v]; }
+    function results(){
+      var s = norm(q.value.trim()), lvMin = num(flt.lvMin), lvMax = num(flt.lvMax), aMin = num(flt.atkMin), aMax = num(flt.atkMax), dMin = num(flt.defMin), dMax = num(flt.defMax);
+      var out = POOL_ALL.filter(function(c){
+        if (!flt.all && !c.md) return false;
+        var k = kind(c);
+        if (!inSet(flt.kind, k)) return false;
+        if (setCount(flt.mtype)){ if (k !== "Monster") return false; var tl = c.tl || []; if (!Object.keys(flt.mtype).some(function(m){ return flt.mtype[m] && tl.indexOf(m) >= 0; })) return false; }
+        if (setCount(flt.attr) && !flt.attr[c.a]) return false;
+        if (setCount(flt.race) && !(k === "Monster" && flt.race[c.r])) return false;
+        if (setCount(flt.prop) && !(k !== "Monster" && flt.prop[c.r || "Normal"])) return false;
+        if (setCount(flt.rar) && !flt.rar[c.md]) return false;
+        if (setCount(flt.ban) && !flt.ban[c.b || "U"]) return false;
+        var lv = c.lk != null ? c.lk : c.lv;
+        if ((lvMin != null || lvMax != null) && (lv == null || (lvMin != null && lv < lvMin) || (lvMax != null && lv > lvMax))) return false;
+        if ((aMin != null || aMax != null) && (c.atk == null || (aMin != null && c.atk < aMin) || (aMax != null && c.atk > aMax))) return false;
+        if ((dMin != null || dMax != null) && (c.def == null || (dMin != null && c.def < dMin) || (dMax != null && c.def > dMax))) return false;
+        if (s){
+          var hit = norm(c.n).indexOf(s) >= 0 || (c.ar && norm(c.ar).indexOf(s) >= 0) || (flt.text && c.d && norm(c.d).indexOf(s) >= 0);
+          if (!hit) return false;
+        }
+        return true;
+      });
+      var BIG = 1e9;
+      function key(c){
+        switch (sortBy){
+          case "name": return c.n;
+          case "lv": return -(c.lk != null ? c.lk : c.lv != null ? c.lv : -1);
+          case "atk": return -(c.atk != null ? c.atk : -1);
+          case "def": return -(c.def != null ? c.def : -1);
+          case "rar": return c.md ? RAR_ORDER[c.md] : 9;
+          default: return c.p || BIG;
+        }
+      }
+      out.sort(function(a, b){
+        var ka = key(a), kb = key(b), r = ka < kb ? -1 : ka > kb ? 1 : 0;
+        if (!r){ var pa = a.p || BIG, pb = b.p || BIG; r = pa - pb || (a.n < b.n ? -1 : a.n > b.n ? 1 : 0); return r; }
+        return r * sortDir;
+      });
+      return out;
+    }
+    var lastRes = [];
+    function paintGrid(keepPage){
+      lastRes = results();
+      var pages = Math.max(1, Math.ceil(lastRes.length / PER));
+      if (page >= pages) page = pages - 1;
+      grid.innerHTML = "";
+      if (!lastRes.length) grid.appendChild(nodes("p", "hint bldnone", "No cards match. Try clearing a filter."));
+      lastRes.slice(page * PER, page * PER + PER).forEach(function(c){ grid.appendChild(tile(c)); });
+      pager.innerHTML = "";
+      function pbtn(label, to, cur){ var b = nodes("button", "pg" + (cur ? " cur" : ""), label); b.type = "button"; b.disabled = to < 0 || to >= pages || cur; b.addEventListener("click", function(){ page = to; paintGrid(); grid.scrollTop = 0; }); pager.appendChild(b); }
+      pbtn("«", 0); pbtn("‹", page - 1);
+      var from = Math.max(0, Math.min(page - 2, pages - 5)), to = Math.min(pages, from + 5);
+      for (var i = from; i < to; i++) pbtn(String(i + 1), i, i === page);
+      pbtn("›", page + 1); pbtn("»", pages - 1);
+      pager.appendChild(nodes("span", "pgcount", lastRes.length.toLocaleString() + " cards"));
+      pager.appendChild(nodes("span", "bldhint", "Click a card to add it \u00B7 right-click or hold for details"));
+    }
+
+    // ---- filter menu ----
+    function chipGroup(title, key, values, labels){
+      var g = nodes("div", "fgrp"); g.appendChild(nodes("div", "fhead", title));
+      var w = nodes("div", "fchips");
+      values.forEach(function(v, i){
+        var b = nodes("button", "fchip", labels ? labels[i] : v); b.type = "button";
+        b.setAttribute("aria-pressed", flt[key][v] ? "true" : "false");
+        b.addEventListener("click", function(){ flt[key][v] = !flt[key][v]; b.setAttribute("aria-pressed", flt[key][v] ? "true" : "false"); page = 0; paintGrid(); paintFbtn(); });
+        w.appendChild(b);
+      });
+      g.appendChild(w); return g;
+    }
+    function rangeGroup(title, kMin, kMax, step, max){
+      var g = nodes("div", "fgrp"); g.appendChild(nodes("div", "fhead", title));
+      var w = nodes("div", "frange");
+      [kMin, kMax].forEach(function(k, i){
+        var inp = document.createElement("input"); inp.type = "number"; inp.min = 0; inp.max = max; inp.step = step; inp.placeholder = i ? "max" : "min"; inp.value = flt[k];
+        inp.addEventListener("input", function(){ flt[k] = inp.value; page = 0; paintGrid(); paintFbtn(); });
+        w.appendChild(inp); if (!i) w.appendChild(nodes("span", null, "to"));
+      });
+      g.appendChild(w); return g;
+    }
+    function paintFilters(){
+      fpanel.innerHTML = "";
+      var top = nodes("div", "ftop");
+      var tx = nodes("label", "fcheck"); var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = flt.text;
+      cb.addEventListener("change", function(){ flt.text = cb.checked; page = 0; paintGrid(); }); tx.appendChild(cb); tx.appendChild(document.createTextNode(" Search card text too"));
+      var al = nodes("label", "fcheck"); var cb2 = document.createElement("input"); cb2.type = "checkbox"; cb2.checked = flt.all;
+      cb2.addEventListener("change", function(){ flt.all = cb2.checked; page = 0; paintGrid(); }); al.appendChild(cb2); al.appendChild(document.createTextNode(" Include cards not in Master Duel"));
+      var clr = nodes("button", "ghost fclear", "Clear filters"); clr.type = "button";
+      clr.addEventListener("click", function(){ flt = F0(); page = 0; paintFilters(); paintGrid(); paintFbtn(); });
+      top.appendChild(tx); top.appendChild(al); top.appendChild(clr); fpanel.appendChild(top);
+      fpanel.appendChild(chipGroup("Card type", "kind", ["Monster","Spell","Trap"]));
+      fpanel.appendChild(chipGroup("Monster type", "mtype", MTYPES));
+      fpanel.appendChild(chipGroup("Attribute", "attr", ATTRS));
+      fpanel.appendChild(chipGroup("Spell / Trap type", "prop", PROPS));
+      fpanel.appendChild(chipGroup("Rarity", "rar", ["UR","SR","R","N"]));
+      fpanel.appendChild(chipGroup("Forbidden / Limited", "ban", ["F","L","S","U"], ["Forbidden","Limited 1","Limited 2","Unlimited"]));
+      var rr = nodes("div", "frow");
+      rr.appendChild(rangeGroup("Level / Rank / Link", "lvMin", "lvMax", 1, 13));
+      rr.appendChild(rangeGroup("ATK", "atkMin", "atkMax", 100, 5000));
+      rr.appendChild(rangeGroup("DEF", "defMin", "defMax", 100, 5000));
+      fpanel.appendChild(rr);
+      fpanel.appendChild(chipGroup("Monster race", "race", RACES));
+    }
+    function paintFbtn(){
+      var n = ["kind","mtype","attr","race","prop","rar","ban"].reduce(function(a, k){ return a + setCount(flt[k]); }, 0) +
+        ["lvMin","lvMax","atkMin","atkMax","defMin","defMax"].filter(function(k){ return flt[k] !== ""; }).length;
+      fbtn.textContent = n ? "Filters (" + n + ")" : "Filters";
+      fbtn.classList.toggle("on", !!n);
+    }
+    grid.addEventListener("pointerdown", function(){ if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } }, true);
+    fbtn.addEventListener("click", function(){
+      var open = fpanel.hidden; fpanel.hidden = !open; fbtn.setAttribute("aria-expanded", open ? "true" : "false");
+      if (open && !fpanel.childNodes.length) paintFilters();
+    });
+    $(".bldsort").addEventListener("change", function(){ sortBy = this.value; sortDir = 1; page = 0; paintGrid(); });
+    $(".blddir").addEventListener("click", function(){ sortDir = -sortDir; this.classList.toggle("on", sortDir < 0); page = 0; paintGrid(); });
+    var st; q.addEventListener("input", function(){ clearTimeout(st); st = setTimeout(function(){ page = 0; paintGrid(); }, 150); });
+
+    // ---- deck side ----
     function paintStat(){
-      var m = deck.main.reduce(function(a, r){ return a + r.n; }, 0), x = deck.extra.reduce(function(a, r){ return a + r.n; }, 0), warn = [];
+      var m = deck.main.reduce(function(a, r){ return a + r.n; }, 0), x = deck.extra.reduce(function(a, r){ return a + r.n; }, 0), warn = [], rar = {UR:0, SR:0, R:0, N:0};
+      deck.main.concat(deck.extra).forEach(function(r){ var c = CARD_BY_ID[r.id]; if (c && c.md) rar[c.md] += r.n; });
       if (m < 40) warn.push("Main Deck needs " + (40 - m) + " more (40–60)");
       if (m > 60) warn.push("Main Deck is " + (m - 60) + " over 60");
       if (x > 15) warn.push("Extra Deck is " + (x - 15) + " over 15");
       deck.main.concat(deck.extra).forEach(function(r){
         var c = CARD_BY_ID[r.id]; if (!c) return;
         if (r.n > banMax(c)) warn.push(c.b === "F" ? c.n + " is Forbidden" : c.n + " over its limit (" + banMax(c) + ")");
+        if (!c.md) warn.push(c.n + " isn't in Master Duel");
       });
       stat.innerHTML = "";
       stat.appendChild(nodes("span", "bldct" + (m >= 40 && m <= 60 ? " ok" : ""), "Main " + m));
       stat.appendChild(nodes("span", "bldct" + (x <= 15 ? " ok" : ""), "Extra " + x));
+      ["UR","SR","R","N"].forEach(function(r){ if (rar[r]) stat.appendChild(nodes("span", "bldrar r-" + r, rar[r] + " " + r)); });
       if (warn.length) stat.appendChild(nodes("span", "bldwarn", warn.join(" · ")));
       else stat.appendChild(nodes("span", "bldgood", "Legal for Master Duel"));
-    }
-    function row(arr, r){
-      var c = CARD_BY_ID[r.id]; if (!c) return null;
-      var el = nodes("div", "bldrow");
-      var minus = nodes("button", "mini", "−"); minus.type = "button"; minus.title = "Remove one";
-      minus.addEventListener("click", function(){ bump(arr, r.id, -1); });
-      var plus = nodes("button", "mini", "+"); plus.type = "button"; plus.title = "Add one";
-      plus.addEventListener("click", function(){ bump(arr, r.id, 1); });
-      var nm = nodes("span", "bldnm" + (r.n > banMax(c) ? " over" : "")); nm.appendChild(nodes("b", null, r.n + "× ")); nm.appendChild(document.createTextNode(c.n));
-      var bbd = banBadge(c); if (bbd) nm.appendChild(bbd);
-      nm.title = c.n + "\n" + typeTag(c) + "\n\n" + (c.d || "");
-      el.appendChild(minus); el.appendChild(nm); el.appendChild(plus);
-      return el;
+      var dv = root.querySelector('.bldviews [data-v="deck"]'); if (dv) dv.textContent = "Your deck (" + (m + x) + ")";
     }
     function paintDeckList(){
       list.innerHTML = "";
-      [["Monsters", deck.main, "Monster"], ["Spells", deck.main, "Spell"], ["Traps", deck.main, "Trap"], ["Extra Deck", deck.extra, null]].forEach(function(g){
-        var rows = g[1].filter(function(r){ var c = CARD_BY_ID[r.id]; return c && (!g[2] || kind(c) === g[2]); });
-        var tot = rows.reduce(function(a, r){ return a + r.n; }, 0);
+      function order(a, b){
+        var ca = CARD_BY_ID[a.id], cb = CARD_BY_ID[b.id], ka = {Monster:0, Spell:1, Trap:2}[kind(ca)], kb = {Monster:0, Spell:1, Trap:2}[kind(cb)];
+        return ka - kb || (ca.n < cb.n ? -1 : 1);
+      }
+      [["Main Deck", deck.main], ["Extra Deck", deck.extra]].forEach(function(g){
+        var tot = g[1].reduce(function(a, r){ return a + r.n; }, 0);
         var h = nodes("div", "bldgrp"); h.appendChild(nodes("span", null, g[0])); h.appendChild(nodes("span", "t", String(tot)));
         list.appendChild(h);
-        if (!rows.length){ list.appendChild(nodes("p", "hint bldempty", g[0] === "Extra Deck" ? "Fusion, Synchro, Xyz and Link monsters go here automatically." : "None yet.")); return; }
-        rows.forEach(function(r){ var e = row(g[1], r); if (e) list.appendChild(e); });
+        if (!g[1].length){ list.appendChild(nodes("p", "hint bldempty", g[0] === "Extra Deck" ? "Fusion, Synchro, Xyz and Link monsters land here automatically." : "Click cards on the left to add them.")); return; }
+        var w = nodes("div", "bldgrid deckgrid");
+        g[1].slice().sort(order).forEach(function(r){
+          var c = CARD_BY_ID[r.id]; if (!c) return;
+          var cell = nodes("div", "dcell" + (r.n > banMax(c) || !c.md ? " over" : ""));
+          cell.appendChild(tile(c, {deck:true, n:r.n}));
+          var ctl = nodes("div", "dctl");
+          var mi = nodes("button", "mini", "−"); mi.type = "button"; mi.title = "Remove one"; mi.addEventListener("click", function(){ sub(c); });
+          var pl = nodes("button", "mini", "+"); pl.type = "button"; pl.title = "Add one"; pl.addEventListener("click", function(){ add(c); });
+          ctl.appendChild(mi); ctl.appendChild(pl); cell.appendChild(ctl);
+          w.appendChild(cell);
+        });
+        list.appendChild(w);
       });
       paintStat();
     }
-    function search(s){
-      s = norm(s.trim()); if (s.length < 2) return [];
-      var starts = [], has = [];
-      for (var i = 0; i < CARDDB.cards.length && starts.length < 40; i++){
-        var c = CARDDB.cards[i]; if (!MDC.playable(c)) continue;
-        var n2 = norm(c.n);
-        if (n2.indexOf(s) === 0) starts.push(c); else if (has.length < 40 && n2.indexOf(s) > 0) has.push(c);
-      }
-      return starts.concat(has).slice(0, 40);
+
+    // ---- card details ----
+    function showInfo(c){
+      info._card = c; info.hidden = false; info.innerHTML = "";
+      var box = nodes("div", "bibox");
+      var x = nodes("button", "bix", "✕"); x.type = "button"; x.title = "Close"; x.addEventListener("click", function(){ info.hidden = true; });
+      var img = document.createElement("img"); img.alt = c.n; img.src = ART + c.id + ".avif"; img.onerror = function(){ img.remove(); };
+      var body = nodes("div", "bibody");
+      body.appendChild(nodes("h3", null, c.n));
+      var meta = [];
+      if (isMon(c)) meta.push((c.tl || [c.r]).join(" / "));
+      else meta.push((c.r && c.r !== "Normal" ? c.r + " " : "") + kind(c));
+      if (c.a) meta.push(c.a);
+      if (c.lk != null) meta.push("Link-" + c.lk); else if (c.lv != null) meta.push((/Xyz/.test((c.tl || []).join()) ? "Rank " : "Level ") + c.lv);
+      if (c.atk != null) meta.push("ATK " + c.atk + (c.lk == null && c.def != null ? " / DEF " + c.def : ""));
+      body.appendChild(nodes("p", "bimeta", meta.join(" · ")));
+      var pills = nodes("div", "bipills");
+      if (c.md) pills.appendChild(nodes("span", "pill rar r-" + c.md, c.md)); else pills.appendChild(nodes("span", "pill", "Not in Master Duel"));
+      if (c.b) pills.appendChild(nodes("span", "pill banpill ban-" + c.b, BAN_NAME[c.b] + (c.b === "F" ? "" : " (" + BAN_MAX[c.b] + ")")));
+      if (c.ar) pills.appendChild(nodes("span", "pill", c.ar));
+      body.appendChild(pills);
+      (c.d || "").split("\n").filter(Boolean).forEach(function(p){ body.appendChild(nodes("p", "bitext", p)); });
+      var acts = nodes("div", "biacts"), have = copies(c.id);
+      var rm = nodes("button", "ghost", "Remove one"); rm.type = "button"; rm.disabled = !have; rm.addEventListener("click", function(){ sub(c); });
+      var ad = nodes("button", "primary", have ? "Add another (" + have + " in deck)" : "Add to deck"); ad.type = "button"; ad.disabled = have >= banMax(c);
+      ad.addEventListener("click", function(){ add(c); });
+      acts.appendChild(rm); acts.appendChild(ad); body.appendChild(acts);
+      box.appendChild(x); box.appendChild(img); box.appendChild(body); info.appendChild(box);
     }
-    function paintResults(){
-      res.innerHTML = "";
-      var hits = search(q.value);
-      if (!q.value.trim()){ res.appendChild(nodes("p", "hint", "Type a card name. Tap a result to add a copy; tap again for more (3 max).")); return; }
-      if (!hits.length){ res.appendChild(nodes("p", "hint", q.value.trim().length < 2 ? "Keep typing…" : "No cards match that.")); return; }
-      hits.forEach(function(c){
-        var b = nodes("button", "bldhit"); b.type = "button";
-        var have = copies(c.id);
-        var hn = nodes("span", "bldhn", c.n); var hb = banBadge(c); if (hb) hn.appendChild(hb);
-        if (c.b === "F") b.classList.add("forb");
-        b.appendChild(hn);
-        b.appendChild(nodes("span", "bldht", typeTag(c) + (c.md ? " · " + c.md : "")));
-        if (have) b.appendChild(nodes("span", "bldhave", have + "×"));
-        b.title = c.d || "";
-        b.addEventListener("click", function(){ add(c); });
-        res.appendChild(b);
+    info.addEventListener("click", function(e){ if (e.target === info) info.hidden = true; });
+
+    // ---- top bar ----
+    root.querySelectorAll(".bldviews button").forEach(function(b){
+      b.addEventListener("click", function(){
+        view = b.dataset.v; root.dataset.view = view;
+        root.querySelectorAll(".bldviews button").forEach(function(o){ o.setAttribute("aria-selected", o === b ? "true" : "false"); });
       });
-    }
-    var st; q.addEventListener("input", function(){ clearTimeout(st); st = setTimeout(paintResults, 120); });
-    root.querySelector(".bldimp").addEventListener("click", function(){
+    });
+    root.dataset.view = "browse";
+    $(".bldimp").addEventListener("click", function(){
       MDC.pickFile(function(text, name){
         var r = MDC.fromYdk(text, name, CARDDB);
         if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
         deck.main = r.deck.main; deck.extra = r.deck.extra; if (!deck.name){ deck.name = r.deck.name; nameIn.value = deck.name; }
-        dirty = true; paintDeckList(); paintResults();
+        changed();
         toast("Imported" + (r.unknown ? " (" + r.unknown + " unknown card" + (r.unknown > 1 ? "s" : "") + " skipped)" : ""), 2400);
       });
     });
-    function close(){ root.remove(); document.documentElement.classList.remove("building"); }
-    var cancel = root.querySelector(".bldcancel");
+    $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
+    function close(){ root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey); }
+    function onKey(e){ if (e.key === "Escape"){ if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
+    document.addEventListener("keydown", onKey);
+    var cancel = $(".bldcancel");
     cancel.addEventListener("click", function(){
       if (dirty && !cancel.dataset.armed){ cancel.dataset.armed = "1"; cancel.textContent = "Discard changes?"; setTimeout(function(){ delete cancel.dataset.armed; cancel.textContent = "Close"; }, 3000); return; }
       close();
     });
-    root.querySelector(".bldsave").addEventListener("click", function(){
+    $(".bldsave").addEventListener("click", function(){
       deck.name = (nameIn.value || "").trim() || "Untitled deck";
       if (!deck.main.length){ toast("Add some cards first"); return; }
       if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
@@ -3343,7 +3600,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (deck.id === PILOT_ID) location.reload();
       else MDC.setPilot(deck.id);          // switch to the deck you just built
     });
-    paintDeckList(); paintResults();
+    paintDeckList(); paintGrid(); paintFbtn();
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
   }
 
