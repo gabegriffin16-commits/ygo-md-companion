@@ -8,14 +8,14 @@ html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font:14px/1
 .bar b{font-weight:700;letter-spacing:.03em}
 .bar button{-webkit-app-region:no-drag}
 .wrap{height:calc(100% - 34px);overflow-y:auto;padding:14px 16px 18px}
-::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:rgba(224,184,94,.45);border-radius:9px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--gold) 45%,transparent);border-radius:9px}::-webkit-scrollbar-track{background:transparent}
 .hint{color:var(--muted);font-size:12.5px;margin:0 0 12px}
 .row{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
 .row:first-of-type{border-top:0}
 .lab{font-weight:600}.lab small{display:block;color:var(--muted);font-weight:400;font-size:12px}
 .key{min-width:150px;text-align:center;font:600 12.5px Consolas,monospace;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:6px 8px}
 .key.cap{border-color:var(--gold);color:var(--gold);animation:pulse 1s ease-in-out infinite}
-@keyframes pulse{50%{box-shadow:0 0 0 3px rgba(224,184,94,.25)}}
+@keyframes pulse{50%{box-shadow:0 0 0 3px color-mix(in srgb,var(--gold) 25%,transparent)}}
 button{background:var(--panel2);color:var(--ink);border:1px solid var(--line);border-radius:8px;padding:6px 10px;font:600 12.5px "Segoe UI",sans-serif;cursor:pointer}
 button:hover{border-color:var(--gold)}
 .x{background:none;border:0;font-size:16px;color:var(--muted);padding:4px 8px}
@@ -31,6 +31,12 @@ button:hover{border-color:var(--gold)}
   <div class="foot"><button id="reset">Reset to defaults</button><button id="done">Done</button></div>
 </div>
 <script>
+// Match the companion's current theme (and pick it up again whenever this window is focused).
+function applyTheme(){
+  if (!window.overlayApp || !overlayApp.theme) return;
+  overlayApp.theme().then(t => { if (!t) return; for (const k in t) document.documentElement.style.setProperty("--" + k, t[k]); }).catch(() => {});
+}
+applyTheme(); window.addEventListener("focus", applyTheme);
 const LABELS = {
   toggle:["Show / hide overlay",""], clickThrough:["Click-through lock","Clicks pass to the game"],
   opacityUp:["Opacity up",""], opacityDown:["Opacity down",""], compact:["Compact / full view",""],

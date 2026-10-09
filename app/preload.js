@@ -9,6 +9,7 @@ contextBridge.exposeInMainWorld("overlayApp", {
   resetHotkeys: () => ipcRenderer.invoke("hk:reset"),
   capturing: (on) => ipcRenderer.send("hk:capture", !!on),
   closeMe: () => ipcRenderer.send("hk:close"),
+  theme: () => ipcRenderer.invoke("hk:theme"),
   installUpdate: () => ipcRenderer.send("update:install"),
   checkUpdate: () => ipcRenderer.send("update:check"),
   version: () => ipcRenderer.invoke("app:version")

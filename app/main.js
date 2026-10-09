@@ -475,12 +475,14 @@ function snap(side) {
 
 // ---------- hotkey editor ----------
 let hkWin = null;
-function openHotkeys() {
+async function openHotkeys() {
   if (hkWin) { hkWin.show(); hkWin.focus(); return; }
+  const th = win ? await win.webContents.executeJavaScript(`getComputedStyle(document.documentElement).getPropertyValue("--bg").trim()`).catch(() => "") : "";
+  if (hkWin) return;
   const b = win ? win.getBounds() : { x: 100, y: 100, width: 540 };
   hkWin = new BrowserWindow({
     width: 520, height: 640, x: Math.max(0, b.x + Math.round((b.width - 520) / 2)), y: b.y + 40,
-    frame: false, resizable: false, alwaysOnTop: true, backgroundColor: "#1B1640", title: "Overlay Hotkeys", icon: path.join(__dirname, "icon.ico"),
+    frame: false, resizable: false, alwaysOnTop: true, backgroundColor: /^#[0-9a-f]{6}$/i.test(th) ? th : "#0A1630", title: "Overlay Hotkeys", icon: path.join(__dirname, "icon.ico"),
     webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, "preload.js") }
   });
   hkWin.setAlwaysOnTop(true, "screen-saver");
@@ -488,6 +490,13 @@ function openHotkeys() {
   hkWin.on("closed", () => { hkWin = null; registerHotkeys(); });
 }
 ipcMain.on("open-hotkeys", openHotkeys);
+// The hotkey editor borrows the page's current theme colors.
+ipcMain.handle("hk:theme", async () => {
+  if (!win) return null;
+  return win.webContents.executeJavaScript(`(() => { const c = getComputedStyle(document.documentElement), o = {};
+    ["bg","panel","panel2","ink","muted","gold","red","line"].forEach(k => { const v = c.getPropertyValue("--" + k).trim(); if (v) o[k] = v; });
+    return o; })()`).catch(() => null);
+});
 ipcMain.on("snap", (e, side) => snap(side === "left" ? "left" : "right"));
 ipcMain.on("layout", (e, mode) => setMode(mode));
 ipcMain.on("hk:close", () => { if (hkWin) hkWin.close(); });
