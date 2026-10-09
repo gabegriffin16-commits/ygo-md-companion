@@ -555,6 +555,61 @@ html.findopen #cardPane .cd-block{margin-top:10px}
 ::-webkit-scrollbar-thumb{background:color-mix(in srgb, var(--gold) 45%, transparent); border-radius:999px}
 ::-webkit-scrollbar-thumb:hover{background:var(--gold)}
 ::-webkit-scrollbar-corner, ::-webkit-scrollbar-button{display:none; background:transparent}
+
+/* ---- theme dropdown ---- */
+.thememenu{position:relative}
+.themebtn{display:flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--bg) 55%, transparent); color:var(--ink); border:1px solid var(--line); border-radius:999px; padding:3px 9px 3px 4px; font:600 .75rem var(--display); cursor:pointer; white-space:nowrap}
+.themebtn:hover, .themebtn[aria-expanded="true"]{border-color:var(--gold)}
+.themebtn .caret{color:var(--muted); font-size:.7rem}
+.tbub{display:inline-block; width:16px; height:16px; border-radius:50%; flex:none; border:1.5px solid var(--line); background:linear-gradient(135deg, var(--sw-bg) 0 50%, var(--sw-ac) 50% 100%)}
+.themepop{position:fixed; z-index:70; min-width:190px; padding:6px; border-radius:12px; background:var(--panel); border:1px solid var(--line); box-shadow:0 14px 34px rgba(0,0,0,.35)}
+.themepop[hidden]{display:none}
+.themeitem, .fadeitem{display:flex; align-items:center; gap:9px; width:100%; background:none; border:0; border-radius:8px; color:var(--ink); font:500 .86rem var(--body); padding:6px 8px; cursor:pointer; text-align:left}
+.themeitem:hover, .fadeitem:hover{background:var(--panel2)}
+.themeitem[aria-checked="true"]{font-weight:700}
+.themeitem[aria-checked="true"]::after{content:"\2713"; margin-left:auto; color:var(--gold)}
+.fadeitem{justify-content:space-between; margin-top:4px; border-top:1px solid var(--line); border-radius:0 0 8px 8px; padding-top:9px}
+.fadeitem .sw{position:relative; width:30px; height:17px; border-radius:999px; background:var(--line); flex:none; transition:background .15s}
+.fadeitem .sw::after{content:""; position:absolute; top:2px; left:2px; width:13px; height:13px; border-radius:50%; background:var(--ink); transition:transform .15s}
+.fadeitem[aria-checked="true"] .sw{background:var(--gold)}
+.fadeitem[aria-checked="true"] .sw::after{transform:translateX(13px); background:#1B1640}
+.hdrside{gap:5px}
+
+/* ---- fade background: still, quiet backdrop and solid, higher-contrast buttons ---- */
+html.fadebg .ambient{opacity:.12; animation:none}
+html.fadebg .top{animation:none}
+html.fadebg .side.left, html.fadebg .side.right{background:var(--panel) !important}
+html.fadebg .tog, html.fadebg .mini:not(.stopbtn), html.fadebg .chip, html.fadebg .ctool, html.fadebg .lpcol .mini, html.fadebg .themebtn{background:var(--panel2); color:var(--ink); border-color:color-mix(in srgb, var(--muted) 45%, var(--line))}
+html.fadebg .tog.rec, html.fadebg .tog.on{border-color:var(--gold)}
+html.fadebg .stopbtn{background:var(--panel2)}
+html.fadebg .lpcol, html.fadebg .dbox{border-color:color-mix(in srgb, var(--muted) 35%, var(--line))}
+
+/* ---- vertical compression: same look, less dead space ---- */
+main{padding-top:10px}
+.top{padding:10px 14px; margin-bottom:10px; border-radius:14px}
+.emblem{width:40px; height:45px}
+h1{font-size:1.3rem}
+.elements{margin-top:3px}
+h2{margin:14px 0 8px}
+.dbox{padding:9px 12px; margin-bottom:8px}
+.dbox > h3{margin-bottom:6px}
+.hint{margin-bottom:6px}
+.group-label{margin:8px 0 4px}
+.chip{padding:7px 10px; min-height:36px}
+.chips.one-line .chip{min-height:34px; padding:6px 8px}
+.tog{padding:5px 9px}
+.tog.big{padding:6px 10px}
+.tog.play{padding:6px 10px}
+.stoprow{margin-top:6px}
+.stepnav{margin:8px 0 4px}
+.stepper{margin-bottom:8px}
+.lpbar{padding:2px 0 6px; margin-bottom:2px}
+.loghead{margin-top:14px}
+.statusbox{padding:8px 12px}
+.actlog{padding:6px 12px}
+.pills{margin-bottom:4px}
+html.compact .top{padding:8px 10px}
+html.compact .emblem{width:30px; height:34px}
 </style>
 </head>
 <body>
@@ -576,7 +631,7 @@ html.findopen #cardPane .cd-block{margin-top:10px}
         <div class="elements" id="elementRow" aria-hidden="true"></div>
       </div>
     </div>
-    <div class="hdrside"><div class="swatches" id="swatches" role="group" aria-label="Color theme"></div><div class="ctools" role="group" aria-label="Compact tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log">Log</button><button type="button" class="ctool cnew" id="cNew" title="Start a new duel">New duel</button><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div></div>
+    <div class="hdrside"><div class="thememenu" id="themeMenu"><button type="button" class="themebtn" id="themeBtn" aria-haspopup="true" aria-expanded="false" title="Theme"><span class="tbub"></span><span class="tname"></span><span class="caret" aria-hidden="true">▾</span></button><div class="themepop" id="themePop" role="menu" aria-label="Theme" hidden></div></div><div class="ctools" role="group" aria-label="Compact tools"><button type="button" class="ctool" id="cDeck" title="Decklist">Deck</button><button type="button" class="ctool" id="cFind" title="Look up a card">Find</button><button type="button" class="ctool" id="cLog" title="Duel log">Log</button><button type="button" class="ctool cnew" id="cNew" title="Start a new duel">New duel</button><button type="button" class="ghost compactbtn" id="compactBtn">Compact</button></div></div>
   </header>
 
   <!-- HAND -->
@@ -892,23 +947,45 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   ];
   var theme = load("hbc-theme", null);
   if (theme) document.documentElement.setAttribute("data-theme", theme);
-  var swWrap = document.getElementById("swatches");
+  // Theme menu: a dropdown with each theme's name and color bubble, plus the background fade switch.
+  var themeBtn = document.getElementById("themeBtn"), themePop = document.getElementById("themePop");
+  var fadeBg = !!load("hbc-fade", false);
+  function curTheme(){ return document.documentElement.getAttribute("data-theme") ||
+    (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); }
+  function bubble(th){ var s = document.createElement("span"); s.className = "tbub"; s.style.setProperty("--sw-bg", th.bg); s.style.setProperty("--sw-ac", th.ac); return s; }
   function paintSwatches(){
-    var cur = document.documentElement.getAttribute("data-theme") ||
-      (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark");
-    swWrap.querySelectorAll(".swatch").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.theme === cur ? "true" : "false"); });
+    var cur = curTheme(), th = THEMES.filter(function(x){ return x.id === cur; })[0] || THEMES[0];
+    themeBtn.replaceChild(bubble(th), themeBtn.querySelector(".tbub"));
+    themeBtn.querySelector(".tname").textContent = th.name;
+    themePop.querySelectorAll(".themeitem").forEach(function(b){ b.setAttribute("aria-checked", b.dataset.theme === cur ? "true" : "false"); });
+    var fs = themePop.querySelector(".fadeitem"); if (fs) fs.setAttribute("aria-checked", fadeBg ? "true" : "false");
+    document.documentElement.classList.toggle("fadebg", fadeBg);
   }
+  function closeTheme(){ themePop.hidden = true; themeBtn.setAttribute("aria-expanded", "false"); }
   THEMES.forEach(function(th){
     var b = document.createElement("button");
-    b.type = "button"; b.className = "swatch"; b.dataset.theme = th.id;
-    b.title = th.name + " theme"; b.setAttribute("aria-label", th.name + " theme");
-    b.style.setProperty("--sw-bg", th.bg); b.style.setProperty("--sw-ac", th.ac);
+    b.type = "button"; b.className = "themeitem"; b.dataset.theme = th.id; b.setAttribute("role", "menuitemradio");
+    b.appendChild(bubble(th)); b.appendChild(document.createTextNode(th.name));
     b.addEventListener("click", function(){
       document.documentElement.setAttribute("data-theme", th.id);
-      save("hbc-theme", th.id); paintSwatches();
+      save("hbc-theme", th.id); paintSwatches(); closeTheme();
     });
-    swWrap.appendChild(b);
+    themePop.appendChild(b);
   });
+  var fadeItem = document.createElement("button");
+  fadeItem.type = "button"; fadeItem.className = "fadeitem"; fadeItem.setAttribute("role", "menuitemcheckbox");
+  fadeItem.innerHTML = '<span>Fade background</span><span class="sw" aria-hidden="true"></span>';
+  fadeItem.title = "Calms the moving background so buttons stand out";
+  fadeItem.addEventListener("click", function(){ fadeBg = !fadeBg; save("hbc-fade", fadeBg); paintSwatches(); });
+  themePop.appendChild(fadeItem);
+  themeBtn.addEventListener("click", function(e){
+    e.stopPropagation();
+    var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    if (open){ var r = themeBtn.getBoundingClientRect();   // fixed so the header can't clip it
+      themePop.style.top = (r.bottom + 6) + "px"; themePop.style.right = Math.max(6, window.innerWidth - r.right) + "px"; }
+  });
+  document.addEventListener("click", function(e){ if (!themePop.hidden && !e.target.closest("#themeMenu")) closeTheme(); });
+  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !themePop.hidden){ closeTheme(); themeBtn.focus(); } });
   paintSwatches();
 
   // ---------- compact (overlay-friendly) mode ----------
