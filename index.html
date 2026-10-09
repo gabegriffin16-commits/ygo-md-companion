@@ -1009,6 +1009,13 @@ header.top{border-bottom:0; box-shadow:inset 0 -1px 0 color-mix(in srgb, var(--g
 /* With theme, fade and the full/compact arrow up in the app bar, the banner is just the tabs (plus Deck/Find/Log in compact). */
 html.in-overlay header.top .hdrside{display:none}
 html.in-overlay header.top nav.tabs{flex-basis:100%}
+/* compact: the title would collide with the theme picker, so drop it; long theme names get clipped */
+html.compact #ovBar > span{display:none}
+html.compact #ovBar .thememenu.inbar .tname{max-width:72px; overflow:hidden; text-overflow:ellipsis}
+/* compact: Deck / Find / Log as one row of three pills under the banner */
+.ctools.below{display:none}
+html.compact .ctools.below{display:flex; gap:6px; margin:0 0 10px}
+html.compact .ctools.below .ctool{display:inline-flex; flex:1 1 0; justify-content:center; height:28px; font:600 .78rem var(--display)}
 </style>
 </head>
 <body>
@@ -1549,6 +1556,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !themePop.hidden){ closeTheme(); themeBtn.focus(); } });
   paintSwatches();
 
+  (function(){ var ct = document.querySelector("header.top .ctools"), hd = document.querySelector("header.top");
+    if (ct && hd){ ct.classList.add("below"); hd.after(ct); } })();
   // ---------- compact (overlay-friendly) mode ----------
   var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
   function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact";
