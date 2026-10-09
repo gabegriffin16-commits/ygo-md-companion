@@ -756,6 +756,12 @@ html.auto #stepNext, html.auto #stepBack, html.auto .lpin, html.auto .lpcol .min
 html.auto #chipArea, html.auto #clearHand, html.auto .drawchips, html.auto .manualtoggle, html.auto .manualonly{display:none !important}
 html.auto .stepnav{grid-template-columns:1fr}
 html.auto .lpcol{padding-right:12px}
+.manualtog.inbar{position:absolute; top:0; right:30px; height:16px; padding:0 2px; gap:4px; border:0; border-radius:0; background:none !important;
+  font:600 9px sans-serif; letter-spacing:.08em; text-transform:uppercase; color:inherit; opacity:.8; -webkit-app-region:no-drag}
+.manualtog.inbar:hover{opacity:1; color:var(--gold)}
+.manualtog.inbar .sw{width:18px; height:10px} .manualtog.inbar .sw::after{width:6px; height:6px; top:2px; left:2px}
+.manualtog.inbar[aria-checked="true"] .sw::after{transform:translateX(8px)}
+.manualtog.inbar[aria-checked="true"]{color:var(--gold); opacity:1}
 </style>
 </head>
 <body>
@@ -1138,6 +1144,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   window.autoOn = function(){ return document.documentElement.classList.contains("auto"); };
   manualItem.addEventListener("click", function(){ manualMode = !manualMode; save("hbc-manual", manualMode); paintAuto();
     if (typeof window.onAutoChange === "function") window.onAutoChange(); });
+  // In the desktop app, the switch lives in the thin app bar up top, next to the hotkeys cog.
+  (function dock(tries){
+    var bar = document.getElementById("ovBar");
+    if (bar){ manualItem.classList.add("inbar"); bar.appendChild(manualItem); return; }
+    if (tries < 40) setTimeout(function(){ dock(tries + 1); }, 250);
+  })(0);
   window.setHasReader = function(on){ document.documentElement.classList.toggle("has-reader", !!on); paintAuto(); };
   paintAuto();
   themeBtn.addEventListener("click", function(e){
