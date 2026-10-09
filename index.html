@@ -1024,7 +1024,6 @@ html.in-overlay header.top .hdrside{display:none}
 html.in-overlay header.top nav.tabs{flex-basis:100%}
 /* compact: the title would collide with the theme picker, so drop it; long theme names get clipped */
 html.compact #ovBar > span{display:none}
-html.compact #ovBar .thememenu.inbar .tname{max-width:72px; overflow:hidden; text-overflow:ellipsis}
 /* compact: Deck / Find / Log as one row of three pills under the banner */
 .ctools.below{display:none}
 html.compact .ctools.below{display:flex; gap:6px; margin:0 0 10px}
@@ -1208,7 +1207,7 @@ header.top .acctbtn svg{color:var(--gold)}
 #ovBar .acctbtn.inbar svg{width:11px; height:11px; flex:none}
 html.in-overlay #t-users{display:none !important}
 .acctmenu{z-index:10001}
-html.compact #ovBar #acctBtn span{max-width:56px}
+html.compact #ovBar #acctBtn span{max-width:80px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 html.compact #ovBar .ovgrp{gap:10px}
 /* website with accounts: tabs get their own row so all five fit */
 html.cloud:not(.in-overlay) header.top nav.tabs{flex-basis:100%; order:3}
@@ -1255,6 +1254,30 @@ html:not(.compact) #ovBar .themepop:not([hidden]){display:grid; grid-template-co
 #setPop .dmitem{font:500 .88rem var(--body)}
 /* hide the app until startCompanion has built and arranged it (the sign-in card, bar and loading note stay visible) */
 html.booting .layout, html.booting #themePop{visibility:hidden}
+/* ---- app bar v4: everything vertically centered; update banner covers the bar ---- */
+#ovBar{align-items:center}
+#ovBar .ovgrp, #ovBar #ovLeft{top:0; bottom:0; height:auto}
+#ovBar #ovLeft .ovb, #ovBar #ovRight > *{height:16px; display:inline-flex; align-items:center; line-height:1}
+#ovBar .ovic{display:inline-flex; align-items:center; justify-content:center; width:12px; height:12px}
+#ovBar .ovic svg, #ovBar #ovK svg, #ovBar .acctbtn svg{display:block}
+#ovBar #ovRight #ovK{width:20px; justify-content:center; padding:0}
+#ovBar .ovlab, #ovBar .acctbtn.inbar span, #ovBar .thememenu.inbar .tname{line-height:16px; display:inline-block; height:16px}
+#ovBar .thememenu.inbar .themebtn{display:inline-flex; align-items:center; height:16px}
+#ovBar .thememenu.inbar .tbub{display:block}
+#ovBar .thememenu.inbar .caret{display:inline-flex; align-items:center; height:16px; margin-left:1px}
+#ovBar .thememenu.inbar .caret svg{display:block}
+html.compact #ovBar .thememenu.inbar .tname{max-width:none}
+#ovBar .ovb.ovup{position:absolute; inset:0; left:0 !important; transform:none !important; width:100%; height:100%; top:0; border-radius:0; padding:0 64px; z-index:5;
+  display:flex; align-items:center; justify-content:center; gap:8px; font:700 9px/16px sans-serif; letter-spacing:.08em; -webkit-app-region:no-drag}
+#ovBar .ovb.ovup:hover{filter:brightness(1.06)}
+#ovBar .ovlater{position:absolute; right:8px; top:0; height:100%; display:flex; align-items:center; padding:0 6px; font:600 9px/16px sans-serif; letter-spacing:.08em; opacity:.7; cursor:pointer}
+#ovBar .ovlater:hover{opacity:1; text-decoration:underline}
+#ovBar.has-update > span{visibility:hidden}
+/* optical nudges, measured: each mark's ink centered on the bar to within a quarter pixel */
+#ovBar .thememenu.inbar .tbub{transform:translateY(.75px)}
+#ovBar .thememenu.inbar .caret svg{transform:translateY(-.4px)}
+#ovBar #ovUsers svg{transform:translateY(-.5px)}
+#ovBar #acctBtn svg{transform:translateY(-.6px)}
 </style>
 </head>
 <body>
@@ -1946,6 +1969,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     acctEl.onclick = function(){ if (window.showSignIn) window.showSignIn(); };
     var hs2 = document.querySelector("header.top .hdrside"); if (hs2) hs2.insertBefore(acctEl, hs2.firstChild);
   }
+  // Top-bar icons, all drawn on the same 24px grid so they line up and sit centered.
+  var SVG0 = '<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  var BAR_ICON = {
+    ovL: SVG0 + '<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="3" y="4" width="8" height="16" rx="2.5" fill="currentColor" stroke="none"/></svg>',
+    ovR: SVG0 + '<rect x="3" y="4" width="18" height="16" rx="2.5"/><rect x="13" y="4" width="8" height="16" rx="2.5" fill="currentColor" stroke="none"/></svg>',
+    ovF: SVG0 + '<path d="M14 4h6v6M20 4l-6.5 6.5M10 20H4v-6M4 20l6.5-6.5"/></svg>',
+    ovFin: SVG0 + '<path d="M20 4l-6.5 6.5M13.5 5v5.5H19M4 20l6.5-6.5M10.5 19v-5.5H5"/></svg>',
+    ovRe: SVG0 + '<path d="M20 12a8 8 0 1 1-2.6-5.9"/><path d="M20 4.5v5h-5"/></svg>',
+    ovK: SVG0 + '<circle cx="12" cy="12" r="3"/><path d="M12 2.8v2.4M12 18.8v2.4M2.8 12h2.4M18.8 12h2.4M5.5 5.5l1.7 1.7M16.8 16.8l1.7 1.7M5.5 18.5l1.7-1.7M16.8 7.2l1.7-1.7"/><circle cx="12" cy="12" r="6.6"/></svg>',
+    caret: '<svg viewBox="0 0 10 6" width="8" height="5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 1l4 4 4-4"/></svg>'
+  };
   (function dock(tries){
     var bar = document.getElementById("ovBar");
     if (bar){
@@ -1959,11 +1993,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var LABELS = {ovL:"Left", ovR:"Right", ovF:"Expand", ovRe:"Reload"};
       ["ovL", "ovR", "ovF", "ovRe"].forEach(function(id){
         var el = document.getElementById(id); if (!el) return;
-        if (!el.querySelector(".ovlab")){ var ic = nodes("span", "ovic", el.textContent); el.textContent = ""; el.appendChild(ic); el.appendChild(nodes("span", "ovlab", LABELS[id])); }
+        if (!el.querySelector(".ovlab")){ el.textContent = ""; var ic = nodes("span", "ovic"); ic.innerHTML = BAR_ICON[id]; el.appendChild(ic); el.appendChild(nodes("span", "ovlab", LABELS[id])); }
         left.appendChild(el);
       });
       var tm = document.getElementById("themeMenu"); tm.classList.add("inbar"); left.appendChild(tm);
-      var paintExpand = function(){ var f = document.getElementById("ovF"); if (f){ var l = f.querySelector(".ovlab"); if (l) l.textContent = document.documentElement.classList.contains("compact") ? "Expand" : "Compact"; } };
+      var paintExpand = function(){ var f = document.getElementById("ovF"); if (!f) return; var c = document.documentElement.classList.contains("compact");
+        var l = f.querySelector(".ovlab"); if (l) l.textContent = c ? "Expand" : "Compact";
+        var ic = f.querySelector(".ovic"); if (ic && ic.dataset.m !== String(c)){ ic.dataset.m = String(c); ic.innerHTML = c ? BAR_ICON.ovF : BAR_ICON.ovFin; } };
       paintExpand(); new MutationObserver(paintExpand).observe(document.documentElement, {attributes:true, attributeFilter:["class"]});
 
       // Right: Users, your account, settings.
@@ -1986,7 +2022,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       if (acctEl){ acctEl.classList.add("inbar"); grp.appendChild(acctEl); }
       var cog = document.getElementById("ovK");
-      if (cog){ cog.onclick = null; cog.title = "Settings"; cog.setAttribute("aria-haspopup", "true"); grp.appendChild(cog); setupSettings(cog, bar); }
+      if (cog){ cog.onclick = null; cog.title = "Settings"; cog.setAttribute("aria-label", "Settings"); cog.setAttribute("aria-haspopup", "true"); cog.innerHTML = BAR_ICON.ovK; grp.appendChild(cog); setupSettings(cog, bar); }
+      var tc = document.querySelector("#themeBtn .caret"); if (tc) tc.innerHTML = BAR_ICON.caret;
       paintUpdate();
       return;
     }
@@ -1994,7 +2031,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   })(0);
   // Keep the update button centered on the bar, unless that would run into the buttons on either side:
   // then center it in the free space between them, and shorten its text if it still doesn't fit.
-  function placeUp(){
+  function placeUp(){ return;
     var b = document.getElementById("ovUp"), bar = document.getElementById("ovBar"); if (!b || !bar) return;
     var full = b.dataset.full || b.textContent; b.textContent = full;
     b.style.left = "50%"; b.style.transform = "translateX(-50%)";
@@ -2008,13 +2045,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   window.addEventListener("resize", function(){ requestAnimationFrame(placeUp); });
   if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["ovLeft", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
   // Update button in the app bar (shows only when GitHub has a newer version of the app).
-  var upState = null;
+  var upState = null, upHidden = false;
   function paintUpdate(){
     var bar = document.getElementById("ovBar"); if (!bar) return;
     var b = document.getElementById("ovUp");
-    if (!upState || upState.state === "current"){ if (b) b.remove(); return; }
+    if (!upState || upState.state === "current" || (upHidden && upState.state === "available")){ if (b) b.remove(); bar.classList.remove("has-update"); return; }
     if (!b){
       b = document.createElement("button"); b.type = "button"; b.className = "ovb ovup"; b.id = "ovUp";
+      var later = document.createElement("span"); later.className = "ovlater"; later.textContent = "Later"; later.title = "Hide until next launch";
+      later.addEventListener("click", function(e){ e.stopPropagation(); upHidden = true; paintUpdate(); });
       b.addEventListener("click", function(){ if (upState && (upState.state === "available" || upState.state === "error") && window.overlayApp && overlayApp.installUpdate) overlayApp.installUpdate(); });
       bar.appendChild(b);
     }
@@ -2022,7 +2061,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.textContent = st === "downloading" ? "Updating " + (upState.pct || 0) + "%" : st === "restarting" ? "Restarting\u2026" : st === "error" ? "Update failed: retry" : "Update to v" + upState.version;
     b.title = st === "error" ? (upState.note || "") : st === "available" ? ("Version " + upState.version + " is ready. Click to download it and restart." + (upState.notes ? "\n\n" + upState.notes : "")) : "";
     b.disabled = st === "downloading" || st === "restarting";
-    b.dataset.full = b.textContent; placeUp();
+    b.dataset.full = b.textContent;
+    if (st === "available" || st === "error") b.appendChild(later);
+    bar.classList.add("has-update");
   }
   window.addEventListener("overlay-update", function(e){
     var d = e.detail || {};
