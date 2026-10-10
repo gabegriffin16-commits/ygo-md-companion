@@ -23,6 +23,13 @@ def wait(i):
         if o.get("id") == i and (o.get("done") or o.get("error") or o.get("ready")): return o
 send({"id": 1, "cmd": "init", "cdb": cdb, "scripts": scripts}); print(wait(1))
 deck = list(MAIN)
+GHA = bool(os.environ.get("GITHUB_ACTIONS"))   # on GitHub, also post results as annotations (readable without logging in)
+send({"id": 3, "cmd": "eval", "cards": sorted(set(MAIN + EXTRA))})
+while True:
+    o = json.loads(p.stdout.readline())
+    if o.get("id") == 3: break
+rv = ["%s (from %s, tag %r, max Lv %s)" % (v["name"], v["revive"]["from"], v["revive"]["tag"], v["revive"]["maxLevel"]) for v in o.get("eval", {}).values() if v.get("revive")]
+print("REVIVERS", "; ".join(rv) or "none")
 t = time.time()
 send({"id": 2, "cmd": "search", "deck": deck, "extra": EXTRA, "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads,
       "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {})})
@@ -35,4 +42,10 @@ for b in r["boards"]:
     for i, s in enumerate(b["steps"], 1):
         g = "; ".join("%s:%s" % (h, ", ".join(n(c) for c in cs)) for h, cs in s.get("groups", []))
         print("  %2d. %s %s %s %s" % (i, s["do"], n(s["card"]), ("| " + s["effect"][:50]) if s["effect"] else "", ("[" + g + "]") if g else ""))
+if GHA:
+    for k, b in enumerate(r["boards"][:2]):
+        z = b.get("zones") or []
+        field = ", ".join(n(c) + (" [center]" if i < len(z) and z[i] == 2 else "") for i, c in enumerate(b["field"]))
+        print("::notice title=%s #%d::SCORE %.2f | FIELD: %s | BACKROW: %s | HAND: %s | %d steps | revivers: %s" % (" + ".join(n(c) for c in hand), k + 1, b["score"], field,
+              ", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"]), len(b["steps"]), len(rv)))
 send({"cmd": "quit"})

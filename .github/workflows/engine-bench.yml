@@ -28,6 +28,8 @@ jobs:
           - { name: "Stratos + Faris, goals, app default (20s)", hand: "40044918,18094166", targets: "22908820,60461804,30757127,90579153", secs: "20", acts: "16" }
           - { name: "Stratos + Faris, aim Sunrise and DPE", hand: "40044918,18094166", targets: "22908820,60461804" }
           - { name: "Stratos + Faris, app default (20s)", hand: "40044918,18094166", secs: "20", acts: "16" }
+          - { name: "Elfnote Lucina", hand: "13597785", deck: "combo-engine/bench/elfnote.json" }
+          - { name: "Elfnote Lucina, app default (20s)", hand: "13597785", deck: "combo-engine/bench/elfnote.json", secs: "20", acts: "16" }
     name: ${{ matrix.name }}
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +54,7 @@ jobs:
           echo "cores: $(nproc)"
       - name: Search
         env:
-          DECK_JSON: combo-engine/bench/omni.json   # the Omni HERO list from deck.json
+          DECK_JSON: ${{ matrix.deck || 'combo-engine/bench/omni.json' }}   # default: the Omni HERO list from deck.json
         run: |
           SECS="${{ matrix.secs || inputs.seconds }}"; ACTS="${{ matrix.acts || inputs.maxActions }}"
           [ -z "$SECS" ] && SECS=$(python3 -c "import json;print(json.load(open('combo-engine/bench/run.json'))['seconds'])")
