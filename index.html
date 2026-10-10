@@ -86,6 +86,7 @@ section[hidden]{display:none}
 .chips.one-line .chip{flex:1 0 auto; padding:8px 9px; font-size:.84rem; min-height:40px}
 .chip .n{display:none; position:absolute; top:-8px; right:-8px; background:var(--gold); color:#1B1640; font:700 .75rem var(--display); border-radius:999px; min-width:22px; height:22px; align-items:center; justify-content:center; padding:0 6px}
 .chip[data-n]:not([data-n="0"]) .n{display:flex}
+#chipArea .chip{padding-right:18px}   /* room for the count badge so it doesn't sit on the name */
 .actions{display:flex; gap:8px; margin:14px 0}
 .ghost{background:none; border:1px solid var(--line); color:var(--muted); border-radius:10px; padding:8px 14px; font:600 .9rem var(--display); cursor:pointer}
 
@@ -325,6 +326,8 @@ body{
 @media (prefers-reduced-motion: reduce){ body, .side.left, .side.right{animation:none} }
 /* ---- duel flow ---- */
 .lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px; background:none}
+.lpin.bad{border-color:var(--red) !important; color:var(--red)}
+.lpbar.stuck{background:color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
 
 .lpcol{display:flex; align-items:center; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px}
 .lpcol .lab{font:600 .72rem var(--display); color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
@@ -383,7 +386,7 @@ html.compact .lpcol{padding-left:8px}
 .loghead{display:flex; align-items:center; justify-content:space-between; margin-top:22px}
 .loghead h2{margin:0}
 .duellog{list-style:none; padding:0; margin:10px 0 0}
-.duellog li{background:var(--panel); border-left:4px solid var(--sky); border-radius:4px 12px 12px 4px; padding:10px 14px; margin-bottom:10px}
+.duellog li{overflow-wrap:anywhere; background:var(--panel); border-left:4px solid var(--sky); border-radius:4px 12px 12px 4px; padding:10px 14px; margin-bottom:10px}
 .duellog li.empty{border-left-color:var(--line); color:var(--muted)}
 .duellog .lt{font:700 .95rem var(--display); margin-bottom:4px}
 .chip[aria-pressed="true"]{border-color:var(--gold); background:var(--panel2)}
@@ -764,7 +767,7 @@ html.has-reader .manualtog{display:inline-flex}
 .autonote{display:none}
 html.auto .autonote{display:block}
 html.auto #stepNext, html.auto #stepBack, html.auto .lpin, html.auto .lpcol .mini, html.auto .dbox .seg,
-html.auto #chipArea, html.auto #clearHand, html.auto .drawchips, html.auto .manualtoggle, html.auto .manualonly{display:none !important}
+html.auto #chipArea, html.auto .actions:has(#clearHand), html.auto #openHint, html.auto .drawchips, html.auto .manualtoggle, html.auto .manualonly{display:none !important}
 html.auto .stepnav{display:none}
 html.auto .lpcol{padding-right:12px}
 .manualtog.inbar{position:static; height:16px; padding:0 2px; gap:4px; border:0; border-radius:0; background:none !important;
@@ -2718,7 +2721,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   document.getElementById("foldAll").addEventListener("click", function(){
     var cards = document.querySelectorAll("#tab-lines .plan"), anyOpen = [].some.call(cards, function(c){ return !c.classList.contains("folded"); });
-    cards.forEach(function(c){ if (c.classList.contains("folded") === anyOpen) c.querySelector(".planbtn").click(); });
+    cards.forEach(function(c){ if (c.classList.contains("folded") !== anyOpen) c.querySelector(".planbtn").click(); });
     this.textContent = anyOpen ? "Expand all" : "Collapse all";
   });
   // static lines tab
@@ -3445,7 +3448,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (lastLP[k] !== undefined && lastLP[k] !== D.lp[k]) v.classList.add("flash");
       lastLP[k] = D.lp[k];
       col.appendChild(v);
-      function setLP(x){ D.lp[k] = Math.max(0, Math.round(x)); persist(); renderLP(); }
+      function setLP(x, refocus){
+        D.lp[k] = Math.min(99999, Math.max(0, Math.round(x))); persist(); renderLP();
+        if (refocus){ var again = bar.querySelectorAll(".lpin")[k === "me" ? 0 : 1]; if (again) again.focus(); }   // keep typing
+      }
       // One small box: 500 = take 500 damage, +500 = gain 500, =4000 = set it. Enter to apply.
       var inp = nodes("input", "lpin"); inp.type = "text"; inp.inputMode = "numeric"; inp.placeholder = "\u00B1"; inp.autocomplete = "off";
       inp.title = "Type 500 and press Enter for 500 damage, +500 to gain, =4000 to set";
@@ -3454,19 +3460,26 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         if (e.key === "Escape"){ inp.value = ""; inp.blur(); return; }
         if (e.key !== "Enter") return;
         var s = inp.value.replace(/[\s,]/g, ""), m = /^([+=-]?)(\d+)$/.exec(s);
-        if (!m){ inp.value = ""; return; }
+        if (!m){ inp.classList.add("bad"); setTimeout(function(){ inp.classList.remove("bad"); }, 900); return; }   // keep the text so it can be fixed
         var n = +m[2];
-        setLP(m[1] === "+" ? D.lp[k] + n : m[1] === "=" ? n : D.lp[k] - n);
+        setLP(m[1] === "+" ? D.lp[k] + n : m[1] === "=" ? n : D.lp[k] - n, true);
       });
       col.appendChild(inp);
-      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = k === "me" ? "Instant Contact cost or 1000 damage" : "1000 damage";
+      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = k === "me" && HEROMODE ? "Instant Contact cost or 1000 damage" : "1000 damage";
       b1.addEventListener("click", function(){ setLP(D.lp[k] - 1000); }); col.appendChild(b1);
       if (k === "me"){
-        var bh = nodes("button", "mini", "\u00BD"); bh.type = "button"; bh.title = "Halve your LP (A Hero Lives cost)";
+        var bh = nodes("button", "mini", "\u00BD"); bh.type = "button"; bh.title = HEROMODE ? "Halve your LP (A Hero Lives cost)" : "Halve your LP";
         bh.addEventListener("click", function(){ setLP(Math.floor(D.lp.me / 2)); }); col.appendChild(bh);
       }
       bar.appendChild(col);
     });
+    // While it sticks to the top over scrolled content, give it a backing so text underneath doesn't show through.
+    if (!bar._stick){
+      bar._stick = true;
+      var check = function(){ var prev = bar.previousElementSibling; if (!prev || !bar.offsetParent) return;
+        bar.classList.toggle("stuck", bar.getBoundingClientRect().top > prev.getBoundingClientRect().bottom + 2); };
+      document.addEventListener("scroll", check, true); window.addEventListener("resize", check);
+    }
   }
 
   function renderStepper(){
@@ -4001,7 +4014,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var fa = tl.querySelector(".foldall button");
     fa.addEventListener("click", function(){
       var cards = tl.querySelectorAll(".genplan"), anyOpen = [].some.call(cards, function(c){ return !c.classList.contains("folded"); });
-      cards.forEach(function(c){ if (c.classList.contains("folded") === anyOpen) c.querySelector(".planbtn").click(); });
+      cards.forEach(function(c){ if (c.classList.contains("folded") !== anyOpen) c.querySelector(".planbtn").click(); });
       fa.textContent = anyOpen ? "Expand all" : "Collapse all";
     });
     if (stale) tl.appendChild(nodes("p", "hint generr", "The deck changed since these lines were generated. Regenerate them in the builder's Analysis view."));
@@ -4751,7 +4764,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
     mb.addEventListener("click", function(){ D.showManual = !D.showManual; persist(); renderBody(); });
     mt.appendChild(mb);
-    if (D.showManual && !window.autoOn()){ renderHandBox(); renderStopBox(); renderOptBox(); renderLockBox(); }
+    // The stop / once-per-turn / lock boxes are built from the Omni HERO play rules; other decks only get the hand box.
+    if (D.showManual && !window.autoOn()){ renderHandBox(); if (HEROMODE){ renderStopBox(); renderOptBox(); renderLockBox(); } }
   }
 
   function reminders(){
@@ -4857,7 +4871,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   });
   document.getElementById("stepBack").addEventListener("click", function(){
     if (!hist.length) return;
-    D = JSON.parse(hist.pop()); persist(); renderDuel();
+    var was = D;
+    D = JSON.parse(hist.pop());
+    if (was.phase === "opening" && D.phase === "setup") D.hand = was.hand;   // keep the cards you already tapped in
+    persist(); renderDuel();
   });
   // New duel: tap once to arm, tap again within 3 seconds to confirm (no pop-up dialog over the game).
   function armNewDuel(btn, label){
