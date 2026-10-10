@@ -371,6 +371,22 @@ html.compact .lpcol{padding-left:8px}
 .primary{background:var(--gold); color:#1B1640; border:0; border-radius:10px; padding:10px 24px; font:700 .95rem var(--display); cursor:pointer}
 .ghost:disabled{opacity:.4; cursor:default}
 .primary:disabled{opacity:.45; cursor:default; filter:saturate(.6)}
+.nolines .nolgen{margin-top:10px}
+#deckPane .syncst{display:flex; align-items:center; gap:6px; margin-top:-2px}
+#deckPane .syncst::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--wind, #6CC39D); flex:none}
+#deckPane .syncst.local::before{background:var(--gold)}
+html.pilotnone #stepper, html.pilotnone #lpBar, html.pilotnone #vsTips, html.pilotnone #tab-hand .stepnav, html.pilotnone #tab-hand .loghead, html.pilotnone #duelLog{display:none !important}
+.nodeckbtns{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+.cpfilt{display:flex; flex-wrap:wrap; gap:6px; margin:0 0 8px}
+.cpfilt .cpf{cursor:pointer; font:600 .78rem var(--display); border:1px solid var(--line); border-radius:999px; padding:3px 11px; background:var(--bg); color:var(--muted)}
+.cpfilt .cpf.b{padding:3px 11px; font-size:.78rem}
+.cpfilt .cpf[aria-pressed="true"]{outline:2px solid var(--gold); outline-offset:1px; color:var(--ink)}
+.cpmore{margin-top:8px}
+.anacp > [hidden]{display:none !important}
+.bldnudge{display:flex; align-items:center; flex-wrap:wrap; gap:8px 10px; padding:8px 12px; border:1px solid color-mix(in srgb, var(--gold) 55%, var(--line)); border-radius:12px;
+  background:color-mix(in srgb, var(--gold) 12%, var(--panel)); font:500 .9rem var(--body); color:var(--ink)}
+.bldnudge span{flex:1 1 260px}
+.bldnudge .primary, .bldnudge .ghost{padding:6px 14px; font-size:.86rem}
 .dbox{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px}
 .dbox > h3{margin-bottom:8px; font-size:1rem}
 .dbox .seg{margin-bottom:8px}
@@ -493,7 +509,16 @@ body{background:var(--bg) !important; animation:none !important}
 .spill.used{color:var(--muted); text-decoration:line-through}
 .spill.lock{border-color:var(--red); color:var(--red)}
 .statusbox .lr{margin:2px 0; font-size:.88rem}
-.zcard{font:500 .85rem var(--body); color:var(--ink); background:var(--bg); border:1px dashed var(--line); border-radius:999px; padding:1px 9px; margin:1px 4px 1px 0; cursor:pointer}
+.zcard{font:500 .85rem var(--body); color:var(--ink); background:var(--bg); border:1px dashed var(--line); border-radius:999px; padding:1px 9px; margin:0; cursor:pointer}
+.zrow{display:flex; align-items:baseline; gap:8px; margin:4px 0}
+.zlab{flex:none; width:62px; font:600 .68rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.zchips{display:flex; flex-wrap:wrap; gap:4px; min-width:0}
+.zchip{font:500 .85rem var(--body); color:var(--ink); background:color-mix(in srgb, var(--panel2) 60%, transparent); border:1px solid var(--line); border-radius:999px; padding:1px 9px; white-space:nowrap}
+.zchip .adot{margin-right:6px; vertical-align:1px}
+.playgrp{display:flex; align-items:baseline; gap:8px; margin:2px 0 6px}
+.playgrp .tog.play{padding:5px 12px; min-height:0}
+.zset{margin-left:6px; font:600 .66rem var(--display); text-transform:uppercase; letter-spacing:.05em; color:var(--muted)}
+.zempty{color:var(--muted); font-size:.88rem}
 .zcard:hover, .zcard:focus-visible{border-color:var(--red); border-style:solid; color:var(--red)}
 .usedline{margin:6px 0 0; font-size:.8rem; color:var(--muted)}
 .pendbox, .trigbox{border-left:4px solid var(--gold)}
@@ -1044,10 +1069,18 @@ html.in-overlay header.top .hdrside{display:none}
 html.in-overlay header.top nav.tabs{flex-basis:100%}
 /* compact: the title would collide with the theme picker, so drop it; long theme names get clipped */
 html.compact #ovBar > span{display:none}
-/* compact: Deck / Find / Log as one row of three pills under the banner */
-.ctools.below{display:none}
-html.compact .ctools.below{display:flex; gap:6px; margin:0 0 10px}
-html.compact .ctools.below .ctool{display:inline-flex; flex:1 1 0; justify-content:center; height:28px; font:600 .78rem var(--display)}
+/* compact: Deck / Find / Log as icon buttons at the end of the tab row */
+.ctools.inrow{display:none}
+html.compact header.top .ctools.inrow{display:flex; order:4; flex:none; gap:2px; margin-left:6px; padding:3px; border-radius:999px;
+  background:color-mix(in srgb, var(--bg) 45%, transparent); border:1px solid color-mix(in srgb, var(--line) 80%, transparent)}
+html.compact header.top .ctools.inrow .ctool{display:grid; place-items:center; width:32px; height:24px; min-height:0; padding:0; border:0; border-radius:999px; background:none; color:var(--muted)}
+html.compact header.top .ctools.inrow .ctool svg{display:block}
+html.compact header.top .ctools.inrow .ctool:hover{color:var(--ink)}
+html.compact header.top .ctools.inrow .ctool[aria-pressed="true"]{color:#1B1640; background:var(--gold)}
+html.in-overlay.compact header.top nav.tabs{flex:1 1 0 !important}
+/* website (five tabs need the whole row): the icons sit on the left of the theme / fade / full row instead */
+html.compact:not(.in-overlay) header.top .ctools.inrow{order:1; margin-left:0}
+html.compact:not(.in-overlay) header.top .hdrside{margin-left:auto}
 /* ---- compact Deck / Find drawers: same card panel as full view, quieter chrome ---- */
 html.deckopen #deckPane, html.findopen #cardPane{top:24px; left:8px; right:8px; bottom:8px; border:1px solid var(--line); border-radius:16px; padding:18px 18px 20px;
   background:radial-gradient(120% 40% at 50% 0%, var(--panel2) 0%, var(--panel) 70%) !important; box-shadow:0 18px 44px rgba(0,0,0,.35)}
@@ -1879,14 +1912,36 @@ var MDC = (function(){
   var EXTRA_RE = /^(fusion|synchro|xyz|link)/;
   function isExtra(c){ return EXTRA_RE.test(c.f || ""); }
   function playable(c){ return c && c.f !== "token" && c.f !== "skill" && !/Token|Skill Card/.test(c.t || ""); }
+  // Short names for the duel views: "Destiny HERO - Malicious" -> "Malicious", and a prefix two or more cards in the
+  // deck share is dropped ("Elemental HERO Stratos" -> "Stratos"). Kept in full if the short name would be ambiguous.
+  function shortNames(names){
+    var out = {}, uniqNames = names.filter(function(n, i){ return names.indexOf(n) === i; });
+    uniqNames.forEach(function(n){
+      var cand = n, dash = n.lastIndexOf(" - ");
+      if (dash > 0) cand = n.slice(dash + 3);
+      else {
+        var w = n.split(" ");
+        for (var k = Math.min(2, w.length - 1); k >= 1; k--){
+          var pre = w.slice(0, k).join(" ") + " ";
+          if (uniqNames.filter(function(x){ return x.indexOf(pre) === 0; }).length >= 2){ cand = w.slice(k).join(" "); break; }
+        }
+      }
+      out[n] = cand.length >= 3 ? cand : n;
+    });
+    uniqNames.forEach(function(n){   // two cards ending up with the same short name keep their full names
+      if (uniqNames.some(function(x){ return x !== n && out[x] === out[n]; })) out[n] = n;
+    });
+    return out;
+  }
   // A built deck -> the same shape as deck.json, so the rest of the page doesn't care where it came from.
   function toDeckData(deck, CARDDB){
     var byId = {}; CARDDB.cards.forEach(function(c){ byId[c.id] = c; });
+    var SHORT = shortNames((deck.main || []).concat(deck.extra || []).map(function(r){ return byId[r.id] && byId[r.id].n; }).filter(Boolean));
     function rows(arr, zone){
       return arr.map(function(r){
         var c = byId[r.id]; if (!c) return null;
         var t = c.t || "";
-        return {id:"c" + c.id, name:c.n, n:r.n, short:c.n,
+        return {id:"c" + c.id, name:c.n, n:r.n, short:SHORT[c.n] || c.n,
           group:zone === "extra" ? undefined : /Monster/.test(t) ? "Monsters" : /Spell/.test(t) ? "Spells" : "Traps",
           notes:[]};
       }).filter(Boolean);
@@ -2660,8 +2715,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !themePop.hidden){ closeTheme(); themeBtn.focus(); } });
   paintSwatches();
 
-  (function(){ var ct = document.querySelector("header.top .ctools"), hd = document.querySelector("header.top");
-    if (ct && hd){ ct.classList.add("below"); hd.after(ct); } })();
+  // Compact: Deck / Find / Log are three icon buttons at the end of the tab row (saves a whole row of height).
+  (function(){ var ct = document.querySelector("header.top .ctools"), nav = document.querySelector("header.top nav.tabs");
+    if (!ct || !nav) return;
+    ct.classList.add("inrow"); nav.after(ct);
+    var ICON = {
+      cDeck:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="3.5" width="12" height="16" rx="2"/><path d="M4 7v11.5A2.5 2.5 0 0 0 6.5 21H15"/><path d="M10 8.5h5M10 12h5"/></svg>',
+      cFind:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg>',
+      cLog:'<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4h10a2 2 0 0 1 2 2v14l-3-2-3 2-3-2-3 2V6a2 2 0 0 1 2-2z"/><path d="M9 9h6M9 13h4"/></svg>'};
+    Object.keys(ICON).forEach(function(id){ var b = document.getElementById(id); if (!b) return;
+      var label = b.title || b.textContent; b.setAttribute("aria-label", label); b.innerHTML = ICON[id]; });
+  })();
   // ---------- compact (overlay-friendly) mode ----------
   var compact = load("hbc-compact", false) || /[?&]compact/.test(location.search);
   function paintCompact(){ document.documentElement.classList.toggle("compact", !!compact); document.getElementById("compactBtn").textContent = compact ? "Full" : "Compact";
@@ -3023,8 +3087,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var cp = nodes("div", "card anacp"), last = 0;
     var HEAD = {1:"Protect these: your starters", 2:"Also open to handtraps", 3:"Safe from Ash and Imperm"};
     rows.forEach(function(r){
-      if (r.g !== last){ cp.appendChild(nodes("h3", "cphead" + (r.g === 1 ? " pri1" : r.g === 3 ? " safe" : ""), HEAD[r.g])); last = r.g; }
-      var row = nodes("div", "cp");
+      if (r.g !== last){ var hh = nodes("h3", "cphead" + (r.g === 1 ? " pri1" : r.g === 3 ? " safe" : ""), HEAD[r.g]); hh.dataset.g = r.g; cp.appendChild(hh); last = r.g; }
+      var row = nodes("div", "cp"); row.dataset.g = r.g;
+      if (r.f.ash) row.dataset.ash = 1; if (r.f.imp) row.dataset.imp = 1; if (r.f.droll) row.dataset.droll = 1;
       var t = nodes("div"); var w = nodes("div", "what", r.x.c.n + (r.f.verbs.length ? " \u2014 " + r.f.verbs.join(", ") : ""));
       var fb = r.f.body.trim(); fb = fb.charAt(0).toUpperCase() + fb.slice(1);
       var y = nodes("div", "why", r.f.when + ". " + (fb.length > 140 ? fb.slice(0, 138) + "\u2026" : fb));
@@ -3039,7 +3104,34 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (opts.onCard){ row.classList.add("clk"); row.addEventListener("click", function(){ opts.onCard(r.x.c); }); }
       cp.appendChild(row);
     });
-    if (rows.length){ wrap.appendChild(nodes("h3", "anah", "Every checkpoint")); wrap.appendChild(cp); }
+    if (rows.length){
+      // Shorter by default: the first group (usually your starters) shows; the rest open with "Show all".
+      // Filter chips show only what one handtrap can stop.
+      wrap.appendChild(nodes("h3", "anah", "Checkpoints"));
+      var firstG = rows[0].g, more = rows.filter(function(r){ return r.g !== firstG; }).length, filt = null, all = false;
+      var fr = nodes("div", "cpfilt");
+      [["", "All"], ["ash", "Ash"], ["imp", "Imperm"], ["droll", "Droll"]].forEach(function(o){
+        var n = o[0] ? rows.filter(function(r){ return r.f[o[0]]; }).length : rows.length; if (o[0] && !n) return;
+        var b = nodes("button", "cpf" + (o[0] ? " b " + o[0] : ""), o[1] + " " + n); b.type = "button"; b.dataset.k = o[0];
+        b.setAttribute("aria-pressed", o[0] ? "false" : "true");
+        b.addEventListener("click", function(){ filt = o[0] || null; paintCp(); }); fr.appendChild(b);
+      });
+      wrap.appendChild(fr); wrap.appendChild(cp);
+      var mb = nodes("button", "ghost cpmore"); mb.type = "button";
+      mb.addEventListener("click", function(){ all = !all; paintCp(); });
+      if (more) wrap.appendChild(mb);
+      var paintCp = function(){
+        [].forEach.call(fr.children, function(b){ b.setAttribute("aria-pressed", (b.dataset.k || null) === filt ? "true" : "false"); });
+        [].forEach.call(cp.children, function(el){
+          var g = +el.dataset.g, show;
+          if (el.classList.contains("cp")) show = filt ? !!el.dataset[filt] : (all || g === firstG);
+          else show = filt ? [].some.call(cp.querySelectorAll('.cp[data-g="' + g + '"]'), function(c){ return !!c.dataset[filt]; }) : (all || g === firstG);
+          el.hidden = !show;
+        });
+        mb.hidden = !!filt; mb.textContent = all ? "Show fewer" : "Show all checkpoints (" + more + " more)";
+      };
+      paintCp();
+    }
     // roles
     var rl = nodes("div", "anaroles");
     ["starter", "extender", "handtrap", "engine", "extra"].forEach(function(role){
@@ -3054,12 +3146,19 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     return A;
   }
   if (!HEROMODE){
-    var noLines = '<div class="dbox nolines"><h3>No lines written for ' + PILOT_NAME.replace(/[<>&]/g, "") + ' yet</h3><p class="hint">Combo lines are written per deck. The Checkpoints tab already works out your starters, opening odds and what each handtrap can stop. The Duel tab still reads your hand, draws, turns and LP, and Manual tracking covers the rest.</p></div>';
-    var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim();
+    var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim(), canGen = !!(window.overlayApp && overlayApp.genStart);
+    var esc = function(t){ return String(t).replace(/[<>&]/g, ""); };
+    var noDeckBox = '<div class="dbox nolines"><h3>No deck yet</h3><p class="hint">Build, import or copy a deck and its starters, odds and handtrap checkpoints show up here.</p></div>';
+    var noLines = !myDeck ? noDeckBox : '<div class="dbox nolines"><h3>No lines for ' + esc(PILOT_NAME) + ' yet</h3><p class="hint">' +
+      (canGen ? "Generate lines plays every starter through the rules engine and fills this tab, Checkpoints and the Counter Guide. It runs in the background for a few minutes."
+              : "Generate lines in the desktop app to fill this tab, Checkpoints and the Counter Guide for this deck.") +
+      '</p>' + (canGen ? '<button type="button" class="primary nolgen">Generate lines</button>' : "") + '</div>';
     document.getElementById("tab-lines").innerHTML = (myNotes ? '<div class="dbox mynotes"><h3>Your notes</h3><p></p></div>' : "") + noLines;
     if (myNotes) document.querySelector("#tab-lines .mynotes p").textContent = myNotes;
+    var ng = document.querySelector("#tab-lines .nolgen");
+    if (ng) ng.addEventListener("click", function(){ genFromBuilder(MDC.get(PILOT_ID)); });
     var tc = document.getElementById("tab-check");
-    if (DECKDATA.none || !myDeck) tc.innerHTML = noLines;
+    if (DECKDATA.none || !myDeck) tc.innerHTML = noDeckBox;
     else { tc.innerHTML = ""; renderAnalysis(tc, myDeck.main || [], myDeck.extra || [], {onCard:function(c){ if (document.documentElement.classList.contains("compact") || window.innerWidth < 1220){ closeFind(); openFind(true); } paintDbCard(c.id); }}); }
   }
   // ---------- desktop panes: decklist + card details ----------
@@ -3072,12 +3171,21 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var cardPane = document.getElementById("cardPane");
   var selected = load("hbc-card", "vyon");
 
+  // Where the piloted deck is saved: synced to the account, or only on this device (sync pending / the tour's deck).
+  function paintSync(){
+    var el = deckPane.querySelector(".syncst"); if (!el) return;
+    var d = MDC.get(PILOT_ID), local = !d || d.unsynced || /^tour-/.test(PILOT_ID);
+    el.classList.toggle("local", !!local);
+    el.textContent = /^tour-/.test(PILOT_ID) ? "On this device only" : local ? "Saved on this device only (not synced yet)" : "Synced to your account";
+  }
+  window.addEventListener("mdc-sync", paintSync);
   function paintDeck(){
     deckPane.innerHTML = '<button type="button" class="deckpick" title="Switch decks, build a new one, import or export" aria-haspopup="true"><b></b><span class="caret" aria-hidden="true"></span></button><div class="sub"></div>';
     deckPane.querySelector(".deckpick b").textContent = PILOT_NAME;
     deckPane.querySelector(".deckpick").title = PILOT_NAME + ": switch decks, build a new one, import or export";
     deckPane.querySelector(".deckpick").addEventListener("click", function(e){ e.stopPropagation(); if (deckMenu.hidden) openDeckMenu(this); else closeDeckMenu(); });
     deckPane.querySelector(".sub").textContent = MAIN_COUNT + " main, " + EXTRA_COUNT + " Extra. Select a card for details.";
+    if (DECKDATA.custom && !DECKDATA.none && window.CLOUD && CLOUD.user()){ var sy = nodes("div", "sub syncst"); deckPane.appendChild(sy); paintSync(); }
     if (DECKDATA.none){
       deckPane.querySelector(".sub").textContent = "Build a deck, import a .ydk, or copy one from another player.";
       var cta = nodes("div", "nodeck");
@@ -4694,25 +4802,32 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     row.appendChild(nodes("span", "spill" + (D.ns ? " used" : ""), D.ns ? "Normal Summon used" : "Normal Summon open"));
     LOCKS.forEach(function(l){ if (D.locks[l.k]) row.appendChild(nodes("span", "spill lock", "🔒 " + l.t)); });
     st.appendChild(row);
-    function line(lbl, items){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": ")); p.appendChild(document.createTextNode(items.length ? items.join(", ") : "—")); st.appendChild(p); }
-    var cnt = function(o, k){ return nm(k) + (o[k] > 1 ? " ×" + o[k] : ""); };
+    // One row per zone: a small label, then the cards as chips. Empty zones are left out (the hand always shows).
+    function zrow(lbl){ var r = nodes("div", "zrow"); r.appendChild(nodes("span", "zlab", lbl)); var c = nodes("div", "zchips"); r.appendChild(c); st.appendChild(r); return c; }
+    var cnt = function(o, k){ return nm(k) + (o[k] > 1 ? " \u00D7" + o[k] : ""); };
     // Field and backrow cards are tappable: mark what the opponent did to them.
     function zoneLine(lbl, items, back){
-      var p = nodes("p", "lr"); p.appendChild(nodes("b", null, lbl + ": "));
-      if (!items.length) p.appendChild(document.createTextNode("\u2014"));
-      items.forEach(function(x, i){
-        var bt = nodes("button", "zcard", nm(x)); if (!back) dotFor(bt, x); bt.type = "button";
+      if (!items.length) return;
+      var c = zrow(lbl);
+      items.forEach(function(x){
+        var bt = nodes("button", "zcard", nm(x).replace(/ \((backrow|set)\)$/, "")); if (!back) dotFor(bt, x); bt.type = "button";
+        if (/_set$/.test(x)) bt.appendChild(nodes("span", "zset", "set"));
         bt.title = "Tap if your opponent destroyed, bounced, or banished it";
         bt.addEventListener("click", function(){ removedByOpp(x, back); });
-        p.appendChild(bt);
+        c.appendChild(bt);
       });
-      st.appendChild(p);
+    }
+    function line(lbl, o, keys, always){
+      if (!keys.length && !always) return;
+      var c = zrow(lbl);
+      if (!keys.length) c.appendChild(nodes("span", "zempty", "\u2014"));
+      keys.forEach(function(k){ var p = nodes("span", "zchip", cnt(o, k)); dotFor(p, k); c.appendChild(p); });
     }
     zoneLine("Field", b.field, false);
     zoneLine("Backrow", b.back, true);
-    line("Hand", Object.keys(D.hand).filter(function(k){ return D.hand[k]; }).map(function(k){ return cnt(D.hand, k); }));
-    line("GY", Object.keys(b.gy).filter(function(k){ return F[k] && F[k].monster; }).map(function(k){ return cnt(b.gy, k); }));
-    if (Object.keys(b.ban).length) line("Banished", Object.keys(b.ban).map(function(k){ return cnt(b.ban, k); }));
+    line("Hand", D.hand, Object.keys(D.hand).filter(function(k){ return D.hand[k]; }), true);
+    line("GY", b.gy, Object.keys(b.gy).filter(function(k){ return F[k] && F[k].monster; }));
+    line("Banished", b.ban, Object.keys(b.ban));
     var used = Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k] || k; });
     if (used.length) st.appendChild(nodes("p", "usedline", "Used: " + used.join(" · ")));
 
@@ -4785,6 +4900,22 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!list.length) pl.appendChild(nodes("p", "hint", "Nothing left to play from what's tracked. Use Manual tracking below for anything else."));
       var w4 = nodes("div", "togs");
       var baits = [];
+      if (!HEROMODE){
+        // Built decks: "Normal Summon: Stratos · Shadow Mist · …" instead of one long button per card.
+        var VERBS = ["Normal Summon ", "Tribute Summon ", "Set "], grouped = {};
+        list = list.filter(function(p){
+          var v = VERBS.filter(function(x){ return p.t.indexOf(x) === 0; })[0];
+          if (!v) return true;
+          (grouped[v] = grouped[v] || []).push(p); return false;
+        });
+        VERBS.forEach(function(v){
+          var g = grouped[v]; if (!g) return;
+          var rowg = nodes("div", "playgrp"); rowg.appendChild(nodes("span", "zlab", v.trim()));
+          var cg = nodes("div", "zchips");
+          g.forEach(function(p){ var bt = nodes("button", "tog play", p.t.slice(v.length)); bt.type = "button"; bt.title = p.t; bt.addEventListener("click", p.go); cg.appendChild(bt); });
+          rowg.appendChild(cg); pl.appendChild(rowg);
+        });
+      }
       list.forEach(function(p){
         var tier = tierOf(p.e), bt = nodes("button", "tog play" + (tier ? " t-" + tier : ""), p.t); bt.type = "button";
         if (tier){ var tag = nodes("span", "ptag", tier === "bait" ? "Bait" : "Protect"); bt.appendChild(tag);
@@ -4844,6 +4975,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       det.appendChild(document.getElementById("result"));
       r.appendChild(det);
       evaluate();
+    } else if (PGEN || CF_OK){
+      // Built decks: the generated best line for this hand, or Find combos when there are no generated lines.
+      var r2 = box(null), det2 = nodes("details", "planfold"); det2.open = D.n === 1 && !D.acts.length;
+      det2.appendChild(nodes("summary", null, PGEN ? "Best line for your current hand" : "Find combos for your hand"));
+      if (PGEN){ var gr2 = nodes("div", "result"); gr2.id = "genResult"; det2.appendChild(gr2); }
+      else det2.appendChild(duelFinder());
+      r2.appendChild(det2);
+      if (PGEN) genEvaluate();
     }
     var mt = box(null); mt.className = "dbox manualtoggle";
     var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
@@ -4893,11 +5032,26 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     nb.appendChild(ta);
   }
 
+  // No deck yet: the Duel tab can't follow a duel, so it points at the three ways to get one instead.
+  if (DECKDATA.none) document.documentElement.classList.add("pilotnone");
+  function renderNoDeck(){
+    var b = box("Pick a deck to start");
+    b.appendChild(nodes("p", "hint", "The Duel tab follows your duel once you're playing a deck: your hand, draws, LP and the best line for your hand."));
+    var row = nodes("div", "nodeckbtns");
+    var b1 = nodes("button", "primary", "Build a deck"); b1.type = "button"; b1.addEventListener("click", function(){ openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); });
+    var b2 = nodes("button", "ghost", "Import .ydk"); b2.type = "button"; b2.addEventListener("click", function(){ importYdk(); });
+    row.appendChild(b1); row.appendChild(b2);
+    var ut = document.getElementById("t-users");
+    if (ut && window.CLOUD && CLOUD.user()){ var b3 = nodes("button", "ghost", "Browse players' decks"); b3.type = "button";
+      b3.addEventListener("click", function(){ var ob = document.getElementById("ovUsers"); (ob && ob.offsetParent ? ob : ut).click(); }); row.appendChild(b3); }
+    b.appendChild(row);
+  }
   function renderBody(){
     parkAll();
     stepBody.innerHTML = "";
     syncGlobals();
-    if (D.phase === "setup") renderSetup();
+    if (DECKDATA.none) renderNoDeck();
+    else if (D.phase === "setup") renderSetup();
     else if (D.phase === "opening") renderOpening();
     else if (D.phase === "draw") renderDraw();
     else if (D.phase === "main") renderMain();
@@ -5220,7 +5374,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDeckMenu(); });
   document.addEventListener("mdc-closemenus", function(e){ if (e.detail !== deckMenu) closeDeckMenu(); });
 
-  var bldReload = false;   // the piloted deck changed while building: reload when the builder closes
+  var bldReload = false;
+  // Open a saved deck in the builder's Analysis view and press Generate lines (used by the Lines tab's empty state).
+  function genFromBuilder(rec){
+    if (!rec) return;
+    openBuilder(JSON.parse(JSON.stringify(rec)), false);
+    setTimeout(function(){
+      var r = document.getElementById("builder"); if (!r) return;
+      var v = r.querySelector('.bldviews [data-v="ana"]'); if (v) v.click();
+      setTimeout(function(){ var go = r.querySelector(".genbox .cfgo"); if (go && !go.disabled) go.click(); if (go) go.scrollIntoView({block:"center"}); }, 150);
+    }, 60);
+  }   // the piloted deck changed while building: reload when the builder closes
   function openBuilder(deck, isNew){
     var old = document.getElementById("builder"); if (old){ if (old._off) old._off(); old.remove(); }
     // A copy or an import arrives already full of cards and isn't saved yet: closing it should ask first.
@@ -5780,6 +5944,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         toast("Imported" + (r.unknown ? " (" + r.unknown + " unknown card" + (r.unknown > 1 ? "s" : "") + " skipped)" : ""), 2400);
       });
     });
+    // After a new deck's first save: offer to generate its lines (the step that makes a built deck as complete as Omni HERO).
+    function genNudge(){
+      if ($(".bldnudge")) return;
+      var nb = nodes("div", "bldnudge");
+      nb.appendChild(nodes("span", null, "Saved. Generate combo lines for this deck? They fill the Lines, Checkpoints and Counter Guide tabs."));
+      var go = nodes("button", "primary", "Generate lines"), no = nodes("button", "ghost", "Not now"); go.type = no.type = "button";
+      go.addEventListener("click", function(){ nb.remove(); var v = root.querySelector('.bldviews [data-v="ana"]'); if (v) v.click();
+        setTimeout(function(){ var g = root.querySelector(".genbox .cfgo"); if (g && !g.disabled) g.click(); if (g) g.scrollIntoView({block:"center"}); }, 120); });
+      no.addEventListener("click", function(){ nb.remove(); });
+      nb.appendChild(go); nb.appendChild(no);
+      root.insertBefore(nb, $(".bldbar"));
+    }
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
     function close(){ closePick(); root._off(); root.remove(); document.documentElement.classList.remove("building");
       if (bldReload){ bldReload = false; location.reload(); } }
@@ -5798,6 +5974,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       close();
     });
     $(".bldsave").addEventListener("click", function(){
+      var firstSave = isNew;
       deck.name = (nameIn.value || "").trim() || "Untitled deck";
       if (!deck.main.length){ toast(deck.extra.length ? "Add some Main Deck cards first" : "Add some cards first"); return; }
       if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
@@ -5807,6 +5984,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (deck.id === PILOT_ID) bldReload = true;
       if (view === "ana") paintAna();   // Generate unlocks once the deck is saved
       toast("Saved " + deck.name);
+      if (firstSave && GEN_OK && !genOf(deck)) genNudge();
     });
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
     var rsz; function onResize(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ clampNotes(); paintGrid(); if (list.offsetParent) fitDeck(); }, 150); }
@@ -6060,11 +6238,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function steps(st){
       var app = inApp(), cpt = compactNow(), had = st.hadDecks, S = [];
       var where = app ? "Settings" : "your account menu";
-      var menu = cpt ? "Tap Deck, then the deck's name, to open the deck menu." : "Tap the deck's name to open the deck menu.";
+      var menu = cpt ? "Tap the deck button (top right), then the deck's name, to open the deck menu." : "Tap the deck's name to open the deck menu.";
       // ---- before: your own setup ----
       S.push({seg:"pre", title:"Welcome to Master Duel Companion", text:["A quick tour of the app's main features.", "It adds a sample deck to show you around, then deletes it.", "Use Next and Back or the arrow keys. Press Esc to exit."]});
       if (!had) S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .nodeck", title:"Your decks",
-        text:[cpt ? "Tap Deck to see your decks." : "Your decks live here.", "Build one from scratch.", "Import a .ydk file.", "Or copy one from another player."]});
+        text:[cpt ? "Tap the deck button (top right) to see your decks." : "Your decks live here.", "Build one from scratch.", "Import a .ydk file.", "Or copy one from another player."]});
       else S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .deckpick", title:"Your decks",
         text:[menu, "Switch, build, edit, import, export or delete decks from there."]});
       S.push({seg:"pre", title:"Sample deck", text:["Next, the tour adds a temporary Tutorial deck so you can see the deck tools.", "It stays on this device and is deleted when the tour ends."]});
@@ -6195,6 +6373,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var el = s.sel ? find(s.sel) : null;
         if (el){ var r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({block:"center"}); }
         requestAnimationFrame(function(){ place(); T && T.next.focus({preventScroll:true}); });
+        // Views that size themselves after opening (the builder fits its card tiles): measure again once they settle.
+        var at = T.i; [350, 800].forEach(function(ms){ setTimeout(function(){ if (T && T.i === at) place(); }, ms); });
       }, s.delay || (s.before ? 120 : 0));
     }
     function end(){
@@ -6311,7 +6491,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   if (!CLOUD.configured()){ boot(); return; }
 
   function notify(m){ if (window.appToast) window.appToast(m, 2600); else if (window.console) console.warn(m); }
-  function markUnsynced(id, on){ var d = MDC.get(id); if (!d) return; var l = MDC.list().map(function(x){ if (x.id === id){ if (on) x.unsynced = true; else delete x.unsynced; } return x; }); MDC.replaceAll(l); }
+  function markUnsynced(id, on){ var d = MDC.get(id); if (!d) return; var l = MDC.list().map(function(x){ if (x.id === id){ if (on) x.unsynced = true; else delete x.unsynced; } return x; }); MDC.replaceAll(l);
+    window.dispatchEvent(new Event("mdc-sync")); }
   function enter(){
     note.textContent = "Loading your decks…";
     return CLOUD.loadProfile().then(function(pr){
