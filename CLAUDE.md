@@ -74,6 +74,8 @@ Key parts of `src/main.cpp`:
 - **Board score** (`score_of` + `src/evaluate.h`): reads each card's text for interruptions usable on the opponent's turn
   (negate > banish/control > destroy/bounce/send), where they work from (field / set / hand / GY), locks, sturdiness,
   zone requirements (center Main Monster Zone, "switch into the center"), set-able Traps in hand count as set.
+  Revival: cards that Special Summon from the GY on the opponent's turn (June Pride, Strelitzia, Rhapsodia, Call of the
+  Haunted) let the best matching GY monster (by quoted name / Level cap) count as an extra stop.
   End-board goals (`targets`) add +8 each. `{"cmd":"eval","cards":[...]}` shows what it read from cards.
 - **Zones**: only for decks whose text mentions the center zone/columns (`g_zones`); zone-aware cards go center or side
   by rule; Normal/Extra Deck summons of them branch both ways.
@@ -81,8 +83,9 @@ Key parts of `src/main.cpp`:
 - **Handtrap backups**: `oppHand` + `prefix` (choice labels of a line) + `hitCard/hitStep` replays a line and chains
   Ash/Imperm/Veiler/Droll at that step.
 - **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc.
-- Known limits: opponent never acts except the tested handtrap; Spell/Trap zones always first free; value of
-  monsters in GY for later revival isn't scored; scoring is generic, so goals matter for long combos.
+- Known limits: opponent never acts except the tested handtrap; Spell/Trap zones always first free; revival reads
+  only the quoted name and Level cap (not Type/Attribute) and ignores once-per-turn names; scoring is generic, so goals
+  matter for long combos.
 
 Build (Linux): `cmake -B build -G Ninja -DOCGCORE_DIR=<ygopro-core w/ lua submodule> -DDEPS_DIR=<json.hpp, miniz/, sqlite/> -DMIMALLOC_DIR=<mimalloc>`
 then `cmake --build build`. CI shows the exact downloads. Data for tests: CardScripts zip from
@@ -95,6 +98,9 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + Favorite Contact set; Elfnote Lucina: Strelitzia
   (center) + Stardust + Lucina/Tinia in side zones + Rhapsodia.
 - **GitHub deep test**: edit `combo-engine/bench/run.json` and push (this session's GitHub access can't start runs by API).
+  Each job posts its top boards as annotations, readable without logging in: list jobs with
+  `curl -s https://api.github.com/repos/gabegriffin16-commits/ygo-md-companion/actions/runs/<run>/jobs`, then
+  `.../check-runs/<job id>/annotations`. Matrix entries can set `deck` (e.g. `combo-engine/bench/elfnote.json`).
 - **Engine test button**: post a plan with `tools/benchtool.py post plan.json` (env `BENCH_USER`/`BENCH_PASS`, the Test
   account; ask the owner), they press Settings > Engine test > Run in the app, then `tools/benchtool.py results`.
   Plan: `{"name":..., "spec":{"engine":"app"|"test", "cases":[{"name","deck","extra","hand","timeMs","maxActions","targets"}]}}`.
@@ -110,6 +116,5 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
-- Score revival value of monsters in GY (e.g. Elfnotes that June Pride / Rhapsodia bring back on the opponent's turn).
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
 - First engine-test-button run: the owner needs to run the bench tables SQL (bottom of `supabase/schema.sql`) and update to 1.19.0.

@@ -69,7 +69,7 @@ struct CardRow {
 	uint64_t race = 0;
 	int32_t atk = 0, def = 0;
 	std::vector<uint16_t> setcodes;
-	std::string name;
+	std::string name, lname;   // lname: lowercase, for matching what a reviver asks for
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -98,7 +98,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		r.race = (uint64_t)sqlite3_column_int64(st, 7);
 		r.attribute = (uint32_t)sqlite3_column_int64(st, 8);
 		const unsigned char* nm = sqlite3_column_text(st, 9);
-		if(nm) r.name = (const char*)nm;
+		if(nm) { r.name = (const char*)nm; r.lname = evalx::lower(r.name); }
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
 		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); }
 		g_cards[id] = std::move(r);
@@ -571,6 +571,7 @@ struct Search {
 	// gentle fall-off, plus locks, sturdiness, bodies and spare cards, plus the deck's own goal cards.
 	double score_of(const Board& b) const {
 		std::vector<double> stops; double s = 0;
+		std::vector<const CardEval*> revivers;   // cards that can bring a monster back from the GY on their turn
 		auto ev = [](uint32_t c) -> const CardEval* { auto it = g_cards.find(c); return it == g_cards.end() ? nullptr : &it->second.ev; };
 		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
 		for(size_t i = 0; i < b.mzone.size(); i++) {
@@ -582,12 +583,14 @@ struct Search {
 			// "while in the center Main Monster Zone" only works in the center.
 			bool works = !(e->fromSide && (slot == 2 || !centerTaken)) && !(e->inCenter && slot != 2);
 			if(e->field > 0 && works) stops.push_back(e->field);
+			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			s += (works ? e->lock : 0) + e->sturdy;
 		}
 		for(uint32_t c : b.szone) {
 			const CardEval* e = ev(c); if(!e) { s += 0.3; continue; }
 			double v = std::max(e->set, e->field);
 			if(v > 0) stops.push_back(v); else s += 0.3;
+			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			s += e->lock;
 		}
 		// Traps and Quick-Plays still in hand get Set at the end of the turn, while there's room.
@@ -596,11 +599,32 @@ struct Search {
 			const CardEval* e = ev(c);
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
-			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { stops.push_back(e->set); room--; }
-			else if(e && e->hand > 0) stops.push_back(e->hand);
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { stops.push_back(e->set); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
+			else if(e && e->hand > 0) { stops.push_back(e->hand); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
 			else s += 0.3;   // a card for next turn (or one drawn during the line)
 		}
-		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); }
+		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
+		// Revival: each reviver brings back the best monster in the GY that fits what it asks for, and that monster's
+		// interruption counts too (an Elfnote that June Pride or Rhapsodia returns on their turn). Any-monster
+		// revivers count for less: their text often has conditions this doesn't read (Type, Attribute).
+		if(!revivers.empty()) {
+			std::vector<char> used(b.grave.size(), 0);
+			for(const CardEval* r : revivers) {
+				double best = -1; size_t pick = 0;
+				for(size_t i = 0; i < b.grave.size(); i++) {
+					auto it = g_cards.find(b.grave[i]);
+					if(used[i] || it == g_cards.end() || !(it->second.type & TYPE_MONSTER) || &it->second.ev == r) continue;
+					if(!r->reviveTag.empty() && it->second.lname.find(r->reviveTag) == std::string::npos) continue;
+					if(r->reviveMaxLv < 99 && ((it->second.type & (TYPE_XYZ | TYPE_LINK)) || (int)(it->second.level & 0xff) > r->reviveMaxLv)) continue;
+					double v = it->second.ev.field;
+					if(it->second.ev.inCenter) v *= 0.5;   // comes back wherever there's room
+					if(v > best) { best = v; pick = i; }
+				}
+				if(best < 0) continue;
+				used[pick] = 1;
+				if(best > 0) stops.push_back(best * (r->reviveTag.empty() ? 0.5 : 0.7)); else s += 0.3;
+			}
+		}
 		std::sort(stops.rbegin(), stops.rend());
 		double f = 1.0; for(double v : stops) { s += v * f; f = std::max(0.5, f - 0.1); }
 		for(uint32_t c : b.mzone) if(targets.count(c)) s += 8;
@@ -617,9 +641,10 @@ struct Search {
 		const std::vector<Step>& steps = st.steps;
 		Board b = read_board(d);
 		std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand);
+		double sc = score_of(b);   // can differ for the same visible cards: what's in the GY to revive
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
-		if(it == boards.end() || steps.size() < it->second.steps.size()) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = score_of(b); boards[k] = f; }
+		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; boards[k] = f; }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
 		auto d = std::make_unique<Duel>(setup);
@@ -995,7 +1020,8 @@ int main(int argc, char** argv) {
 		if(cmd == "eval") {   // what the board evaluator reads from each card (for checking src/evaluate.h)
 			json out = json::object();
 			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardEval& e = it->second.ev;
-				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}}; }
+				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}};
+				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}}; }
 			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {

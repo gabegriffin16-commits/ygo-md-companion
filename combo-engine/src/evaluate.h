@@ -7,11 +7,13 @@
 // and it actually does something to them (negate, banish, destroy, bounce, send, take control...). Where it can be
 // used from decides where it counts: on the field, set in the backrow, kept in hand (handtraps) or in the GY.
 // Lasting locks ("your opponent cannot..."), protection and floating effects add resilience; bodies and spare
-// cards in hand add a little. The user's own end-board goals sit on top of all that.
+// cards in hand add a little. Cards that revive from the GY on the opponent's turn make the right monsters in the GY
+// count too. The user's own end-board goals sit on top of all that.
 #pragma once
 #include <algorithm>
 #include <cctype>
 #include <cstdint>
+#include <cstdlib>
 #include <string>
 #include <vector>
 
@@ -24,6 +26,12 @@ struct CardEval {
 	float sturdy = 0;    // protection / floats: harder to break
 	bool fromSide = false;   // its interruption switches it into the center zone: needs a side zone + a center monster
 	bool inCenter = false;   // its effects only work while it's in the center Main Monster Zone
+	// Revival on the opponent's turn: Special Summons a monster from the GY (June Pride, Strelitzia, Call of the Haunted).
+	// Used from: 0 = can't, else one of the AT_ values. The tag is the quoted name it asks for ("" = any monster).
+	enum { AT_FIELD = 1, AT_SET, AT_HAND, AT_GY };
+	uint8_t reviveAt = 0;
+	int reviveMaxLv = 99;
+	std::string reviveTag;
 };
 
 namespace evalx {
@@ -71,6 +79,44 @@ inline float hurt(const std::string& e) {
 	if(v > 0 && has(e, "and if you do, destroy")) v += 0.3f;
 	return v;
 }
+// "from your hand, Deck, and GY" / "hand or GY" / "GY or banishment": a list of places that includes the GY.
+inline bool gy_source(const std::string& s) {
+	bool gy = false; size_t p = 0;
+	while(p < s.size()) {
+		size_t q = s.find_first_of(" ,.;:", p);
+		std::string w = s.substr(p, q == std::string::npos ? std::string::npos : q - p);
+		if(w == "gy" || w == "graveyard") gy = true;
+		else if(!w.empty() && w != "hand" && w != "deck" && w != "or" && w != "and" && w != "banishment") break;
+		if(q == std::string::npos || s[q] == '.' || s[q] == ';' || s[q] == ':') break;
+		p = q + 1;
+	}
+	return gy;
+}
+// Does this effect Special Summon another monster from the GY? Fills in what it asks for: the quoted name, if any
+// ("1 Level 6 or lower "Elfnote" monster from your hand or GY"), and a Level cap.
+inline bool revive_of(const std::string& e, std::string& tag, int& maxLv) {
+	const std::string key = "special summon";
+	for(size_t i = e.find(key); i != std::string::npos; i = e.find(key, i + key.size())) {
+		size_t k = i + key.size();
+		if(k < e.size() && e[k] != ' ') continue;                      // "special summoned", "special summons"
+		std::string tail = e.substr(i), head = e.substr(0, i), seg;
+		if(has(tail.substr(0, 30), "this card")) continue;               // revives itself: that's a float, not a revival
+		size_t j = tail.find(" from your ");
+		if(j != std::string::npos && gy_source(tail.substr(j + 11))) seg = tail.substr(0, j);
+		else if(has(head, "in your gy") && (tail.compare(0, 17, "special summon it") == 0 || tail.compare(0, 19, "special summon that") == 0)) {
+			size_t t = head.rfind("target"); seg = t == std::string::npos ? head : head.substr(t);   // "target 1 "X" monster in your GY; Special Summon it"
+		} else continue;
+		if(has(seg, "this card")) continue;
+		tag.clear();
+		size_t q = seg.find('"');
+		if(q != std::string::npos) { size_t q2 = seg.find('"', q + 1); if(q2 != std::string::npos) tag = seg.substr(q + 1, q2 - q - 1); }
+		maxLv = 99;
+		size_t l = seg.find("level ");
+		if(l != std::string::npos) { int n = std::atoi(seg.c_str() + l + 6); size_t d = l + 6 + (n >= 10 ? 2 : 1); if(n > 0 && d <= seg.size() && seg.compare(d, 9, " or lower") == 0) maxLv = n; }
+		return true;
+	}
+	return false;
+}
 inline bool on_their_turn(const std::string& e, bool spellTrapQuick) {
 	return spellTrapQuick || has(e, "(quick effect)") || has(e, "your opponent activates") || has(e, "opponent's turn") ||
 		has(e, "either player's turn") || has(e, "your opponent would") || has(e, "opponent normal or special summons") ||
@@ -104,6 +150,13 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
 			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck") + has(e, "gy"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
+		}
+		if(theirTurn && !r.reviveAt) {
+			std::string tag; int lv = 99;
+			if(revive_of(e, tag, lv)) {
+				r.reviveAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
+				r.reviveTag = tag; r.reviveMaxLv = lv;
+			}
 		}
 		if(h > 0) {
 			if(fromGy) inGy.push_back(h);
