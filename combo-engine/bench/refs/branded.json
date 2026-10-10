@@ -40,7 +40,11 @@
     "The Fallen & The Virtuous"
    ],
    "hand": [],
-   "gy": []
+   "gy": [],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ]
   },
   {
    "name": "1 card walbaz under fuwa",
@@ -60,6 +64,9 @@
    "hand": [],
    "gy": [
     "Guiding Quem, the Virtuous"
+   ],
+   "guessed": [
+    "Rindbrumm the Striking Dragon"
    ]
   },
   {
@@ -76,11 +83,17 @@
     "Granguignol the Dusk Dragon"
    ],
    "backrow": [
-    "Branded Retribution",
-    "The Fallen & The Virtuous"
+    "Branded Retribution"
    ],
    "hand": [],
-   "gy": []
+   "gy": [],
+   "guessed": [
+    "Mirrorjade the Iceblade Dragon",
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous",
+    "Granguignol the Dusk Dragon",
+    "Branded Retribution"
+   ]
   },
   {
    "name": "Dark Dragon negated + Nadir",
@@ -92,15 +105,18 @@
    ],
    "field": [
     "Mirrorjade the Iceblade Dragon",
-    "Tri-Brigade Mercourier",
     "Incredible Ecclesia, the Virtuous"
    ],
    "backrow": [
-    "The Fallen & The Virtuous",
-    "Branded Retribution"
+    "The Fallen & The Virtuous"
    ],
-   "hand": [],
-   "gy": []
+   "hand": [
+    "Tri-Brigade Mercourier"
+   ],
+   "gy": [],
+   "guessed": [
+    "Incredible Ecclesia, the Virtuous"
+   ]
   },
   {
    "name": "White Albaz +  Cart + Discard",
@@ -114,18 +130,24 @@
    "field": [
     "Mirrorjade the Iceblade Dragon",
     "Guiding Quem, the Virtuous",
-    "Blazing Cartesia, the Virtuous",
     "Granguignol the Dusk Dragon",
     "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
     "Branded Retribution",
-    "The Fallen & The Virtuous"
-   ],
-   "hand": [
     "Branded in High Spirits"
    ],
-   "gy": []
+   "hand": [],
+   "gy": [
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "Branded in High Spirits"
+   ],
+   "missing": [
+    "Branded in Red"
+   ]
   },
   {
    "name": "Aluber + BIHS-type (modified from FuSiioN)",
@@ -143,11 +165,18 @@
     "PSY-Framelord Omega"
    ],
    "backrow": [
-    "The Fallen & The Virtuous",
-    "Branded Retribution"
+    "The Fallen & The Virtuous"
    ],
    "hand": [],
-   "gy": []
+   "gy": [],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "PSY-Framelord Omega"
+   ],
+   "missing": [
+    "PSY-Framelord Omega"
+   ]
   },
   {
    "name": "aluber + 4 types (no golden swordsoul)",
@@ -162,18 +191,25 @@
    "field": [
     "Guiding Quem, the Virtuous",
     "Ecclesia and the Dark Dragon",
+    "Rindbrumm the Striking Dragon",
     "Tri-Brigade Mercourier",
-    "Blazing Cartesia, the Virtuous",
     "Incredible Ecclesia, the Virtuous",
     "Blazing Cartesia, the Virtuous"
    ],
    "backrow": [
-    "Branded Retribution"
+    "The Fallen & The Virtuous"
    ],
    "hand": [],
-   "gy": [
+   "gy": [],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
     "Rindbrumm the Striking Dragon",
-    "The Fallen & The Virtuous"
+    "The Fallen & The Virtuous",
+    "Tri-Brigade Mercourier"
+   ],
+   "missing": [
+    "Despian Luluwalilith",
+    "Despian Proskenion"
    ]
   },
   {
@@ -189,18 +225,23 @@
     "Alba-Lenatus the Abyss Dragon",
     "Tri-Brigade Mercourier",
     "Incredible Ecclesia, the Virtuous",
-    "Fallen of Albaz",
-    "Fallen of the White Dragon",
     "Granguignol the Dusk Dragon"
    ],
    "backrow": [
-    "Branded Retribution",
-    "The Fallen & The Virtuous"
+    "Branded Retribution"
    ],
-   "hand": [
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous",
+    "Branded Retribution"
+   ],
+   "missing": [
+    "Albion the Shrouded Dragon",
+    "Branded Sword",
     "Branded in Red"
-   ],
-   "gy": []
+   ]
   },
   {
    "name": "Aluber + Cartesia + Shrouded",
@@ -213,20 +254,29 @@
    ],
    "field": [
     "Mirrorjade the Iceblade Dragon",
-    "Fallen of the White Dragon",
     "Granguignol the Dusk Dragon",
     "Dogmatika Ecclesia, the Virtuous",
     "Guiding Quem, the Virtuous"
    ],
    "backrow": [
-    "The Fallen & The Virtuous",
     "Branded Retribution"
    ],
    "hand": [
-    "Blazing Cartesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "gy": [
+    "Fallen of the White Dragon",
+    "The Fallen & The Virtuous",
     "Branded in High Spirits"
    ],
-   "gy": []
+   "guessed": [
+    "Dogmatika Ecclesia, the Virtuous",
+    "Guiding Quem, the Virtuous",
+    "Branded Retribution"
+   ],
+   "missing": [
+    "Albion the Shrouded Dragon"
+   ]
   },
   {
    "name": "nadir",
@@ -236,18 +286,19 @@
     "Nadir Servant"
    ],
    "field": [
-    "Fallen of the White Dragon",
     "Guiding Quem, the Virtuous",
-    "Blazing Cartesia, the Virtuous",
-    "Incredible Ecclesia, the Virtuous"
+    "Blazing Cartesia, the Virtuous"
    ],
    "backrow": [
-    "Branded in Red",
-    "Branded Retribution"
-   ],
-   "hand": [],
-   "gy": [
     "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Fallen of the White Dragon",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "gy": [],
+   "missing": [
+    "Branded in Red"
    ]
   },
   {
@@ -260,18 +311,23 @@
     "<Any Card>"
    ],
    "field": [
-    "Mirrorjade the Iceblade Dragon",
     "Guiding Quem, the Virtuous",
     "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
-    "The Fallen & The Virtuous",
-    "Branded Retribution"
+    "The Fallen & The Virtuous"
    ],
-   "hand": [
+   "hand": [],
+   "gy": [
+    "Mirrorjade the Iceblade Dragon",
     "Blazing Cartesia, the Virtuous"
    ],
-   "gy": []
+   "guessed": [
+    "Guiding Quem, the Virtuous"
+   ],
+   "missing": [
+    "Branded in Red"
+   ]
   },
   {
    "name": "Quem And F&V",
@@ -286,14 +342,22 @@
     "Granguignol the Dusk Dragon",
     "Ecclesia and the Dark Dragon",
     "Rindbrumm the Striking Dragon",
-    "Tri-Brigade Mercourier",
     "Incredible Ecclesia, the Virtuous"
    ],
    "backrow": [],
-   "hand": [],
+   "hand": [
+    "Tri-Brigade Mercourier"
+   ],
    "gy": [
     "Guiding Quem, the Virtuous",
     "The Fallen & The Virtuous"
+   ],
+   "guessed": [
+    "Rindbrumm the Striking Dragon"
+   ],
+   "missing": [
+    "Albion the Shrouded Dragon",
+    "Branded Sword"
    ]
   },
   {
@@ -306,19 +370,25 @@
    ],
    "field": [
     "Granguignol the Dusk Dragon",
-    "Incredible Ecclesia, the Virtuous",
+    "Ecclesia and the Dark Dragon",
     "Guiding Quem, the Virtuous",
-    "Blazing Cartesia, the Virtuous",
+    "PSY-Framelord Omega",
     "Rindbrumm the Striking Dragon"
    ],
-   "backrow": [
-    "Branded in High Spirits"
-   ],
-   "hand": [
-    "PSY-Framelord Omega"
-   ],
+   "backrow": [],
+   "hand": [],
    "gy": [
-    "Ecclesia and the Dark Dragon"
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "PSY-Framelord Omega",
+    "Rindbrumm the Striking Dragon"
+   ],
+   "missing": [
+    "Albion the Shrouded Dragon",
+    "Branded Sword",
+    "PSY-Framelord Omega"
    ]
   },
   {
@@ -333,18 +403,24 @@
    "field": [
     "Mirrorjade the Iceblade Dragon",
     "Guiding Quem, the Virtuous",
-    "Blazing Cartesia, the Virtuous",
     "Granguignol the Dusk Dragon",
     "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
     "Branded Retribution",
-    "The Fallen & The Virtuous"
-   ],
-   "hand": [
     "Branded in High Spirits"
    ],
-   "gy": []
+   "hand": [],
+   "gy": [
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "Branded in High Spirits"
+   ],
+   "missing": [
+    "Branded in Red"
+   ]
   },
   {
    "name": "1 Ecclesia",
@@ -355,17 +431,19 @@
    ],
    "field": [
     "Ecclesia and the Dark Dragon",
-    "Granguignol the Dusk Dragon",
-    "Incredible Ecclesia, the Virtuous",
-    "Blazing Cartesia, the Virtuous",
-    "Fallen of the White Dragon",
-    "Guiding Quem, the Virtuous"
+    "Granguignol the Dusk Dragon"
    ],
    "backrow": [
     "The Fallen & The Virtuous"
    ],
-   "hand": [],
-   "gy": []
+   "hand": [
+    "Incredible Ecclesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "gy": [
+    "Fallen of the White Dragon",
+    "Guiding Quem, the Virtuous"
+   ]
   },
   {
    "name": "gold sarc (no golden swordsoul)",
@@ -376,16 +454,26 @@
    ],
    "field": [
     "Guiding Quem, the Virtuous",
+    "Ecclesia and the Dark Dragon",
     "Tri-Brigade Mercourier",
-    "Mirrorjade the Iceblade Dragon",
-    "Incredible Ecclesia, the Virtuous",
     "Granguignol the Dusk Dragon"
    ],
-   "backrow": [],
-   "hand": [],
-   "gy": [
-    "Ecclesia and the Dark Dragon",
+   "backrow": [
     "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Guiding Quem, the Virtuous",
+    "Tri-Brigade Mercourier",
+    "The Fallen & The Virtuous",
+    "Granguignol the Dusk Dragon"
+   ],
+   "missing": [
+    "Branded Sword",
+    "Branded in Red",
+    "Despian Luluwalilith",
+    "Despian Proskenion"
    ]
   }
  ]

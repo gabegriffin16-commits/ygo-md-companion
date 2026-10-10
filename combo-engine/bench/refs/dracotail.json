@@ -29,21 +29,19 @@
    "notes": "(All combos that set Sting as the 2nd trap can also set Horn, depending on meta calls.)\n\nLow to the ground, but play safe under Fuwa. Look for any higher ceiling lines that goes into Verte if possible.\n\nif Ketu is your only play, in theory you should search Mululu to play around Droll. But Mululu 1cc has a much lower ceiling than your other starters, so you can take a risk and search Lukias (or Faimena in better hands) instead.",
    "start": [
     "Dracotail Lukias",
-    "Ketu Dracotail",
     "<Any>"
    ],
    "field": [
-    "Dracotail Faimena",
     "Dracotail Gulamel"
    ],
    "backrow": [
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting"
-   ]
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": []
   },
   {
    "name": "Mululu + 1",
@@ -54,15 +52,16 @@
     "<Any>"
    ],
    "field": [
-    "Dracotail Gulamel",
-    "Dracotail Pan",
-    "Dracotail Mululu"
+    "Dracotail Gulamel"
    ],
    "backrow": [
     "Dracotail Flame"
    ],
    "hand": [],
-   "gy": []
+   "gy": [
+    "Dracotail Pan",
+    "Dracotail Mululu"
+   ]
   },
   {
    "name": "Rahu + 1",
@@ -73,17 +72,16 @@
     "<Any>"
    ],
    "field": [
-    "Dracotail Faimena",
     "Dracotail Gulamel"
    ],
    "backrow": [
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting"
-   ]
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": []
   },
   {
    "name": "Branded Fusion",
@@ -93,18 +91,17 @@
     "Branded Fusion"
    ],
    "field": [
-    "Secreterion Dragon",
-    "Dracotail Faimena"
+    "Secreterion Dragon"
    ],
    "backrow": [
-    "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "The Fallen & The Virtuous",
+    "Dracotail Flame",
     "Dracotail Sting"
-   ]
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": []
   },
   {
    "name": "Branded Fusion 1cc",
@@ -117,19 +114,17 @@
     "Secreterion Dragon",
     "Dracotail Arthalion",
     "Fallen of the White Dragon",
-    "Incredible Ecclesia, the Virtuous",
-    "Fallen of Albaz",
-    "Dracotail Faimena"
+    "Incredible Ecclesia, the Virtuous"
    ],
    "backrow": [
     "The Fallen & The Virtuous",
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting"
-   ]
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": []
   },
   {
    "name": "Fallen of the White Dragon",
@@ -139,8 +134,7 @@
     "Fallen of the White Dragon"
    ],
    "field": [
-    "Ecclesia and the Dark Dragon",
-    "Fallen of the White Dragon"
+    "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
     "The Fallen & The Virtuous"
@@ -149,7 +143,9 @@
     "Blazing Cartesia, the Virtuous",
     "Incredible Ecclesia, the Virtuous"
    ],
-   "gy": []
+   "gy": [
+    "Fallen of the White Dragon"
+   ]
   },
   {
    "name": "Fallen of the White Dragon vs Handtrap",
@@ -161,15 +157,22 @@
    ],
    "field": [
     "Fallen of the White Dragon",
-    "The Dragon that Devours the Dogma",
-    "Rindbrumm the Striking Dragon",
     "Mirrorjade the Iceblade Dragon"
    ],
    "backrow": [
     "The Fallen & The Virtuous"
    ],
    "hand": [],
-   "gy": []
+   "gy": [
+    "The Dragon that Devours the Dogma"
+   ],
+   "banished": [
+    "Rindbrumm the Striking Dragon"
+   ],
+   "missing": [
+    "Ghost Belle & Haunted Mansion",
+    "Infinite Impermanence"
+   ]
   },
   {
    "name": "Walbaz (NS) + Dtail + 1",
@@ -177,25 +180,25 @@
    "notes": "(For all Walbaz combos: All lines should play around Lenatus'd in the mirror and Spoly. Standard endboard - Gulamel + ED Ecclesia + Mirrorjade/Sanctifire - plays around these cards, any other monsters you put onto the field risks exposing your boards to Spoly)\n\nNS Walbaz starter is the most high risk - high reward line: High ceiling, but  run head first into handtraps, especially Fuwa.\n\nGenerally, only NS Walbaz if it is your only play. Safer lines into Fuwa (like Faimena start) should be prioritized if possible.",
    "start": [
     "Fallen of the White Dragon",
-    "Incredible Ecclesia, the Virtuous",
     "<Dtail name>",
     "<Any>"
    ],
    "field": [
     "Ecclesia and the Dark Dragon",
-    "Dracotail Faimena",
+    "Albion the Sanctifire Dragon",
     "Dracotail Gulamel"
    ],
    "backrow": [
+    "The Fallen & The Virtuous",
     "Dracotail Flame",
-    "Dracotail Horn"
+    "Dracotail Sting"
    ],
    "hand": [
-    "Albion the Sanctifire Dragon"
+    "Dracotail Faimena"
    ],
-   "gy": [
-    "The Fallen & The Virtuous",
-    "Dracotail Sting"
+   "gy": [],
+   "missing": [
+    "Predaplant Verte Anaconda"
    ]
   },
   {
@@ -204,19 +207,21 @@
    "notes": "If you run 2 Albion you can push even further into the Branded direction by sacrificing Dtail plays to get both Mirrorjade and Rindbrumm out on Turn 1.",
    "start": [
     "Fallen of the White Dragon",
-    "Incredible Ecclesia, the Virtuous",
     "<Dtail name>",
     "<Any>"
    ],
    "field": [
     "Mirrorjade the Iceblade Dragon",
+    "Rindbrumm the Striking Dragon",
     "Ecclesia and the Dark Dragon"
    ],
-   "backrow": [],
-   "hand": [],
-   "gy": [
-    "Rindbrumm the Striking Dragon",
+   "backrow": [
     "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Predaplant Verte Anaconda"
    ]
   },
   {
@@ -225,19 +230,20 @@
    "notes": "Walbaz + Cartesia can still end on a halfboard with no Dtail Name in hand.",
    "start": [
     "Fallen of the White Dragon",
-    "Incredible Ecclesia, the Virtuous",
     "Blazing Cartesia, the Virtuous"
    ],
    "field": [
+    "Albion the Sanctifire Dragon",
     "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
+    "The Fallen & The Virtuous",
     "Dracotail Flame"
    ],
    "hand": [],
-   "gy": [
-    "Albion the Sanctifire Dragon",
-    "The Fallen & The Virtuous"
+   "gy": [],
+   "missing": [
+    "Predaplant Verte Anaconda"
    ]
   },
   {
@@ -246,8 +252,7 @@
    "notes": "Special Summoning Walbaz will lock you out of Verte, but it's a much safer play against Fuwa.",
    "start": [
     "Fallen of the White Dragon",
-    "Dracotail Lukias",
-    "Ketu Dracotail"
+    "Dracotail Lukias"
    ],
    "field": [
     "Ecclesia and the Dark Dragon",
@@ -257,13 +262,18 @@
     "Dracotail Faimena"
    ],
    "backrow": [
+    "The Fallen & The Virtuous",
     "Dracotail Flame",
+    "Dracotail Sting",
     "Dracotail Horn"
    ],
    "hand": [],
-   "gy": [
-    "The Fallen & The Virtuous",
-    "Dracotail Sting"
+   "gy": [],
+   "guessed": [
+    "Dracotail Faimena",
+    "Dracotail Flame",
+    "Dracotail Sting",
+    "Dracotail Horn"
    ]
   },
   {
@@ -276,14 +286,15 @@
    ],
    "field": [
     "Albion the Sanctifire Dragon",
-    "Ecclesia and the Dark Dragon",
-    "Blazing Cartesia, the Virtuous",
-    "Incredible Ecclesia, the Virtuous"
+    "Ecclesia and the Dark Dragon"
    ],
    "backrow": [
     "The Fallen & The Virtuous"
    ],
-   "hand": [],
+   "hand": [
+    "Blazing Cartesia, the Virtuous",
+    "Incredible Ecclesia, the Virtuous"
+   ],
    "gy": []
   },
   {
@@ -299,18 +310,17 @@
     "Ecclesia and the Dark Dragon",
     "Secreterion Dragon",
     "Dracotail Mululu",
-    "Blazing Cartesia, the Virtuous",
-    "Dracotail Faimena"
+    "Blazing Cartesia, the Virtuous"
    ],
    "backrow": [
-    "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "The Fallen & The Virtuous",
+    "Dracotail Flame",
     "Dracotail Sting"
-   ]
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": []
   },
   {
    "name": "Walbaz (SS) + Urgula/Pan + 1",
@@ -323,18 +333,21 @@
    ],
    "field": [
     "Ecclesia and the Dark Dragon",
-    "Secreterion Dragon",
-    "Dracotail Mululu",
-    "Blazing Cartesia, the Virtuous",
-    "Dracotail Faimena"
+    "Secreterion Dragon"
    ],
    "backrow": [
-    "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "The Fallen & The Virtuous",
+    "Dracotail Flame",
+    "Dracotail Sting"
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": [
+    "Dracotail Mululu"
+   ],
+   "guessed": [
+    "Dracotail Flame",
     "Dracotail Sting"
    ]
   },
@@ -350,18 +363,23 @@
    ],
    "field": [
     "Ecclesia and the Dark Dragon",
-    "Dracotail Faimena",
-    "Blazing Cartesia, the Virtuous",
     "Dracotail Gulamel"
    ],
    "backrow": [
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting",
     "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": [
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "guessed": [
+    "Dracotail Flame",
+    "Dracotail Sting",
+    "Dracotail Gulamel"
    ]
   },
   {
@@ -370,14 +388,11 @@
    "notes": "Lukias + Faimena or Urgula into Little Knight or Mirrorjade",
    "start": [
     "Dracotail Lukias",
-    "Dracotail Faimena",
-    "Dracotail Urgula",
-    "Ketu Dracotail"
+    "Dracotail Faimena"
    ],
    "field": [
     "Dracotail Arthalion",
-    "S:P Little Knight",
-    "Mirrorjade the Iceblade Dragon"
+    "S:P Little Knight"
    ],
    "backrow": [
     "Dracotail Flame",
@@ -388,7 +403,14 @@
     "Dracotail Faimena",
     "Dracotail Pan"
    ],
-   "gy": []
+   "gy": [],
+   "guessed": [
+    "S:P Little Knight"
+   ],
+   "missing": [
+    "Predaplant Verte Anaconda",
+    "S:P Little Knight"
+   ]
   },
   {
    "name": "Lukias  + Dtail + 1",
@@ -401,18 +423,20 @@
    ],
    "field": [
     "Mirrorjade the Iceblade Dragon",
-    "Rindbrumm the Striking Dragon",
-    "Fallen of the White Dragon",
-    "Dracotail Faimena",
     "Dracotail Gulamel"
    ],
    "backrow": [
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting"
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": [
+    "Fallen of the White Dragon"
+   ],
+   "missing": [
+    "Predaplant Verte Anaconda"
    ]
   },
   {
@@ -426,17 +450,20 @@
    "field": [
     "Dracotail Gulamel",
     "Ecclesia and the Dark Dragon",
-    "Fallen of Albaz",
-    "Albion the Sanctifire Dragon",
-    "Dracotail Faimena"
+    "Albion the Sanctifire Dragon"
    ],
    "backrow": [
     "Dracotail Flame",
-    "Dracotail Horn"
-   ],
-   "hand": [],
-   "gy": [
     "Dracotail Sting"
+   ],
+   "hand": [
+    "Dracotail Faimena"
+   ],
+   "gy": [
+    "Fallen of Albaz"
+   ],
+   "missing": [
+    "Predaplant Verte Anaconda"
    ]
   }
  ]

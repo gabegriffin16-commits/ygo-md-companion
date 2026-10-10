@@ -1,8 +1,9 @@
 """Guide vs engine: for each guide combo in a refs file, search from its starting hand and compare the engine's best
 board with the guide's end board, both scored by the engine.
 Usage: python3 compare.py <engine> <cards.cdb> <scripts.zip> <refs.json> <secs> [filler card] [only: name substring]
-Generic hand slots ("<Any>", "<Lv4 Monster>"...) become the filler card (default Nibiru, the Primal Being: a card the
-combo won't use); boards whose start names alternatives ("Lukias / Ketu") are skipped unless spelled out.
+Generic hand slots ("<Any>") become the filler card (default Nibiru, the Primal Being: a card the combo won't use). Typed
+slots ("<Dtail name>", "<Lv4 Monster>", "<Urgula / Pan>") become the deck card that fits (name words, abbreviations as
+letters in order, Level), the one with the most copies. Boards whose guide uses cards the deck lacks are marked.
 Env: THREADS (default: all cores), ACTS (max actions, default 40)."""
 import json, os, sqlite3, subprocess, sys
 exe, cdb, scripts, refsf, secs = sys.argv[1:6]
@@ -15,6 +16,46 @@ for code, name in db.execute("select d.id, t.name from datas d join texts t on t
 def n(c):
     r = db.execute("select name from texts where id=?", (c,)).fetchone(); return r[0] if r else str(c)
 def code(x): return int(x) if str(x).isdigit() else names.get(str(x).lower())
+import re
+def subseq(a, b): it = iter(b); return all(ch in it for ch in a)
+RACES = ["warrior", "spellcaster", "fairy", "fiend", "zombie", "machine", "aqua", "pyro", "rock", "winged beast", "plant", "insect", "thunder",
+         "dragon", "beast", "beast-warrior", "dinosaur", "fish", "sea serpent", "reptile", "psychic", "divine-beast", "creator god", "wyrm", "cyberse", "illusion"]
+def race_of(slot):
+    """A slot that names a monster Type ("Spellcaster", "Winged") -> its race bit."""
+    w = slot.replace(" monster", "").strip()
+    for i, r in enumerate(RACES):
+        if r == w: return 1 << i
+    for i, r in enumerate(RACES):
+        if len(w) >= 4 and r.startswith(w): return 1 << i
+    return 0
+def fits(slot, c):
+    """Does deck card c fit a typed slot like "Dtail name", "Lv4 Monster" or "Spellcaster"?"""
+    r = db.execute("select t.name, d.level, d.type, d.race from datas d join texts t on t.id = d.id where d.id=?", (c,)).fetchone()
+    if not r: return False
+    nm, lv, typ = r[0].lower(), r[1] & 0xff, r[2]
+    if race_of(slot): return bool(typ & 1 and r[3] & race_of(slot))
+    for w in re.findall(r"[a-z0-9]+", slot):
+        if w in ("name", "card", "cards"): continue
+        if w in ("monster", "monsters"):
+            if not typ & 1: return False
+        elif w in ("spell", "trap"):
+            if not typ & (2 if w == "spell" else 4): return False
+        elif re.fullmatch(r"(lv|level)(\d+)", w):
+            if not typ & 1 or lv != int(re.fullmatch(r"(lv|level)(\d+)", w).group(2)): return False
+        elif not any(subseq(w, x) for x in re.findall(r"[a-z0-9]+", nm)): return False
+    return True
+def handtrap(c):
+    d = (db.execute("select desc from texts where id=?", (c,)).fetchone() or [""])[0].lower()
+    return "(quick effect)" in d and any(x in d for x in ("discard this card", "send this card from your hand", "from your hand to the gy"))
+def pick(slot, main, hand):
+    """The deck card for a typed slot (alternatives split on "/"), or None."""
+    left = list(main)
+    for c in hand:
+        if c in left: left.remove(c)
+    for alt in re.split(r"[/,]", slot):
+        cands = [c for c in dict.fromkeys(left) if fits(alt.strip(), c)]
+        if cands: return max(cands, key=lambda c: (not handtrap(c), left.count(c)))   # a card the line uses, not a handtrap
+    return None
 refs = json.load(open(refsf, encoding="utf-8"))
 deck = json.load(open(os.path.join(os.path.dirname(refsf), "..", refs["deck"]) if not os.path.isabs(refs["deck"]) and not os.path.exists(refs["deck"]) else refs["deck"]))
 p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
@@ -30,9 +71,12 @@ for b in refs["boards"]:
     if only and only not in b["name"].lower(): continue
     hand = []
     for s in b["start"]:
-        if s.startswith("<"):   # only truly generic slots take the filler; "<Spellcaster>" needs a real card
-            if s.strip("<>").lower().split("(")[0].strip() in ("any", "any card", "any monster", "discard"): hand.append(code(filler)); continue
-            hand = None; break
+        if s.startswith("<"):   # only truly generic slots take the filler; typed ones need a fitting card
+            slot = s.strip("<>").lower().split("(")[0].strip()
+            if slot in ("any", "any card", "any monster", "discard"): hand.append(code(filler)); continue
+            c = pick(slot, deck["main"], hand)
+            if c is None: hand = None; break
+            hand.append(c); continue
         if code(s) is None: hand = None; break
         hand.append(code(s))
     if not hand: print("\n## %s: skipped (start %s)" % (b["name"], b["start"])); continue
@@ -43,7 +87,7 @@ for b in refs["boards"]:
     r = ask({"id": qid, "cmd": "search", "deck": main, "extra": deck["extra"], "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads, "top": 3, "maxActions": acts})
     qid += 1
     q = {"id": qid, "cmd": "score", "extra": deck["extra"], "targets": []}
-    for k in ("field", "backrow", "hand", "gy"): q[k] = [code(x) for x in b.get(k, []) if code(x)]
+    for k in ("field", "backrow", "hand", "gy", "banished"): q[k] = [code(x) for x in b.get(k, []) if code(x)]
     g = ask(q)["score"]
     best = r["boards"][0] if r.get("boards") else None
     print("\n## %s  (start: %s)" % (b["name"], " + ".join(n(c) for c in hand)))
@@ -54,6 +98,8 @@ for b in refs["boards"]:
               len(best["steps"]), st.get("bestAt", 0), st.get("seconds", 0), ", stable" if r.get("stable") else ""))
         gf = sorted(code(x) for x in b["field"] if code(x)); found = [bb for bb in r["boards"] if all(c in bb["field"] for c in gf)]
         verdict = "engine found the guide's field" if found else "engine better by score" if best["score"] > g.get("total", 0) + 0.3 else "guide better: engine missed it" if g.get("total", 0) > best["score"] + 0.3 else "about even"
+        if b.get("missing"): verdict += "  [guide uses cards not in this deck: %s]" % ", ".join(b["missing"])
+        if b.get("guessed"): verdict += "  [placement guessed: %s]" % ", ".join(b["guessed"])
         print("   -> %s" % verdict)
     else: print("   engine: no boards (%s)" % r.get("error", ""))
     if os.environ.get("WHY"):
