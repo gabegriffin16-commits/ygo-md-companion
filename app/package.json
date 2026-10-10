@@ -1,7 +1,7 @@
 {
   "name": "master-duel-companion",
   "productName": "Master Duel Companion App",
-  "version": "1.15.0",
+  "version": "1.16.0",
   "description": "Always-on-top Master Duel companion overlay with global hotkeys and a hand reader.",
   "main": "main.js",
   "author": "Gabe",

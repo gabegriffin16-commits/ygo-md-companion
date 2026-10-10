@@ -483,7 +483,8 @@ function genThreads() { return Math.max(1, Math.min(8, require("os").cpus().leng
 async function genRun(job) {
   const g = gen;
   const lines = [];
-  const send = (q) => comboRequest(Object.assign({ cmd: "search", deck: job.deck, extra: job.extra, threads: genThreads(), top: 1 }, q));
+  // Every search aims at the deck's end-board goals, backups included.
+  const send = (q) => comboRequest(Object.assign({ cmd: "search", deck: job.deck, extra: job.extra, threads: genThreads(), top: 1, targets: job.targets || [] }, q));
   try {
     await comboEnsureData(0);
     await comboStart();
@@ -522,7 +523,7 @@ async function genRun(job) {
     if (g.cancel) { genEvent({ state: "cancelled", deckId: job.deckId }); return; }
     lines.forEach(L => { delete L.lab; });
     fs.mkdirSync(GEN_DIR, { recursive: true });
-    fs.writeFileSync(path.join(GEN_DIR, job.deckId + ".json"), JSON.stringify({ deckId: job.deckId, sig: job.sig, at: Date.now(), v: 1, lines }));
+    fs.writeFileSync(path.join(GEN_DIR, job.deckId + ".json"), JSON.stringify({ deckId: job.deckId, sig: job.sig, goals: job.targets || [], at: Date.now(), v: 1, lines }));
     genEvent({ state: "ready", deckId: job.deckId });
   } catch (e) {
     genEvent({ state: "error", deckId: job.deckId, note: e.message || String(e) });

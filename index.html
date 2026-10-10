@@ -1568,6 +1568,12 @@ button.cfmark.cf-droll[aria-expanded="true"]{color:var(--bg); background:var(--m
 .genalt .hint{margin:0}
 .generr{color:var(--red)}
 .genbox .cftop{margin-top:4px}
+.gengoals{margin:4px 0 6px}
+.gengoalhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px}
+.gengoalhead .hint{margin:0; font-size:.78rem}
+.gengoalchips{display:flex; flex-wrap:wrap; gap:6px}
+.gengoal{cursor:pointer; font:600 .78rem var(--display); border:1px solid var(--line); border-radius:999px; padding:3px 11px; color:var(--muted); background:var(--bg)}
+.gengoal[aria-pressed="true"]{color:var(--ink); border-color:var(--gold); background:color-mix(in srgb, var(--gold) 18%, var(--bg))}
 .genwhy{margin:0; font-size:.8rem}
 .gencheck .card, .gencounter .card{margin-bottom:12px}
 .gencp h3{margin-bottom:2px}
@@ -3629,7 +3635,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // The panel: Find combos + optional goal, a progress strip with Stop, then the boards found.
   // o = {key, hand(): [codes], deck(): {main:[codes], extra:[codes]}, extraOpts(): [codes], save(L)}
   function comboFinder(o){
-    var st = CF.state[o.key] || (CF.state[o.key] = {goal:"", res:null, sig:"", more:false});
+    var st = CF.state[o.key] || (CF.state[o.key] = {goal:(o.goals && o.goals().length) ? "deck" : "", res:null, sig:"", more:false});
     var wrap = nodes("div", "cfpanel");
     function sig(){ return o.hand().slice().sort().join(",") + "|" + st.goal; }
     function paint(){
@@ -3642,6 +3648,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       go.title = hand.length ? "Play this hand out in the rules engine and list the end boards it reaches" : "Add cards to the hand first";
       go.addEventListener("click", function(){ start(20000); });
       var sel = nodes("select", "cfgoal"); sel.setAttribute("aria-label", "Goal");
+      var dg = o.goals ? o.goals() : [];
+      if (dg.length){ var od = nodes("option", null, "Goal: your end-board goals (" + dg.length + ")"); od.title = dg.map(cfName).join(", "); od.value = "deck"; sel.appendChild(od); }
+      else if (st.goal === "deck") st.goal = "";
       sel.appendChild(nodes("option", null, "Goal: best board")).value = "";
       var seen = {};
       o.extraOpts().forEach(function(code){ if (seen[code]) return; seen[code] = 1; var op = nodes("option", null, "Goal: " + cfName(code)); op.value = String(code); sel.appendChild(op); });
@@ -3683,7 +3692,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var d = o.deck();
       CF.run = {key:o.key, text:"Starting…", frac:0, ms:ms, missing:[], paint:null};
       st.more = false; st.sig = sig(); paint();
-      overlayApp.findCombos({deck:d.main, extra:d.extra, hand:hand, targets:st.goal ? [+st.goal] : [], timeMs:ms, top:12}).then(function(r){
+      var tg = st.goal === "deck" ? (o.goals ? o.goals() : []) : st.goal ? [+st.goal] : [];
+      overlayApp.findCombos({deck:d.main, extra:d.extra, hand:hand, targets:tg, timeMs:ms, top:12}).then(function(r){
         var run = CF.run; CF.run = null;
         r = r || {}; r.missing = run ? run.missing : []; st.res = r; st.sig = sig();
         if (wrap.isConnected) paint(); else if (o.repaint) o.repaint();
@@ -3713,6 +3723,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       hand:function(){ var a = []; Object.keys(D.hand).forEach(function(k){ var c = cfCode(k); for (var i = 0; i < (D.hand[k] || 0); i++) if (c) a.push(c); }); return a; },
       deck:function(){ return {main:cfList(DECKDATA.main), extra:cfList(DECKDATA.extra)}; },
       extraOpts:function(){ return cfList(DECKDATA.extra); },
+      goals:function(){ return PREC ? deckGoals(PREC) : []; },
       save:cfSave});
     else duelCF.repaint();
     return duelCF;
@@ -3726,6 +3737,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var GEN_OK = !!(window.overlayApp && overlayApp.genStart);
   var GEN = {run:null, paints:[]};
   function genSig(rec){ return [rec.main || [], rec.extra || []].map(function(rows){ return rows.map(function(r){ return cfCode(r.id) + "x" + r.n; }).sort().join(","); }).join("|"); }
+  // End-board goals: the cards this deck wants to finish on. Searches score a board that has them far higher,
+  // which is what steers them down the long lines. Until the player picks, they're suggested from card text:
+  // Extra Deck monsters that can interrupt on the opponent's turn.
+  function goalSuggest(rec){
+    var seen = {};
+    return (rec.extra || []).map(function(r){ return CARD_BY_ID[r.id]; }).filter(function(c){
+      if (!c || seen[c.id]) return false; seen[c.id] = 1;
+      return /\(Quick Effect\)|negate|your opponent activates/i.test(c.d || "");
+    }).sort(function(a, b){ return (b.atk || 0) - (a.atk || 0); }).slice(0, 3).map(function(c){ return cfCode(c.id); });
+  }
+  function deckGoals(rec){ return !rec ? [] : Array.isArray(rec.goals) ? rec.goals.slice() : goalSuggest(rec); }
+  function sameSet(a, b){ a = (a || []).slice().sort().join(","); b = (b || []).slice().sort().join(","); return a === b; }
   function genOf(rec){ return rec && rec.gen && rec.gen.lines ? rec.gen : null; }
   function genStep(x){
     var picks = x[3] || [];
@@ -3805,7 +3828,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     return overlayApp.genTake(deckId).then(function(data){
       if (!data) return false;
       var rec = MDC.get(deckId); if (!rec) return false;
-      var g = {sig:data.sig, at:data.at, v:data.v, lines:data.lines};
+      var g = {sig:data.sig, at:data.at, v:data.v, goals:data.goals || [], lines:data.lines};
       rec.gen = g; MDC.put(rec);
       if (CF.bld && CF.bld.id === deckId) CF.bld.gen = g;
       if (deckId === PILOT_ID && !HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
@@ -3849,7 +3872,29 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var nl = g.lines.length, nf = g.lines.reduce(function(a, L){ return a + (L.fb || []).length; }, 0);
         wrap.appendChild(nodes("p", "hint", nl + " line" + (nl === 1 ? "" : "s") + " and " + nf + " handtrap backup" + (nf === 1 ? "" : "s") + ", generated " + new Date(g.at).toLocaleDateString() + ". They fill the Lines, Checkpoints and Counter Guide tabs and the Duel tab's best line."));
         if (saved && g.sig !== genSig(saved)) wrap.appendChild(nodes("p", "hint generr", "The deck changed since these were generated."));
+        else if (saved && g.goals && !sameSet(g.goals, deckGoals(saved))) wrap.appendChild(nodes("p", "hint generr", "Your end-board goals changed since these were generated."));
       } else wrap.appendChild(nodes("p", "hint", "Plays every starter and two-card start through the rules engine, then checks where Ash, Imperm, Veiler and Droll hit each line. Fills the Lines, Checkpoints and Counter Guide tabs and the Duel tab's best line for your hand. Takes a few minutes in the background."));
+      // End-board goals
+      var gl = nodes("div", "gengoals"), goals = deckGoals(deck);
+      var gh = nodes("div", "gengoalhead"); gh.appendChild(nodes("span", "fhead", "End-board goals"));
+      gh.appendChild(nodes("span", "hint", Array.isArray(deck.goals) ? "Lines aim to finish on these." : "Suggested from card text. Tap to change."));
+      gl.appendChild(gh);
+      var chips = nodes("div", "gengoalchips"), seenG = {};
+      (deck.extra || []).forEach(function(r){
+        var code = cfCode(r.id); if (!code || seenG[code]) return; seenG[code] = 1;
+        var on = goals.indexOf(code) >= 0, b = nodes("button", "pill gengoal", cfName(code)); b.type = "button";
+        b.setAttribute("aria-pressed", on ? "true" : "false");
+        b.addEventListener("click", function(){
+          var cur = deckGoals(deck), i = cur.indexOf(code);
+          if (i >= 0) cur.splice(i, 1); else cur.push(code);
+          deck.goals = cur;
+          var rec = deck.id && MDC.get(deck.id); if (rec){ rec.goals = cur.slice(); MDC.put(rec); }
+          paint();
+        });
+        chips.appendChild(b);
+      });
+      if (!chips.children.length) chips.appendChild(nodes("span", "hint", "Add Extra Deck monsters to pick goals."));
+      gl.appendChild(chips); wrap.appendChild(gl);
       if (!GEN_OK){ wrap.appendChild(nodes("p", "hint", "Generating lines needs the desktop app.")); return true; }
       var go = nodes("button", "primary cfgo", g ? "Regenerate lines" : "Generate lines"); go.type = "button";
       var why = !saved ? "Save the deck first" : isDirty() ? "Save your changes first" : run ? "Already generating lines for " + (run.name || "another deck") : "";
@@ -3858,7 +3903,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var rec = MDC.get(deck.id); if (!rec) return;
         var hands = genHands(rec);
         if (!hands.length){ toast("No starters or engine cards found to play out"); return; }
-        overlayApp.genStart({deckId:rec.id, name:rec.name, deck:cfList(rec.main), extra:cfList(rec.extra || []), hands:hands, sig:genSig(rec)}).then(function(r){
+        var tg = deckGoals(rec);
+        if (!Array.isArray(rec.goals)){ rec.goals = tg.slice(); MDC.put(rec); deck.goals = tg.slice(); }   // the suggestion becomes the deck's goals
+        overlayApp.genStart({deckId:rec.id, name:rec.name, deck:cfList(rec.main), extra:cfList(rec.extra || []), hands:hands, sig:genSig(rec), targets:tg}).then(function(r){
           if (r && r.error){ toast(r.error); return; }
           GEN.run = {deckId:rec.id, name:rec.name, phase:"prepare", done:0, total:hands.length}; genPaintAll();
         });
@@ -5454,6 +5501,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         hand:function(){ return simHand.map(function(id){ return +id; }); },
         deck:function(){ return {main:cfList(deck.main), extra:cfList(deck.extra || [])}; },
         extraOpts:function(){ return cfList(deck.extra || []); },
+        goals:function(){ return deckGoals(deck); },
         save:function(L){
           deck.lines = [L].concat(deck.lines || []); dirty = true;
           var rec = deck.id && MDC.get(deck.id);
