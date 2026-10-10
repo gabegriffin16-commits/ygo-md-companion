@@ -1288,6 +1288,7 @@ html.in-overlay.deckopen #deckPane, html.in-overlay.findopen #cardPane{top:30px}
 #ovBar #ovLeft .ovb, #ovBar #ovRight > *, #ovBar .thememenu.inbar, #ovBar .thememenu.inbar .themebtn, #ovBar .thememenu.inbar .caret{height:22px !important}
 #ovBar .ovlab, #ovBar .acctbtn.inbar span, #ovBar .thememenu.inbar .tname, #ovBar .setlbl{line-height:22px !important; height:22px !important}
 #ovBar .ovb.ovup, #ovBar .ovlater{line-height:22px}
+#ovBar button:focus-visible{outline:2px solid var(--sky); outline-offset:-2px}   /* inside the 22px bar so it isn't clipped */
 #ovBar #ovLeft{left:6px}
 #ovBar .ovgrp:not(.ovleft){right:8px}
 .setpop{top:26px}
@@ -2061,7 +2062,8 @@ var CLOUD = (function(){
       if (!r.data.session) throw new Error(friendly("confirm"));
       user = r.data.user; return user; });
   }
-  function signOut(){ return client().auth.signOut().then(function(){ user = null; profile = null; }); }
+  // local: end this browser's session only (the default "global" also signs out every other device).
+  function signOut(local){ return client().auth.signOut(local ? {scope:"local"} : undefined).then(function(){ user = null; profile = null; }); }
   function loadProfile(){
     return client().from("profiles").select("id, username, is_admin").eq("id", user.id).maybeSingle().then(function(r){
       if (r.error) throw err(r.error);
@@ -2262,6 +2264,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   if (OLD_THEME[theme]){ theme = OLD_THEME[theme]; save("hbc-theme", theme); }
   if (theme && !THEMES.some(function(x){ return x.id === theme; })) theme = null;
   if (theme) document.documentElement.setAttribute("data-theme", theme);
+  // Only one pop-up menu open at a time: each one tells the others to close as it opens.
+  function closeMenus(keep){ document.dispatchEvent(new CustomEvent("mdc-closemenus", {detail:keep})); }
   // Theme menu: a dropdown with each theme's name and color bubble, plus the background fade switch.
   var themeBtn = document.getElementById("themeBtn"), themePop = document.getElementById("themePop");
   var fadeBg = !!load("hbc-fade", false);
@@ -2272,7 +2276,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var cur = curTheme(), th = THEMES.filter(function(x){ return x.id === cur; })[0] || THEMES[0];
     themeBtn.replaceChild(bubble(th), themeBtn.querySelector(".tbub"));
     themeBtn.querySelector(".tname").textContent = th.name;
-    themePop.querySelectorAll(".themeitem").forEach(function(b){ b.setAttribute("aria-checked", b.dataset.theme === cur ? "true" : "false"); });
+    themePop.querySelectorAll(".themeitem:not(.bgitem)").forEach(function(b){ b.setAttribute("aria-checked", b.dataset.theme === cur ? "true" : "false"); });
     var fs = document.getElementById("fadeBtn"); if (fs) fs.setAttribute("aria-checked", fadeBg ? "true" : "false");
     document.documentElement.classList.toggle("fadebg", fadeBg);
   }
@@ -2436,7 +2440,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
     function paint(st){
       cur = st || cur; if (!cur) return;
-      if (op) op.querySelector(".setval").textContent = Math.round(cur.opacity * 100) + "%";
+      if (op){ op.querySelector(".setval").textContent = Math.round(cur.opacity * 100) + "%";
+        var ob = op.querySelectorAll("button"); ob[0].disabled = cur.opacity <= 0.3; ob[1].disabled = cur.opacity >= 1; }
       if (rd){ rd.setAttribute("aria-checked", cur.reader ? "true" : "false"); rdRow._sub.textContent = cur.reader ? (cur.readerLabel && cur.readerLabel !== "off" ? cur.readerLabel.charAt(0).toUpperCase() + cur.readerLabel.slice(1) : "On") : "Off"; }
       if (lk){ lk.setAttribute("aria-checked", cur.clickThrough ? "true" : "false"); lkRow._sub.textContent = "Clicks go to the game" + (cur.lockKey ? " · " + cur.lockKey + " unlocks" : ""); }
     }
@@ -2447,11 +2452,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     cog.addEventListener("click", function(e){
       e.stopPropagation();
       if (!pop.hidden){ close(); return; }
-      pop.hidden = false; cog.setAttribute("aria-expanded", "true");
+      closeMenus(pop); pop.hidden = false; cog.setAttribute("aria-expanded", "true");
       if (hasApp && app.getSettings) app.getSettings().then(paint).catch(function(){});
     });
     document.addEventListener("click", function(e){ if (!pop.hidden && !pop.contains(e.target) && e.target !== cog) close(); });
     document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !pop.hidden) close(); });
+    document.addEventListener("mdc-closemenus", function(e){ if (e.detail !== pop && !pop.hidden) close(); });
   }
   // Account button: your username, with Sign out.
   var acctEl = null;
@@ -2464,7 +2470,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     acctEl.onclick = function(e){
       e.stopPropagation();
       if (!acctMenu.hidden){ acctMenu.hidden = true; return; }
-      acctMenu.innerHTML = "";
+      closeMenus(acctMenu); acctMenu.innerHTML = "";
       var who = nodes("div", "dmwho"); who.appendChild(nodes("span", null, "Signed in as ")); who.appendChild(nodes("b", null, (CLOUD.profile() || {}).username || "")); acctMenu.appendChild(who);
       acctMenu.appendChild(nodes("div", "dmsep"));
       var so = nodes("button", "dmitem act", "Sign out"); so.type = "button"; so.addEventListener("click", function(){ CLOUD.signOut().then(function(){ location.reload(); }); }); acctMenu.appendChild(so);
@@ -2475,6 +2481,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       acctMenu.style.top = (r.bottom + 6) + "px";
     };
     document.addEventListener("click", function(e){ if (!acctMenu.hidden && !acctMenu.contains(e.target)) acctMenu.hidden = true; });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape") acctMenu.hidden = true; });
+    document.addEventListener("mdc-closemenus", function(e){ if (e.detail !== acctMenu) acctMenu.hidden = true; });
     var hs = document.querySelector("header.top .hdrside"); if (hs) hs.insertBefore(acctEl, hs.firstChild);
   } else if (window.CLOUD && CLOUD.configured()){
     // Signed out: the button opens the sign-in card.
@@ -2532,8 +2540,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         }
         grp.appendChild(ubar);
         var tcg = document.getElementById("t-counter"); if (tcg) tcg.textContent = "Counter Guide";
-        new MutationObserver(function(){ var sec = document.getElementById("tab-users"); ubar.setAttribute("aria-pressed", sec && !sec.hidden ? "true" : "false"); })
-          .observe(document.getElementById("tab-users"), {attributes:true, attributeFilter:["hidden"]});
+        var paintUb = function(){ var sec = document.getElementById("tab-users"); ubar.setAttribute("aria-pressed", sec && !sec.hidden ? "true" : "false"); };
+        new MutationObserver(paintUb).observe(document.getElementById("tab-users"), {attributes:true, attributeFilter:["hidden"]}); paintUb();
       }
       if (acctEl){ acctEl.classList.add("inbar"); grp.appendChild(acctEl); }
       var cog = document.getElementById("ovK");
@@ -2560,15 +2568,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   window.addEventListener("resize", function(){ requestAnimationFrame(placeUp); });
   if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["ovLeft", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
   // Update button in the app bar (shows only when GitHub has a newer version of the app).
+  // "Later" lasts until the app restarts (sessionStorage survives the bar's Reload, not a relaunch).
   var upState = null, upHidden = false;
+  try { upHidden = sessionStorage.getItem("mdc-uplater") || false; } catch (e) {}
   function paintUpdate(){
     var bar = document.getElementById("ovBar"); if (!bar) return;
     var b = document.getElementById("ovUp");
-    if (!upState || upState.state === "current" || (upHidden && upState.state === "available")){ if (b) b.remove(); bar.classList.remove("has-update"); return; }
+    if (!upState || upState.state === "current" || (upHidden && (String(upHidden) === "true" || String(upHidden) === String(upState.version)) && upState.state === "available")){ if (b) b.remove(); bar.classList.remove("has-update"); return; }
     if (!b){
       b = document.createElement("button"); b.type = "button"; b.className = "ovb ovup"; b.id = "ovUp";
-      var later = document.createElement("span"); later.className = "ovlater"; later.textContent = "Later"; later.title = "Hide until next launch";
-      later.addEventListener("click", function(e){ e.stopPropagation(); upHidden = true; paintUpdate(); });
+      var later = b._later = document.createElement("span"); later.className = "ovlater"; later.textContent = "Later"; later.title = "Hide until next launch";
+      later.addEventListener("click", function(e){ e.stopPropagation(); upHidden = (upState && upState.version) || true;
+        try { sessionStorage.setItem("mdc-uplater", upHidden); } catch (x) {} paintUpdate(); });
       b.addEventListener("click", function(){ if (upState && (upState.state === "available" || upState.state === "error") && window.overlayApp && overlayApp.installUpdate) overlayApp.installUpdate(); });
       bar.appendChild(b);
     }
@@ -2577,7 +2588,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.title = st === "error" ? (upState.note || "") : st === "available" ? ("Version " + upState.version + " is ready. Click to download it and restart." + (upState.notes ? "\n\n" + upState.notes : "")) : "";
     b.disabled = st === "downloading" || st === "restarting";
     b.dataset.full = b.textContent;
-    if (st === "available" || st === "error") b.appendChild(later);
+    if (st === "available" || st === "error") b.appendChild(b._later);
     bar.classList.add("has-update");
   }
   window.addEventListener("overlay-update", function(e){
@@ -2590,7 +2601,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   paintAuto();
   themeBtn.addEventListener("click", function(e){
     e.stopPropagation();
-    var open = themePop.hidden; themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
+    var open = themePop.hidden; if (open) closeMenus(themePop); themePop.hidden = !open; themeBtn.setAttribute("aria-expanded", open ? "true" : "false");
     if (open){ var r = themeBtn.getBoundingClientRect();   // fixed so the header can't clip it
       themePop.style.top = (r.bottom + 6) + "px";
       if (document.getElementById("themeMenu").classList.contains("authsel")){ themePop.style.left = Math.max(6, Math.min(r.left, window.innerWidth - themePop.offsetWidth - 6)) + "px"; themePop.style.right = "auto"; }
@@ -2598,6 +2609,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       else { themePop.style.left = "auto"; themePop.style.right = Math.max(6, window.innerWidth - r.right) + "px"; } }
   });
   document.addEventListener("click", function(e){ if (!themePop.hidden && !e.target.closest("#themeMenu")) closeTheme(); });
+  document.addEventListener("mdc-closemenus", function(e){ if (e.detail !== themePop && !themePop.hidden) closeTheme(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !themePop.hidden){ closeTheme(); themeBtn.focus(); } });
   paintSwatches();
 
@@ -5111,7 +5123,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.addEventListener("click", function(e){ e.stopPropagation(); fn(b); }); deckMenu.appendChild(b); return b;
   }
   function openDeckMenu(anchor){
-    deckMenu.innerHTML = "";
+    closeMenus(deckMenu); deckMenu.innerHTML = "";
     deckMenu.appendChild(nodes("div", "dmhead", "Decks"));
     if (MDC.heroAllowed()){
       var hero = menuItem("Omni HERO", PILOT_ID === "hero" ? "on" : "", function(){ if (PILOT_ID !== "hero") MDC.setPilot("hero"); else closeDeckMenu(); });
@@ -5143,6 +5155,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   }
   document.addEventListener("click", function(e){ if (!deckMenu.hidden && !deckMenu.contains(e.target) && !e.target.closest(".deckpick")) closeDeckMenu(); });
   document.addEventListener("keydown", function(e){ if (e.key === "Escape") closeDeckMenu(); });
+  document.addEventListener("mdc-closemenus", function(e){ if (e.detail !== deckMenu) closeDeckMenu(); });
 
   var bldReload = false;   // the piloted deck changed while building: reload when the builder closes
   function openBuilder(deck, isNew){
@@ -5768,13 +5781,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function head(title, back){
       var h = nodes("div", "uhead");
       if (back){ var b = nodes("button", "ubk"); b.type = "button"; b.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>'; b.title = back.label; b.setAttribute("aria-label", back.label); b.addEventListener("click", back.fn); h.appendChild(b); }
-      h.appendChild(nodes("h2", null, title));
+      var h2 = nodes("h2", null, title); h2.title = title; h.appendChild(h2);
       if (!back){ var r = nodes("button", "ghost urefresh", "Refresh"); r.type = "button"; r.addEventListener("click", function(){ load(true); }); h.appendChild(r); }
       return h;
     }
     function paint(){
       view.innerHTML = "";
-      if (!dir) return;
+      if (!dir){ load(); return; }   // e.g. after a copy changed your deck list
       var u = at.user && dir.filter(function(x){ return x.id === at.user; })[0];
       if (at.level !== "users" && !u) at = {level:"users"};
       if (at.level === "users") return paintUsers();
@@ -5906,6 +5919,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     tb.addEventListener("click", closeBg);
     document.addEventListener("click", function(e){ if (!pop.hidden && !wrap.contains(e.target)) closeBg(); });
+    document.addEventListener("keydown", function(e){ if (e.key === "Escape" && !pop.hidden){ closeBg(); bb.focus(); } });
     wrap.appendChild(bb); wrap.appendChild(pop); host.appendChild(wrap);
     paintBgs();
   })();
@@ -6047,7 +6061,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   note.textContent = "Signing in…";
   CLOUD.start().then(function(u){
     var keep = true; try { keep = localStorage.getItem("mdc-remember") !== "0" || !!sessionStorage.getItem("mdc-alive"); } catch (x) {}
-    if (u && !keep) return CLOUD.signOut().then(function(){ MDC.scope("guest", false); authScreen(); boot(); });
+    if (u && !keep) return CLOUD.signOut(true).then(function(){ MDC.scope("guest", false); authScreen(); boot(); });
     if (u) return enter();
     // Signed out: the app runs deckless behind the sign-in card, so the top bar (theme, reload, settings,
     // full/compact) still works before you sign in.
