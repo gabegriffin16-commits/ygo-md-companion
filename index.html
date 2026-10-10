@@ -10,6 +10,9 @@
 (function(){
   var h = document.documentElement, OLD = {flame:"fire", shadow:"darka", sky:"water"};
   function rd(k){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  // The app sends update news shortly after each page load, often before the page has finished loading your account.
+  // Keep the latest one so the update banner can show it once the page is ready.
+  window.addEventListener("overlay-update", function(e){ window.__mdcUpdate = e.detail || null; });
   var th = rd("hbc-theme"); if (th) h.setAttribute("data-theme", OLD[th] || th);
   // No theme picked yet: follow the computer's light/dark setting with the Light or Dark Attribute theme.
   var mq = window.matchMedia ? matchMedia("(prefers-color-scheme: light)") : null;
@@ -2638,6 +2641,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (d.state === "error" && typeof toast === "function") toast("Update didn't finish: " + (d.note || "unknown error"));
     upState = d; paintUpdate();
   });
+  // News that arrived while the page was still loading (a missed "available" would leave no banner after a reload).
+  if (window.__mdcUpdate && !upState){ var early = window.__mdcUpdate;
+    if (early.state === "available" || early.state === "downloading" || early.state === "restarting"){ upState = early; setTimeout(paintUpdate, 0); } }
   window.setHasReader = function(on){ document.documentElement.classList.toggle("has-reader", !!on); paintAuto(); };
   paintAuto();
   themeBtn.addEventListener("click", function(e){
