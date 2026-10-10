@@ -11,6 +11,14 @@
   var h = document.documentElement, OLD = {flame:"fire", shadow:"darka", sky:"water"};
   function rd(k){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
   var th = rd("hbc-theme"); if (th) h.setAttribute("data-theme", OLD[th] || th);
+  // No theme picked yet: follow the computer's light/dark setting with the Light or Dark Attribute theme.
+  var mq = window.matchMedia ? matchMedia("(prefers-color-scheme: light)") : null;
+  window.mdcSysTheme = function(){ return mq && mq.matches ? "light" : "darka"; };
+  if (!th) h.setAttribute("data-theme", mdcSysTheme());
+  if (mq && mq.addEventListener) mq.addEventListener("change", function(){
+    if (rd("hbc-theme")) return;
+    h.setAttribute("data-theme", mdcSysTheme()); window.dispatchEvent(new Event("mdc-systheme"));
+  });
   if (rd("hbc-compact") || /[?&]compact/.test(location.search)) h.classList.add("compact");
   if (rd("hbc-fade")) h.classList.add("fadebg");
   h.setAttribute("data-bg", rd("hbc-bg") || "bubble");
@@ -346,14 +354,14 @@ html.compact .lpcol{padding-left:8px}
 .lpin:hover, .lpin:focus{border-color:var(--line); background:var(--bg); outline:none}
 .lpin::placeholder{color:var(--muted); opacity:.7}
 .stepper{list-style:none; display:flex; align-items:center; gap:0; padding:0 2px; margin:0 0 12px; font:600 .78rem var(--display); color:var(--muted); border-bottom:1px solid var(--line)}
-.stepper .turnno{color:var(--gold); margin-right:auto; padding:4px 0 6px; letter-spacing:.02em; white-space:nowrap}
+.stepper .turnno{color:var(--goldtx, var(--gold)); margin-right:auto; padding:4px 0 6px; letter-spacing:.02em; white-space:nowrap}
 .stepper .turnno small{color:var(--muted); font-weight:500; margin-left:6px}
 .stepper li.ph{position:relative; padding:4px 0 6px; margin-left:14px; white-space:nowrap}
 .stepper li.ph.done{color:var(--ink); opacity:.7}
-.stepper li.ph.cur{color:var(--gold)}
+.stepper li.ph.cur{color:var(--goldtx, var(--gold))}
 .stepper li.ph.cur::after{content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; border-radius:2px; background:var(--gold)}
 .stepper li.readerpill{margin-left:12px; padding:4px 0 6px; color:var(--muted); font-size:.8rem; cursor:help}
-.stepper li.readerpill.on{color:var(--gold)}
+.stepper li.readerpill.on{color:var(--goldtx, var(--gold))}
 .stepper li.ph.skip{text-decoration:line-through; opacity:.45}
 .stepper li.skip{opacity:.45; text-decoration:line-through}
 .stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
@@ -404,7 +412,11 @@ html.compact .lpcol{padding-left:8px}
 .stoplist li.s-ash{border-left-color:var(--red)} .stoplist li.s-imp{border-left-color:var(--sky)}
 .stoptop{display:flex; align-items:center; gap:8px}
 .stoptag{font:700 .75rem var(--display); border-radius:6px; padding:2px 8px; background:var(--panel2); color:var(--ink)}
-.s-ash .stoptag{background:var(--red); color:#fff} .s-imp .stoptag{background:var(--sky); color:#10213a}
+.s-ash .stoptag{background:var(--red); color:#fff}
+/* small gold text on the light palettes, and the Ash tag on themes with a light red, need more contrast */
+:root[data-theme="light"]{--goldtx:#6E5208}
+@media (prefers-color-scheme: light){ :root:not([data-theme]){--goldtx:#6E5208} }
+:root[data-theme="fire"] .s-ash .stoptag, :root[data-theme="be"] .s-ash .stoptag, :root[data-theme="stardust"] .s-ash .stoptag{color:#1B1640} .s-imp .stoptag{background:var(--sky); color:#10213a}
 .stopnm{flex:1; font-weight:700}
 .stoptip{margin:6px 0 0; color:var(--muted); font-size:.88rem}
 
@@ -453,7 +465,7 @@ body{background:var(--bg) !important; animation:none !important}
 .cdsearch input:focus{outline:2px solid var(--gold); outline-offset:1px}
 .cdres{position:absolute; z-index:20; left:0; right:0; top:calc(100% + 4px); list-style:none; margin:0; padding:4px; background:var(--panel); border:1px solid var(--line); border-radius:10px; box-shadow:0 12px 30px rgba(0,0,0,.3); max-height:360px; overflow-y:auto}
 .cdres button{width:100%; text-align:left; background:none; border:0; color:var(--ink); font:400 .92rem var(--body); padding:7px 10px; border-radius:7px; cursor:pointer}
-.cdres button:hover{background:var(--panel2)}
+.cdres button:hover, .cdres button.act{background:var(--panel2)}
 .cdres .msg{color:var(--muted); font-size:.88rem; padding:7px 10px}
 .cardface{--cf1:#8A5A3C; --cf2:#C08A5E; border-radius:12px; padding:14px 16px; margin:2px 0 16px; color:#1E1A16;
   background:linear-gradient(160deg, var(--cf2) 0%, var(--cf1) 100%); box-shadow:0 14px 34px rgba(0,0,0,.28), inset 0 0 0 2px rgba(255,255,255,.18)}
@@ -654,7 +666,7 @@ html.fadebg .side.left, html.fadebg .side.right{background:color-mix(in srgb, va
 html.fadebg .lpbar{background:none}
 html.fadebg main, html.fadebg .side, html.fadebg nav.tabs{text-shadow:0 0 3px var(--bg), 0 0 2px var(--bg), 0 1px 1px var(--bg)}
 html.fadebg .lr, html.fadebg .hint, html.fadebg .stepper, html.fadebg .lpcol .lab, html.fadebg .tab{color:var(--ink)}
-html.fadebg .tab[aria-selected="true"], html.fadebg .stepper li.ph.cur, html.fadebg .stepper .turnno{color:var(--gold)}
+html.fadebg .tab[aria-selected="true"]{color:var(--gold)} html.fadebg .stepper li.ph.cur, html.fadebg .stepper .turnno{color:var(--goldtx, var(--gold))}
 html.fadebg button.ghost, html.fadebg .stopbtn{background:var(--panel2) !important; color:var(--ink)}
 html.fadebg .stopbtn.s-ash{border-color:var(--red)} html.fadebg .stopbtn.s-imp{border-color:var(--sky)}
 html.fadebg .tog, html.fadebg .mini, html.fadebg .chip, html.fadebg .ctool, html.fadebg .compactbtn, html.fadebg .themebtn, html.fadebg button.primary, html.fadebg button.ghost{text-shadow:none}
@@ -1274,8 +1286,10 @@ html.compact #ovBar .thememenu.inbar .tname{max-width:none}
 #ovBar .ovb.ovup{position:absolute; inset:0; left:0 !important; transform:none !important; width:100%; height:100%; top:0; border-radius:0; padding:0 64px; z-index:5;
   display:flex; align-items:center; justify-content:center; gap:8px; font:700 9px/16px sans-serif; letter-spacing:.08em; -webkit-app-region:no-drag}
 #ovBar .ovb.ovup:hover{filter:brightness(1.06)}
-#ovBar .ovlater{position:absolute; right:8px; top:0; height:100%; display:flex; align-items:center; padding:0 6px; font:600 9px/16px sans-serif; letter-spacing:.08em; opacity:.7; cursor:pointer}
-#ovBar .ovlater:hover{opacity:1; text-decoration:underline}
+#ovBar .ovupx{position:absolute; right:6px; top:50%; transform:translateY(-50%); z-index:6; width:18px; height:18px; padding:0; border:0; border-radius:50%;
+  display:grid; place-items:center; background:none; color:#1B1640; opacity:.65; cursor:pointer; -webkit-app-region:no-drag}
+#ovBar .ovupx svg{display:block}
+#ovBar .ovupx:hover{opacity:1; background:color-mix(in srgb, #1B1640 14%, transparent)}
 #ovBar.has-update > span{visibility:hidden}
 /* ---- app bar v5: 22px tall with breathing room; Settings labeled; nudges measured to the text ---- */
 #ovBar{height:22px !important}
@@ -1287,7 +1301,7 @@ html.in-overlay.deckopen #deckPane, html.in-overlay.findopen #cardPane{top:30px}
 #ovBar .ovgrp, #ovBar #ovLeft{height:22px !important}
 #ovBar #ovLeft .ovb, #ovBar #ovRight > *, #ovBar .thememenu.inbar, #ovBar .thememenu.inbar .themebtn, #ovBar .thememenu.inbar .caret{height:22px !important}
 #ovBar .ovlab, #ovBar .acctbtn.inbar span, #ovBar .thememenu.inbar .tname, #ovBar .setlbl{line-height:22px !important; height:22px !important}
-#ovBar .ovb.ovup, #ovBar .ovlater{line-height:22px}
+#ovBar .ovb.ovup{line-height:22px}
 #ovBar button:focus-visible{outline:2px solid var(--sky); outline-offset:-2px}   /* inside the 22px bar so it isn't clipped */
 #ovBar #ovLeft{left:6px}
 #ovBar .ovgrp:not(.ovleft){right:8px}
@@ -2120,7 +2134,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   // The Users tab only exists with accounts on.
   if (!(window.CLOUD && CLOUD.user())){ ["t-users", "tab-users"].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); }); }
-  else { var tcg = document.getElementById("t-counter"); if (tcg){ tcg.textContent = "Counters"; tcg.title = "Counter Guide"; } }
   var CARD_BY_ID = {}; CARDDB.cards.forEach(function(c){ CARD_BY_ID[c.id] = c; });
   // Master Duel Forbidden/Limited list (cards.json "b": F = Forbidden, L = Limited, S = Semi-Limited).
   var BAN_MAX = {F:0, L:1, S:2}, BAN_NAME = {F:"Forbidden", L:"Limited", S:"Semi-Limited"}, BAN_SHORT = {F:"F", L:"L1", S:"L2"};
@@ -2263,14 +2276,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var OLD_THEME = {flame:"fire", shadow:"darka", sky:"water"};   // old names from before the Attribute themes
   if (OLD_THEME[theme]){ theme = OLD_THEME[theme]; save("hbc-theme", theme); }
   if (theme && !THEMES.some(function(x){ return x.id === theme; })) theme = null;
-  if (theme) document.documentElement.setAttribute("data-theme", theme);
+  document.documentElement.setAttribute("data-theme", theme || (window.mdcSysTheme ? mdcSysTheme() : "darka"));
   // Only one pop-up menu open at a time: each one tells the others to close as it opens.
   function closeMenus(keep){ document.dispatchEvent(new CustomEvent("mdc-closemenus", {detail:keep})); }
   // Theme menu: a dropdown with each theme's name and color bubble, plus the background fade switch.
   var themeBtn = document.getElementById("themeBtn"), themePop = document.getElementById("themePop");
   var fadeBg = !!load("hbc-fade", false);
-  function curTheme(){ return document.documentElement.getAttribute("data-theme") ||
-    (window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark"); }
+  function curTheme(){ return document.documentElement.getAttribute("data-theme") || (window.mdcSysTheme ? mdcSysTheme() : "darka"); }
+  window.addEventListener("mdc-systheme", function(){ paintSwatches(); });
   function bubble(th){ var s = document.createElement("span"); s.className = "tbub"; s.style.setProperty("--sw-bg", th.bg); s.style.setProperty("--sw-ac", th.ac); return s; }
   function paintSwatches(){
     var cur = curTheme(), th = THEMES.filter(function(x){ return x.id === cur; })[0] || THEMES[0];
@@ -2568,27 +2581,30 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   window.addEventListener("resize", function(){ requestAnimationFrame(placeUp); });
   if (window.ResizeObserver){ var upRO = new ResizeObserver(function(){ requestAnimationFrame(placeUp); }); setTimeout(function(){ ["ovLeft", "ovRight"].forEach(function(id){ var el = document.getElementById(id); if (el) upRO.observe(el); }); }, 1500); }
   // Update button in the app bar (shows only when GitHub has a newer version of the app).
-  // "Later" lasts until the app restarts (sessionStorage survives the bar's Reload, not a relaunch).
+  // The x hides the banner until the app reloads (page memory only), whatever state the update is in.
   var upState = null, upHidden = false;
-  try { upHidden = sessionStorage.getItem("mdc-uplater") || false; } catch (e) {}
   function paintUpdate(){
     var bar = document.getElementById("ovBar"); if (!bar) return;
     var b = document.getElementById("ovUp");
-    if (!upState || upState.state === "current" || (upHidden && (String(upHidden) === "true" || String(upHidden) === String(upState.version)) && upState.state === "available")){ if (b) b.remove(); bar.classList.remove("has-update"); return; }
+    var x = document.getElementById("ovUpX");
+    if (!upState || upState.state === "current" || upHidden){ if (b) b.remove(); if (x) x.remove(); bar.classList.remove("has-update"); return; }
     if (!b){
       b = document.createElement("button"); b.type = "button"; b.className = "ovb ovup"; b.id = "ovUp";
-      var later = b._later = document.createElement("span"); later.className = "ovlater"; later.textContent = "Later"; later.title = "Hide until next launch";
-      later.addEventListener("click", function(e){ e.stopPropagation(); upHidden = (upState && upState.version) || true;
-        try { sessionStorage.setItem("mdc-uplater", upHidden); } catch (x) {} paintUpdate(); });
       b.addEventListener("click", function(){ if (upState && (upState.state === "available" || upState.state === "error") && window.overlayApp && overlayApp.installUpdate) overlayApp.installUpdate(); });
       bar.appendChild(b);
+    }
+    if (!x){
+      x = document.createElement("button"); x.type = "button"; x.className = "ovupx"; x.id = "ovUpX";
+      x.title = "Hide until the app reloads"; x.setAttribute("aria-label", x.title);
+      x.innerHTML = '<svg viewBox="0 0 10 10" width="8" height="8" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M1.5 1.5l7 7M8.5 1.5l-7 7"/></svg>';
+      x.addEventListener("click", function(e){ e.stopPropagation(); upHidden = true; paintUpdate(); });
+      bar.appendChild(x);
     }
     var st = upState.state;
     b.textContent = st === "downloading" ? "Updating " + (upState.pct || 0) + "%" : st === "restarting" ? "Restarting\u2026" : st === "error" ? "Update failed: retry" : "Update to v" + upState.version;
     b.title = st === "error" ? (upState.note || "") : st === "available" ? ("Version " + upState.version + " is ready. Click to download it and restart." + (upState.notes ? "\n\n" + upState.notes : "")) : "";
     b.disabled = st === "downloading" || st === "restarting";
     b.dataset.full = b.textContent;
-    if (st === "available" || st === "error") b.appendChild(b._later);
     bar.classList.add("has-update");
   }
   window.addEventListener("overlay-update", function(e){
@@ -3255,7 +3271,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     inp.addEventListener("blur", function(){ setTimeout(function(){ res.hidden = true; }, 120); });
     inp.addEventListener("keydown", function(e){
       if (e.key === "Escape"){ inp.value = ""; res.hidden = true; }
-      if (e.key === "Enter"){ var first = res.querySelector("button"); if (first) first.dispatchEvent(new MouseEvent("mousedown")); }
+      var btns = res.hidden ? [] : [].slice.call(res.querySelectorAll("button")), cur = btns.findIndex(function(b){ return b.classList.contains("act"); });
+      if ((e.key === "ArrowDown" || e.key === "ArrowUp") && btns.length){
+        e.preventDefault();
+        var nx = e.key === "ArrowDown" ? (cur + 1) % btns.length : (cur <= 0 ? btns.length - 1 : cur - 1);
+        btns.forEach(function(b, i){ b.classList.toggle("act", i === nx); });
+        btns[nx].scrollIntoView({block:"nearest"});
+      }
+      if (e.key === "Enter"){ var hit = btns[cur] || res.querySelector("button"); if (hit) hit.dispatchEvent(new MouseEvent("mousedown")); }
     });
     return wrap;
   }
@@ -3924,7 +3947,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
   }
   // The builder's box: generate, progress, or what's there.
-  function genBox(deck, isDirty){
+  function genBox(deck, isDirty, markDirty){
     var wrap = nodes("div", "dbox genbox");
     function paint(){
       if (!wrap.isConnected && wrap.parentNode === null && wrap._painted) return false;
@@ -3962,7 +3985,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           var cur = deckGoals(deck), i = cur.indexOf(code);
           if (i >= 0) cur.splice(i, 1); else cur.push(code);
           deck.goals = cur;
-          var rec = deck.id && MDC.get(deck.id); if (rec){ rec.goals = cur.slice(); MDC.put(rec); }
+          // In the builder this is an edit like any other: saved with Save, dropped with Discard changes.
+          if (markDirty) markDirty();
+          else { var rec = deck.id && MDC.get(deck.id); if (rec){ rec.goals = cur.slice(); MDC.put(rec); } }
           paint();
         });
         chips.appendChild(b);
@@ -4128,17 +4153,23 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(wrap);
     b.appendChild(nodes("p", "hint manualonly", D.drew ? "Drew " + NAMES[D.drew] + ". It goes into your hand when you press Next." : "Tap what you drew and you\u2019re straight into your Main Phase. Press Next if you\u2019d rather skip it."));
     var bd = B();
-    if (D.n > 1 && (bd.field.length || bd.back.length || bd.gy.increase)){
+    var theirAt = D.n + ":" + D.phase;
+    if (D.n > 1 && (bd.field.length || bd.back.length || bd.gy.increase || theirUndo.some(function(u){ return u.at === theirAt; }))){
       var cb = box("Anything happen on their turn?");
       cb.appendChild(nodes("p", "hint", "Tap anything that got destroyed or removed. Skip if nothing changed."));
       var w = nodes("div", "togs");
+      // Each tap can be undone here (Back would rewind a whole step).
+      function theirTap(fn){ return function(){ theirUndo.push({s:snapshot(), at:D.n + ":" + D.phase}); fn(); syncZones(); persist(); renderBody(); }; }
       bd.field.forEach(function(x, i){ var t = nodes("button", "tog", "\u2716 " + nm(x)); t.type = "button";
-        t.addEventListener("click", function(){ bd.field.splice(i, 1); toGY(x); syncZones(); persist(); renderBody(); }); w.appendChild(t); });
+        t.addEventListener("click", theirTap(function(){ bd.field.splice(i, 1); toGY(x); })); w.appendChild(t); });
       bd.back.forEach(function(x, i){ var t = nodes("button", "tog", "\u2716 " + nm(x)); t.type = "button";
-        t.addEventListener("click", function(){ bd.back.splice(i, 1); if (x === "increase_t") inc(bd.gy, "increase"); syncZones(); persist(); renderBody(); }); w.appendChild(t); });
+        t.addEventListener("click", theirTap(function(){ bd.back.splice(i, 1); if (x === "increase_t") inc(bd.gy, "increase"); })); w.appendChild(t); });
       if (bd.gy.increase && bd.back.indexOf("increase_t") < 0){ var t2 = nodes("button", "tog rec", "I took damage: Increase back to backrow"); t2.type = "button";
-        t2.addEventListener("click", function(){ inc(bd.gy, "increase", -1); bd.back.push("increase_t"); D.opt.inc_place = true; syncZones(); persist(); renderBody(); }); w.appendChild(t2); }
+        t2.addEventListener("click", theirTap(function(){ inc(bd.gy, "increase", -1); bd.back.push("increase_t"); D.opt.inc_place = true; })); w.appendChild(t2); }
       cb.appendChild(w);
+      theirUndo = theirUndo.filter(function(u){ return u.at === D.n + ":" + D.phase; });   // only this step's taps
+      if (theirUndo.length){ var un = nodes("button", "mini", "Undo"); un.type = "button"; un.title = "Undo the last tap here";
+        un.addEventListener("click", function(){ restore(theirUndo.pop().s, D.acts); persist(); renderBody(); }); cb.appendChild(un); }
     }
   }
 
@@ -4150,8 +4181,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var row = nodes("div", "hrow");
       row.appendChild(nodes("span", "nm", NAMES[k] + (D.hand[k] > 1 ? " \u00D7" + D.hand[k] : "")));
       var u = nodes("button", "mini", "Used"); u.type = "button";
-      u.title = "Played, discarded, or used as material from your hand";
-      u.addEventListener("click", function(){ D.hand[k]--; if (!D.hand[k]) delete D.hand[k]; D.used.push(k); persist(); renderBody(); });
+      u.title = "Discarded, activated, or used as material from your hand: moves it to your GY";
+      u.addEventListener("click", function(){ act("Used " + NAMES[k] + " from your hand", null, function(){ D.hand[k]--; if (!D.hand[k]) delete D.hand[k]; D.used.push(k); toGY(k); }); });   // undoable like a play
       row.appendChild(u); b.appendChild(row);
     });
     // Each source only offers cards its effect can actually add (per the official card text).
@@ -4443,6 +4474,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   }
   // ---- pending choices (one more tap) ----
   var pending = null;
+  var theirUndo = [];   // undo stack for the "Anything happen on their turn?" taps
   function setPick(title, opts, onPick){ pending = {title:title, pick:opts, onPick:onPick}; renderBody(); }
   function setMulti(title, hint, pool, need, ok, onDone, goLabel){ pending = {title:title, hint:hint, multi:true, pool:pool, need:need, ok:ok, sel:[], onDone:onDone, goLabel:goLabel}; renderBody(); }
   function snapshot(){ var a = D.acts; D.acts = []; var s = JSON.stringify(D); D.acts = a; return s; }
@@ -5299,7 +5331,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
     function paintAna(){ var bx = $(".bldana"); if (!bx) return; renderAnalysis(bx, deck.main, deck.extra, {onCard:function(c){ showInfo(c); }});
-      if (GEN_OK || genOf(deck)) bx.insertBefore(genBox(deck, function(){ return dirty; }), bx.firstChild); }
+      if (GEN_OK || genOf(deck)) bx.insertBefore(genBox(deck, function(){ return dirty; }, function(){ dirty = true; }), bx.firstChild); }
     function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "ana") paintAna(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
@@ -5441,9 +5473,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       fpanel.innerHTML = "";
       var top = nodes("div", "ftop");
       var tx = nodes("label", "fcheck"); var cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = flt.text;
-      cb.addEventListener("change", function(){ flt.text = cb.checked; page = 0; paintGrid(); }); tx.appendChild(cb); tx.appendChild(document.createTextNode(" Search card text too"));
+      cb.addEventListener("change", function(){ flt.text = cb.checked; page = 0; paintGrid(); paintFbtn(); }); tx.appendChild(cb); tx.appendChild(document.createTextNode(" Search card text too"));
       var al = nodes("label", "fcheck"); var cb2 = document.createElement("input"); cb2.type = "checkbox"; cb2.checked = flt.all;
-      cb2.addEventListener("change", function(){ flt.all = cb2.checked; page = 0; paintGrid(); }); al.appendChild(cb2); al.appendChild(document.createTextNode(" Include cards not in Master Duel"));
+      cb2.addEventListener("change", function(){ flt.all = cb2.checked; page = 0; paintGrid(); paintFbtn(); }); al.appendChild(cb2); al.appendChild(document.createTextNode(" Include cards not in Master Duel"));
       var clr = nodes("button", "ghost fclear", "Clear filters"); clr.type = "button";
       clr.addEventListener("click", function(){ flt = F0(); page = 0; paintFilters(); paintGrid(); paintFbtn(); });
       top.appendChild(tx); top.appendChild(al); top.appendChild(clr); fpanel.appendChild(top);
@@ -5462,7 +5494,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
     function paintFbtn(){
       var n = ["kind","mtype","attr","race","prop","rar","ban"].reduce(function(a, k){ return a + setCount(flt[k]); }, 0) +
-        ["lvMin","lvMax","atkMin","atkMax","defMin","defMax"].filter(function(k){ return flt[k] !== ""; }).length;
+        ["lvMin","lvMax","atkMin","atkMax","defMin","defMax"].filter(function(k){ return flt[k] !== ""; }).length +
+        (flt.text ? 1 : 0) + (flt.all ? 1 : 0);   // "search card text" and "not in Master Duel" count too
       fbtn.textContent = n ? "Filters (" + n + ")" : "Filters";
       fbtn.classList.toggle("on", !!n);
     }
@@ -5717,11 +5750,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
     });
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
-    function close(){ closePick(); root._off(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey);
+    function close(){ closePick(); root._off(); root.remove(); document.documentElement.classList.remove("building");
       if (bldReload){ bldReload = false; location.reload(); } }
-    function onKey(e){ if (e.key === "Escape"){ if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
-    document.addEventListener("keydown", onKey);
-    root._off = function(){ document.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize); };
+    // Escape closes the top-most thing; with nothing open it closes the builder (asking first if there are unsaved changes).
+    // Runs in the capture phase so a text box that Escape is about to clear still shows its text here.
+    function onKey(e){
+      if (e.key !== "Escape") return;
+      if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); }
+      else if (!(e.target && e.target.value)) $(".bldcancel").click();
+    }
+    document.addEventListener("keydown", onKey, true);
+    root._off = function(){ document.removeEventListener("keydown", onKey, true); window.removeEventListener("resize", onResize); };
     var cancel = $(".bldcancel");
     cancel.addEventListener("click", function(){
       if (dirty && !cancel.dataset.armed){ cancel.dataset.armed = "1"; cancel.textContent = "Discard changes?"; setTimeout(function(){ delete cancel.dataset.armed; cancel.textContent = "Close"; }, 3000); return; }
@@ -5849,6 +5888,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
       wrap.appendChild(g); return wrap;
     }
+    // Piloting reloads the page; land on the Duel tab, not back on Users.
+    function pilotFromUsers(id){ save("hbc-tab", "hand"); MDC.setPilot(id); }
     function paintOne(u, d){
       var mine = u.id === me.id;
       view.appendChild(head(d.name || "Untitled deck", {label:"Back to " + (mine ? "your decks" : u.username), fn:function(){ at = {level:"decks", user:u.id}; paint(); }}));
@@ -5860,7 +5901,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var acts = nodes("div", "uacts");
       if (mine){
         var pil = nodes("button", "primary", PILOT_ID === d.id ? "Piloting" : "Pilot this deck"); pil.type = "button"; pil.disabled = PILOT_ID === d.id;
-        pil.addEventListener("click", function(){ MDC.setPilot(d.id); }); acts.appendChild(pil);
+        pil.addEventListener("click", function(){ pilotFromUsers(d.id); }); acts.appendChild(pil);
       }
       if (mine && !d.builtin){
         var ed = nodes("button", "ghost", "Edit"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
@@ -5871,21 +5912,30 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         sh.addEventListener("click", function(){ var x = MDC.get(d.id); if (!x) return; x.shared = !(x.shared !== false); d.shared = x.shared; MDC.put(x); paintSh(); toast(x.shared ? "Shared in the Users tab" : "Unlisted: no longer in the Users tab"); });
         acts.appendChild(sh);
       } else if (!mine) {
+        // Already copied this one? Offer the copy instead of making a duplicate.
+        var copyName = (d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")");
+        var had = MDC.list().filter(function(x){ return x.copiedFrom ? x.copiedFrom === d.id : (d.builtin ? x.base === "hero" && x.name === copyName : x.name === copyName); })[0];
+        var showCopy = function(c){
+          acts.innerHTML = "";
+          var pc = nodes("button", "primary", PILOT_ID === c.id ? "Piloting the copy" : "Pilot the copy"); pc.type = "button"; pc.disabled = PILOT_ID === c.id;
+          pc.addEventListener("click", function(){ pilotFromUsers(c.id); }); acts.appendChild(pc);
+          var op = nodes("button", "ghost", "Edit the copy"); op.type = "button"; op.addEventListener("click", function(){ var x = MDC.get(c.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(op);
+          acts.appendChild(nodes("span", "hint ucopied", "In your decks as \u201C" + c.name + "\u201D"));
+        };
         var cp = nodes("button", "primary", "Copy to my decks"); cp.type = "button";
         cp.addEventListener("click", function(){
           // Everything the creator has: cards, notes, starters, and (for Omni HERO copies) its play lines and checkpoints.
           var c = JSON.parse(JSON.stringify(d));
           delete c.owner; delete c.updated; delete c.unsynced; delete c.builtin;
-          c.id = MDC.newId(); c.name = (d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")"); c.shared = true;
+          c.id = MDC.newId(); c.name = copyName; c.shared = true; c.copiedFrom = d.id;
           if (d.builtin){ c.base = "hero"; c.notes = ""; }
           if (!MDC.put(c)){ toast("Couldn't save: storage is full or blocked"); return; }
           toast("Copied to your decks");
           dir = null;   // your deck list changed
-          cp.textContent = "Pilot the copy"; cp.onclick = null;
-          cp.addEventListener("click", function(){ MDC.setPilot(c.id); }, {once:true});
-          var op = nodes("button", "ghost", "Edit the copy"); op.type = "button"; op.addEventListener("click", function(){ openBuilder(JSON.parse(JSON.stringify(c)), false); }); acts.appendChild(op);
+          showCopy(c);
         }, {once:true});
         acts.appendChild(cp);
+        if (had) showCopy(had);
       }
       view.appendChild(acts);
       if (d.notes){ var nb = nodes("section", "card unotes"); nb.appendChild(nodes("h3", "cd-sec", "Deck notes")); nb.appendChild(nodes("p", "unotetext", d.notes)); view.appendChild(nb); }
@@ -6009,7 +6059,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // ---- sign-in screen ----
   function authScreen(){
-    try { var th = JSON.parse(localStorage.getItem("hbc-theme") || "null"); if (th) document.documentElement.setAttribute("data-theme", th); } catch (e) {}
+    try { var th = JSON.parse(localStorage.getItem("hbc-theme") || "null"); document.documentElement.setAttribute("data-theme", th || (window.mdcSysTheme ? mdcSysTheme() : "darka")); } catch (e) {}
     var mode = "in";
     var box = document.createElement("div"); box.id = "authScreen";
     box.innerHTML =
