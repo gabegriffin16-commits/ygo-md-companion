@@ -569,8 +569,11 @@ struct Search {
 	static bool extra_type(uint32_t code) { auto it = g_cards.find(code); return it != g_cards.end() && (it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)); }
 	// How strong this end board is (see src/evaluate.h): every way it can stop the opponent, best first with a
 	// gentle fall-off, plus locks, sturdiness, bodies and spare cards, plus the deck's own goal cards.
-	double score_of(const Board& b) const {
-		std::vector<double> stops; double s = 0;
+	double score_of(const Board& b, json* why = nullptr) const {
+		// stops: (value, what) — "what" is only filled in when a breakdown is asked for.
+		std::vector<std::pair<double, std::string>> stops; double s = 0;
+		auto nm = [&](uint32_t c) { return why ? card_name(c) : std::string(); };
+		auto add = [&](double v, const std::string& what) { s += v; if(why && v != 0) (*why)["flat"].push_back({{"what", what}, {"value", v}}); };
 		std::vector<const CardEval*> revivers;   // cards that can bring a monster back from the GY on their turn
 		std::vector<const CardEval*> fusers;     // cards that Fusion from the Extra Deck on their turn (judged below)
 		const bool knowExtra = !b.extra.empty();
@@ -579,22 +582,22 @@ struct Search {
 		for(size_t i = 0; i < b.mzone.size(); i++) {
 			uint32_t c = b.mzone[i]; int slot = i < b.mslot.size() ? b.mslot[i] : -1;
 			const CardEval* e = ev(c);
-			s += 0.5 + (extra_type(c) ? 0.3 : 0);
+			add(0.5 + (extra_type(c) ? 0.3 : 0), why ? "body: " + nm(c) : "");
 			if(!e) continue;
 			// Zone-dependent cards: "switch with the center monster" only works from a side zone with the center filled;
 			// "while in the center Main Monster Zone" only works in the center.
 			bool works = !(e->fromSide && (slot == 2 || !centerTaken)) && !(e->inCenter && slot != 2);
-			if(e->field > 0 && works) stops.push_back(e->field);
+			if(e->field > 0 && works) stops.push_back({e->field, nm(c)});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
-			s += (works ? e->lock : 0) + e->sturdy;
+			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
 		for(uint32_t c : b.szone) {
-			const CardEval* e = ev(c); if(!e) { s += 0.3; continue; }
-			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); s += e->lock; continue; }
+			const CardEval* e = ev(c); if(!e) { add(0.3, "backrow card"); continue; }
+			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); add(e->lock, why ? "lock: " + nm(c) : ""); continue; }
 			double v = std::max(e->set, e->field);
-			if(v > 0) stops.push_back(v); else s += 0.3;
+			if(v > 0) stops.push_back({v, nm(c) + " (set)"}); else add(0.3, why ? "backrow: " + nm(c) : "");
 			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
-			s += e->lock;
+			add(e->lock, why ? "lock: " + nm(c) : "");
 		}
 		// Traps and Quick-Plays still in hand get Set at the end of the turn, while there's room.
 		size_t room = b.szone.size() >= 5 ? 0 : 5 - b.szone.size();
@@ -602,30 +605,48 @@ struct Search {
 			const CardEval* e = ev(c);
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
-			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back(e->set); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
-			else if(e && e->hand > 0) { stops.push_back(e->hand); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
-			else s += 0.3;   // a card for next turn (or one drawn during the line)
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set, nm(c) + " (set from hand)"}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
+			else if(e && e->hand > 0) { stops.push_back({e->hand, nm(c) + " (hand)"}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
+			else add(0.3, why ? "hand: " + nm(c) : "");   // a card for next turn (or one drawn during the line)
 		}
-		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
+		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)"}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
 		// Revival: each reviver brings back the best monster in the GY that fits what it asks for, and that monster's
 		// interruption counts too (an Elfnote that June Pride or Rhapsodia returns on their turn). Any-monster
 		// revivers count for less: their text often has conditions this doesn't read (Type, Attribute).
+		// Chains: a revived monster that revives on the field goes on with its own revival (Rhapsodia brings back
+		// Strelitzia, which brings back Tinia), so picks look one step ahead.
 		if(!revivers.empty()) {
 			std::vector<char> used(b.grave.size(), 0);
-			for(const CardEval* r : revivers) {
+			auto row = [&](size_t i) -> const CardRow* { auto it = g_cards.find(b.grave[i]); return it == g_cards.end() || !(it->second.type & TYPE_MONSTER) ? nullptr : &it->second; };
+			auto fits = [&](const CardEval* r, size_t i) {
+				const CardRow* c = row(i);
+				if(used[i] || !c || &c->ev == r) return false;
+				if(!r->reviveTag.empty() && c->lname.find(r->reviveTag) == std::string::npos) return false;
+				return !(r->reviveMaxLv < 99 && ((c->type & (TYPE_XYZ | TYPE_LINK)) || (int)(c->level & 0xff) > r->reviveMaxLv));
+			};
+			auto val = [&](size_t i) {
+				const CardRow* c = row(i);
+				double v = std::max(c->ev.field, c->ev.onSummon);   // what it does when it lands counts too
+				return c->ev.inCenter ? v * 0.5 : v;                // comes back wherever there's room
+			};
+			for(size_t ri = 0; ri < revivers.size() && ri < 8; ri++) { const CardEval* r = revivers[ri];
 				double best = -1; size_t pick = 0;
 				for(size_t i = 0; i < b.grave.size(); i++) {
-					auto it = g_cards.find(b.grave[i]);
-					if(used[i] || it == g_cards.end() || !(it->second.type & TYPE_MONSTER) || &it->second.ev == r) continue;
-					if(!r->reviveTag.empty() && it->second.lname.find(r->reviveTag) == std::string::npos) continue;
-					if(r->reviveMaxLv < 99 && ((it->second.type & (TYPE_XYZ | TYPE_LINK)) || (int)(it->second.level & 0xff) > r->reviveMaxLv)) continue;
-					double v = std::max(it->second.ev.field, it->second.ev.onSummon);   // what it does when it lands counts too
-					if(it->second.ev.inCenter) v *= 0.5;   // comes back wherever there's room
+					if(!fits(r, i)) continue;
+					double v = val(i);
+					const CardEval* ce = &row(i)->ev;
+					if(ce->reviveAt == CardEval::AT_FIELD) {   // what it would bring back in turn
+						double next = 0; used[i] = 1;
+						for(size_t j = 0; j < b.grave.size(); j++) if(fits(ce, j)) next = std::max(next, val(j));
+						used[i] = 0; v += next * (ce->reviveTag.empty() ? 0.5 : 0.7) / (r->reviveTag.empty() ? 0.5 : 0.7);   // same scale as its own stop
+					}
 					if(v > best) { best = v; pick = i; }
 				}
 				if(best < 0) continue;
 				used[pick] = 1;
-				if(best > 0) stops.push_back(best * (r->reviveTag.empty() ? 0.5 : 0.7)); else s += 0.3;
+				double own = val(pick);
+				if(own > 0) stops.push_back({own * (r->reviveTag.empty() ? 0.5 : 0.7), why ? "revive " + nm(b.grave[pick]) : ""}); else add(0.3, why ? "revive body: " + nm(b.grave[pick]) : "");
+				if(row(pick)->ev.reviveAt == CardEval::AT_FIELD) revivers.push_back(&row(pick)->ev);   // and it revives in turn
 			}
 		}
 		// Fusion on their turn (Favorite Contact): worth something only if the Extra Deck holds a Fusion it can make from
@@ -638,7 +659,7 @@ struct Search {
 			if(fz->fusionFrom & 2) addp(b.mzone);
 			if(fz->fusionFrom & 4) addp(b.grave);
 			if(fz->fusionFrom & 8) addp(b.banished);
-			double best = -1; bool goal = false; std::set<uint32_t> tried;
+			double best = -1; bool goal = false; uint32_t made = 0; std::set<uint32_t> tried;
 			for(uint32_t fc : b.extra) {
 				auto fi = g_cards.find(fc);
 				if(!tried.insert(fc).second || fi == g_cards.end() || !(fi->second.type & TYPE_FUSION) || fi->second.ev.mats.empty()) continue;
@@ -661,16 +682,18 @@ struct Search {
 				if(!ok) continue;
 				double v = std::max(1.0, (double)std::max(fi->second.ev.field, fi->second.ev.onSummon));
 				bool g = targets.count(fc) > 0;
-				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; }
+				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; made = fc; }
 			}
-			if(best < 0) { s += 0.3; continue; }
-			stops.push_back(best);
-			if(goal) s += 8;
+			if(best < 0) { add(0.3, "dead Fusion card (nothing to make)"); continue; }
+			stops.push_back({best, why ? "fusion into " + nm(made) : ""});
+			if(goal) add(8, why ? "goal via fusion: " + nm(made) : "");
 		}
-		std::sort(stops.rbegin(), stops.rend());
-		double f = 1.0; for(double v : stops) { s += v * f; f = std::max(0.5, f - 0.1); }
-		for(uint32_t c : b.mzone) if(targets.count(c)) s += 8;
-		for(uint32_t c : b.szone) if(targets.count(c)) s += 8;
+		std::sort(stops.begin(), stops.end(), [](const auto& x, const auto& y) { return x.first > y.first; });
+		double f = 1.0;
+		for(const auto& st : stops) { s += st.first * f; if(why) (*why)["stops"].push_back({{"what", st.second}, {"value", st.first}, {"counts", st.first * f}}); f = std::max(0.5, f - 0.1); }
+		for(uint32_t c : b.mzone) if(targets.count(c)) add(8, why ? "goal: " + nm(c) : "");
+		for(uint32_t c : b.szone) if(targets.count(c)) add(8, why ? "goal: " + nm(c) : "");
+		if(why) (*why)["total"] = s;
 		return s;
 	}
 	Board read_board(Duel& d) {
@@ -1058,6 +1081,14 @@ int main(int argc, char** argv) {
 			ready = true;
 			emit({{"id", id}, {"ready", true}, {"cards", g_cards.size()}, {"scripts", g_zip_index.size()}});
 			continue;
+		}
+		if(cmd == "score") {   // score any board and say why: {"field":[..],"zones":[..],"backrow","hand","gy","banished","extra","targets"}
+			Search sc; for(uint32_t t : ids(req, "targets")) sc.targets.insert(t);
+			Board b; b.mzone = ids(req, "field"); b.szone = ids(req, "backrow"); b.hand = ids(req, "hand");
+			b.grave = ids(req, "gy"); b.banished = ids(req, "banished"); b.extra = ids(req, "extra");
+			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) b.mslot.push_back(z.get<int>());
+			json why = json::object(); sc.score_of(b, &why);
+			emit({{"id", id}, {"score", why}}); continue;
 		}
 		if(cmd == "eval") {   // what the board evaluator reads from each card (for checking src/evaluate.h)
 			json out = json::object();

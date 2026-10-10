@@ -79,7 +79,11 @@ Key parts of `src/main.cpp`:
   Fusion on their turn (set Favorite Contact): counts only if the Extra Deck has a Fusion whose quoted materials are in
   reach (hand/field/GY/banished, per the card); then it's worth that Fusion (Quick Effect or on-summon effect, e.g.
   Shining Neos Wingman's destroy) and its goal +8. Nothing makeable = dead card.
-  End-board goals (`targets`) add +8 each. `{"cmd":"eval","cards":[...]}` shows what it read from cards.
+  End-board goals (`targets`) add +8 each. `{"cmd":"eval","cards":[...]}` shows what it read from cards;
+  `{"cmd":"score", field/zones/backrow/hand/gy/banished/extra/targets}` scores any board with a per-card breakdown.
+  Rules tuned against guide boards: summoning itself is no stop; a generic opponent's-turn summon is 1.5, a revival 0.5
+  (+ what it brings back, chains included); negates: "a card or effect" +0.5, Spell/Trap-only -0.7, "would destroy" -1.5;
+  attack-only locks 0.5.
 - **Zones**: only for decks whose text mentions the center zone/columns (`g_zones`); zone-aware cards go center or side
   by rule; Normal/Extra Deck summons of them branch both ways.
 - **Draws** come from 12 blank stand-ins (Spiral Serpent) on top of the Deck, hidden in output (shown as code 0).
@@ -96,6 +100,10 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 
 ## Testing
 
+- **Reference boards** (tuning the generator toward guide-quality plays): `combo-engine/bench/refs/<deck>.json` holds
+  boards from guides plus the engine's picks, with sources. `bench/score.py <engine> <cdb> <zip> refs/<deck>.json`
+  prints each board's score and why; the guide board should rank at or near the top, and bench.py runs show what the
+  search actually reaches.
 - **Local build on the owner's PC**: VS 2022 Build Tools + CMake are installed; deps live in
   `%LOCALAPPDATA%/mdc-engine-build` (same versions as CI). `cmake -S combo-engine -B <that>/ce-build -A x64 -DOCGCORE_DIR=<that>/ce-src/ygopro-core
   -DDEPS_DIR=<that>/ce-deps -DMIMALLOC_DIR=<that>/ce-src/mimalloc` then `cmake --build <that>/ce-build --config Release`.

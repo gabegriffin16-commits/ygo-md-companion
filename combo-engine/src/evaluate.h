@@ -84,6 +84,12 @@ inline float hurt(const std::string& e) {
 	else if(has(e, "change") && has(e, "face-down")) v = 1.5f;
 	else if(has(e, "cannot activate") && has(e, "opponent")) v = 1.5f;
 	else if(has(e, "loses") && has(e, "atk") && has(e, "opponent")) v = 0.5f;
+	// How broad a negate is: "a card or effect" (Baronne) beats one card kind (Crystal Wing: monster effects); one that
+	// only answers destruction (Stardust) is narrow.
+	if(v >= 3.0f && has(e, "a card or effect is activated") && !has(e, "would destroy")) v += 0.5f;
+	if(v >= 3.0f && has(e, "would destroy")) v -= 1.5f;
+	if(v >= 3.0f && has(e, "spell/trap") && !has(e, "monster")) v -= 0.7f;   // combos run on monster effects
+	if(v > 0 && has(e, "tribute this card")) v -= 0.5f;              // spends itself
 	if(v > 0 && !has(e, "target")) v += 0.3f;                       // non-targeting gets around protection
 	if(v > 0 && has(e, "and if you do, destroy")) v += 0.3f;
 	return v;
@@ -174,10 +180,14 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		if(!theirTurn && leaves && mon) { float d = hurt(e); if(d > 0) onField.push_back(d * 0.5f); }   // punishes removal (e.g. Absolute Zero)
 		// Playing on their turn: a set Trap / Quick-Play (or a Quick Effect) that summons something.
 		if(h == 0 && !laterBetter && hurt(e) == 0 && theirTurn && !fromGy && (has(e, "special summon") || has(e, "fusion summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "link summon"))
-			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card from your hand")) {
-			h = 2.0f;
+			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card")) {   // summoning itself stops nothing
+			// What a summon is worth is what it brings. A revival is valued by what's in the GY (see score_of), so its own
+			// share is small; any other summon gets a generic share, below a real negate.
+			std::string tg; int lv = 99;
+			h = revive_of(e, tg, lv) ? 0.5f : 1.5f;
 			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
-			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck") + has(e, "gy"); h += 1.0f * std::max(0, n - 1); }
+			// The GY part is scored by the revival pass (what's actually there to bring back), so only hand and Deck add here.
+			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
 		}
 		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
@@ -203,7 +213,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			else onField.push_back(h);
 		}
 		// Lasting locks while face-up (no "you can": it's always on).
-		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only"))) r.lock = std::max(r.lock, 2.5f);
+		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only")))
+			r.lock = std::max(r.lock, has(e, "attack") && !has(e, "activate") && !has(e, "summon") ? 0.5f : 2.5f);   // an attack lock doesn't slow their combo
 		if(has(e, "cannot be destroyed by card effects") || has(e, "unaffected by") || has(e, "cannot be targeted")) r.sturdy += 0.6f;
 		if(leaves || has(e, "if this card in its owner's")) r.sturdy += 0.4f;
 	}

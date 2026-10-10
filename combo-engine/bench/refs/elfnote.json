@@ -1,0 +1,107 @@
+{
+ "deck": "elfnote.json",
+ "hand": [
+  "Elfnote Lucina"
+ ],
+ "expect": "the guide board should rank at or near the top",
+ "sources": [
+  "https://roadoftheking.com/ocg-2026-07-metagame-report-6-7/",
+  "https://www.masterduelmeta.com/combo/6a2d5a5fa9e8344d1ff6c8ca",
+  "https://www.masterduelmeta.com/combo/6a2d4906acfb55292a8efce9"
+ ],
+ "boards": [
+  {
+   "name": "Engine pick before tuning: Accel Stardust + Dawn Dragster + Strelitzia + Power Patron",
+   "field": [
+    "Accel Synchro Stardust Dragon",
+    "F.A. Dawn Dragster",
+    "Elfnote Seraphim Strelitzia",
+    "Elfnote Power Patron"
+   ],
+   "backrow": [
+    "Elfnotes: Rhapsodia of Madness"
+   ],
+   "hand": [
+    "Elfnote Regina"
+   ],
+   "gy": [
+    "Elfnote Lucina",
+    "Elfnote Tinia",
+    "Elfnotes: Welcome Home",
+    "Elfnote Fortuna"
+   ]
+  },
+  {
+   "name": "Guide shape: Baronne + Crystal Wing, Rhapsodia set, Strelitzia in GY (Rhapsodia -> Strelitzia -> Tinia/Lucina on their turn)",
+   "field": [
+    "Crystal Wing Synchro Dragon",
+    "Baronne de Fleur"
+   ],
+   "backrow": [
+    "Elfnotes: Welcome Home",
+    "Elfnotes: Rhapsodia of Madness"
+   ],
+   "hand": [
+    "Elfnote Regina"
+   ],
+   "gy": [
+    "Elfnote Lucina",
+    "Elfnote Seraphim Strelitzia",
+    "Elfnote Tinia",
+    "Elfnote Fortuna",
+    "Elfnote Power Patron"
+   ]
+  },
+  {
+   "name": "June Pride kept in the center (rated top after GY revival, before tuning)",
+   "field": [
+    "Crystal Wing Synchro Dragon",
+    "Elfnote June Pride"
+   ],
+   "zones": [
+    0,
+    2
+   ],
+   "backrow": [
+    "Elfnotes: Welcome Home",
+    "Elfnotes: Rhapsodia of Madness"
+   ],
+   "hand": [
+    "Elfnote Regina"
+   ],
+   "gy": [
+    "Elfnote Lucina",
+    "Elfnote Seraphim Strelitzia",
+    "Elfnote Tinia",
+    "Elfnote Fortuna",
+    "Elfnote Power Patron"
+   ]
+  },
+  {
+   "name": "Engine pick after tuning: Crystal Wing + Dawn Dragster + Accel Stardust (center)",
+   "field": [
+    "Crystal Wing Synchro Dragon",
+    "F.A. Dawn Dragster",
+    "Accel Synchro Stardust Dragon"
+   ],
+   "zones": [
+    0,
+    1,
+    2
+   ],
+   "backrow": [
+    "Elfnotes: Welcome Home",
+    "Elfnotes: Rhapsodia of Madness"
+   ],
+   "gy": [
+    "Elfnote Lucina",
+    "Elfnote Tinia",
+    "Elfnote Fortuna",
+    "Elfnote Power Patron",
+    "Elfnote Seraphim Strelitzia",
+    "Elfnote Regina",
+    "Elfnote Power Patron"
+   ]
+  }
+ ]
+}
