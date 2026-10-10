@@ -1473,6 +1473,10 @@ html[data-bg="tide"] .ambient::after{animation:tideB2 13s ease-in-out infinite a
 @keyframes tideA2{ 0%{transform:translate3d(-14%,16%,0) scale(1,.85)} 50%{transform:translate3d(4%,-6%,0) scale(1.1,1.15)} 100%{transform:translate3d(14%,8%,0) scale(1,.95)} }
 @keyframes tideB2{ 0%{transform:translate3d(12%,-10%,0) scale(1.05)} 100%{transform:translate3d(-14%,12%,0) scale(.9)} }
 @media (prefers-reduced-motion: reduce){ .ambient, .ambient::before, .ambient::after{animation:none !important} }
+/* fade mode: cards at 85% so their text reads clearly over the game */
+html.fadebg .dbox, html.fadebg .lpcol, html.fadebg .duellog li, html.fadebg .card, html.fadebg .plan, html.fadebg .vstips, html.fadebg .cg, html.fadebg .cg-sec,
+html.fadebg .cd-block, html.fadebg .plate, html.fadebg .ulist, html.fadebg .unotes, html.fadebg .stoplist li, html.fadebg .pendbox, html.fadebg .trigbox,
+html.fadebg header.top nav.tabs .wrap{background:color-mix(in srgb, var(--panel) 85%, transparent) !important}
 </style>
 </head>
 <body>
