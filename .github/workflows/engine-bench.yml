@@ -1,0 +1,48 @@
+# Manual deep-search test for the combo finder helper: several hands in parallel, each on its own runner,
+# with a big time and depth budget. Results are in each job's log.
+name: Combo engine deep search test
+
+on:
+  workflow_dispatch:
+    inputs:
+      seconds: { description: "Seconds per hand", default: "600" }
+      maxActions: { description: "Max actions per line", default: "40" }
+
+jobs:
+  search:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: "Stratos + Faris", hand: "40044918,18094166" }
+          - { name: "Stratos + Fusion Destiny", hand: "40044918,52947044" }
+          - { name: "Faris + Malicious", hand: "18094166,9411399" }
+          - { name: "Vyon", hand: "27780618" }
+          - { name: "Stratos Faris Ash Imperm Maxx", hand: "40044918,18094166,14558127,10045474,23434538" }
+          - { name: "Stratos + Faris, aim Sunrise and DPE", hand: "40044918,18094166", targets: "22908820,60461804" }
+          - { name: "Stratos + Faris, app default (20s)", hand: "40044918,18094166", secs: "20", acts: "16" }
+    name: ${{ matrix.name }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch sources and data
+        run: |
+          set -e
+          sudo apt-get install -y -qq ninja-build >/dev/null
+          mkdir -p src deps/miniz deps/sqlite
+          git clone --quiet https://github.com/edo9300/ygopro-core src/ygopro-core
+          git -C src/ygopro-core checkout --quiet 38d04c9feb1a26617407091380634c87262fe3f8
+          git -C src/ygopro-core submodule update --init --quiet
+          git clone --quiet --depth 1 --branch v2.1.7 https://github.com/microsoft/mimalloc src/mimalloc
+          curl -fsSL -o deps/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
+          curl -fsSL -o miniz.zip https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip && unzip -q -o miniz.zip -d deps/miniz
+          curl -fsSL -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip && unzip -q -j -o sqlite.zip '*/sqlite3.c' '*/sqlite3.h' -d deps/sqlite
+          curl -fsSL -o scripts.zip https://codeload.github.com/ProjectIgnis/CardScripts/zip/refs/heads/master
+          curl -fsSL -o cards.cdb https://raw.githubusercontent.com/ProjectIgnis/BabelCDB/master/cards.cdb
+      - name: Build
+        run: |
+          cmake -S combo-engine -B build -G Ninja -DOCGCORE_DIR=$PWD/src/ygopro-core -DDEPS_DIR=$PWD/deps -DMIMALLOC_DIR=$PWD/src/mimalloc >/dev/null
+          cmake --build build >/dev/null
+          echo "cores: $(nproc)"
+      - name: Search
+        run: python3 -u combo-engine/bench/bench.py build/combo-engine cards.cdb scripts.zip "${{ matrix.hand }}" "${{ matrix.secs || inputs.seconds }}" "${{ matrix.acts || inputs.maxActions }}" "$(nproc)" "" "${{ matrix.targets }}"
