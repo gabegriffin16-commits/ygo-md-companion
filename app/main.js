@@ -58,10 +58,15 @@ function send(cmd) {
 // Fade mode: the page reports when the pointer is over see-through background, and clicks there go to the game.
 let passthrough = false;
 function applyMouse() { if (win) win.setIgnoreMouseEvents(!!settings.clickThrough || passthrough, { forward: true }); }
+// The locked bar names the current unlock hotkey (it can be changed in Hotkeys).
+function lockKeyJs() {
+  const k = prettyKey(settings.hotkeys.clickThrough || "");
+  return `var ob=document.getElementById("ovBar"); if(ob) ob.dataset.lockkey=${JSON.stringify(k ? " (" + k + " unlocks)" : "")};`;
+}
 function applyClickThrough() {
   if (!win) return;
   applyMouse();
-  win.webContents.executeJavaScript(`document.documentElement.classList.toggle("ov-locked", ${!!settings.clickThrough})`).catch(() => {});
+  win.webContents.executeJavaScript(`document.documentElement.classList.toggle("ov-locked", ${!!settings.clickThrough});${lockKeyJs()}`).catch(() => {});
   buildTrayMenu();
 }
 function setOpacity(v) {
@@ -99,7 +104,7 @@ function overlayChrome() {
   const css = `
     #ovBar{position:fixed;top:0;left:0;right:0;height:16px;z-index:9999;display:flex;justify-content:center;align-items:center;
       background:linear-gradient(var(--panel,#262058),transparent);font:600 10px sans-serif;color:var(--muted,#aaa);letter-spacing:.08em}
-    #ovBar span{opacity:.7}
+    #ovBar > span{opacity:.7}
     #ovBar .ovb{-webkit-app-region:no-drag;position:absolute;top:0;height:16px;width:22px;border:0;background:none;color:inherit;font:700 11px sans-serif;cursor:pointer;opacity:.75;padding:0}
     #ovBar .ovb:hover{opacity:1;color:var(--gold,#E0B85E)}
     #ovBar #ovL{left:4px} #ovBar #ovR{left:26px} #ovBar #ovF{left:48px} #ovBar #ovK{right:6px}
@@ -110,7 +115,8 @@ function overlayChrome() {
     ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--gold,#E0B85E) 45%,transparent);border-radius:999px}
     .top{-webkit-app-region:drag} .top button,.top a,.top input{-webkit-app-region:no-drag}
     html.ov-locked #ovBar{background:var(--red,#d2606f);color:#fff}
-    html.ov-locked #ovBar span::after{content:"  LOCKED: clicks go to the game (Ctrl+Shift+L)"}
+    html.ov-locked #ovBar::after{content:"LOCKED: clicks go to the game" attr(data-lockkey);position:absolute;inset:0;display:flex;align-items:center;
+      justify-content:center;background:var(--red,#d2606f);color:#fff;font:700 10px sans-serif;letter-spacing:.08em;pointer-events:none;z-index:10}
 `;
   win.webContents.insertCSS(css).catch(() => {});
   win.webContents.executeJavaScript(`
@@ -119,7 +125,7 @@ function overlayChrome() {
       document.body.appendChild(b);
       if(window.overlayApp){document.getElementById("ovL").onclick=function(){overlayApp.snap("left")};document.getElementById("ovR").onclick=function(){overlayApp.snap("right")};document.getElementById("ovK").onclick=function(){overlayApp.openHotkeys()};document.getElementById("ovF").onclick=function(){var c=document.getElementById("compactBtn");if(c)c.click()};}}
     document.documentElement.classList.add("in-overlay");
-    document.documentElement.classList.toggle("ov-locked", ${!!settings.clickThrough});
+    document.documentElement.classList.toggle("ov-locked", ${!!settings.clickThrough});${lockKeyJs()}
     ${settings.firstRun ? `if(!document.documentElement.classList.contains("compact")){var c=document.getElementById("compactBtn"); if(c) c.click();}` : ""}
   `).catch(() => {});
   if (settings.firstRun) { settings.firstRun = false; saveSettings(); }
