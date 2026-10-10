@@ -140,6 +140,9 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
+- Search stopping: a full search can't finish on long combos. Add (1) stop when the best board hasn't changed for
+  a good share of the time and report "stable"; (2) merge positions that differ only in ways that can't matter (GY order,
+  zone of non-zone cards) so searches go faster and short combos can truly finish; (3) show complete vs stable separately.
 - Reference suite: add 2-3 guide-rich decks next (MD tier list 2026-10-06: Tier 1 Dracotail, Elfnote Engine, Branded;
   pick different styles), each as a decklist JSON + `bench/refs/<deck>.json` with guide boards and sources, then tune.
   Elfnote: the guide board (Baronne) is 0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
