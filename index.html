@@ -1483,6 +1483,10 @@ html.in-overlay:not(.compact) header.top{margin-top:8px !important}
 html.in-overlay.compact .center main{padding-top:8px !important}
 html.in-overlay.compact header.top{margin-top:0 !important}
 html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.right{padding-top:8px !important}
+/* full view: left and right panels share one width so the center column sits in the middle of the window */
+@media (min-width:1220px){
+  html:not(.compact) .layout{grid-template-columns:clamp(330px, 28vw, 540px) minmax(0, 1fr) clamp(330px, 28vw, 540px) !important}
+}
 </style>
 </head>
 <body>
