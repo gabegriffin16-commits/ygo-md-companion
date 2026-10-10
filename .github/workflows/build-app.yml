@@ -6,7 +6,7 @@ name: Build app
 on:
   push:
     branches: [main]
-    paths: ["app/**", ".github/workflows/build-app.yml"]
+    paths: ["app/**", "combo-engine/**", ".github/workflows/build-app.yml"]
   workflow_dispatch:
 
 permissions:
@@ -35,6 +35,34 @@ jobs:
             echo "Release v$V already exists. Bump the version in app/package.json to publish a new build."
             echo "skip=1" >> "$GITHUB_OUTPUT"
           fi
+
+      # The combo finder helper (combo-engine/, AGPL). Built on every run so a change to it is checked even
+      # without a version bump; only a bumped version ships it.
+      - name: Fetch combo engine sources
+        shell: bash
+        run: |
+          set -e
+          mkdir -p ce-src ce-deps/miniz ce-deps/sqlite
+          git clone --quiet https://github.com/edo9300/ygopro-core ce-src/ygopro-core
+          git -C ce-src/ygopro-core checkout --quiet 38d04c9feb1a26617407091380634c87262fe3f8
+          git -C ce-src/ygopro-core submodule update --init --quiet
+          curl -fsSL -o ce-deps/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
+          curl -fsSL -o miniz.zip https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
+          unzip -q -o miniz.zip -d ce-deps/miniz
+          curl -fsSL -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip
+          unzip -q -j -o sqlite.zip '*/sqlite3.c' '*/sqlite3.h' -d ce-deps/sqlite
+
+      - name: Build combo engine
+        shell: bash
+        run: |
+          set -e
+          cmake -S combo-engine -B ce-build -A x64 -DOCGCORE_DIR="$(cygpath -m "$PWD/ce-src/ygopro-core")" -DDEPS_DIR="$(cygpath -m "$PWD/ce-deps")"
+          cmake --build ce-build --config Release --parallel
+          mkdir -p app/engine
+          cp ce-build/Release/combo-engine.exe app/engine/
+          cp combo-engine/LICENSE app/engine/LICENSE.txt
+          cp combo-engine/README.md app/engine/README.md
+          ./app/engine/combo-engine.exe --version
 
       - uses: actions/setup-node@v4
         if: steps.v.outputs.skip != '1'

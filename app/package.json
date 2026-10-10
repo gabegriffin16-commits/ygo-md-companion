@@ -57,6 +57,12 @@
       "node_modules/uiohook-napi/**",
       "node_modules/node-gyp-build/**"
     ],
+    "extraResources": [
+      {
+        "from": "engine",
+        "to": "engine"
+      }
+    ],
     "win": {
       "target": "portable",
       "icon": "build/icon.ico",
