@@ -111,10 +111,10 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 - **Engine bench**: `combo-engine/bench/bench.py <engine> <cards.cdb> <scripts.zip> <hand codes> <secs> <maxActions> [threads] [mode] [targets]`
   with `DECK_JSON=combo-engine/bench/omni.json` (Omni HERO) or `elfnote.json`; `ZONES=0/1` forces zone mode.
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + DPE + Favorite Contact set (FC -> Shining Neos
-  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (since GY revival scoring): Crystal Wing + June Pride
-  (center) + Welcome Home/Rhapsodia set, Strelitzia/Lucina/Tinia in GY. Guides agree (Rhapsodia revives Strelitzia on
-  their turn, which brings back Tinia/Lucina; June Pride is a reset). The older Strelitzia (center) + Stardust + Tinia
-  board is close behind. Open: the engine doesn't reach Baronne de Fleur, which guides pair with this.
+  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (120s, after guide tuning): Crystal Wing + Dawn
+  Dragster + Accel Synchro Stardust (center), Welcome Home + Rhapsodia set, Strelitzia in GY (15.04). The guide board
+  (Baronne + Crystal Wing, Rhapsodia set, Strelitzia in GY) scores 14.47 and is reached when Baronne is a goal; see
+  `bench/refs/elfnote.json`.
 - **GitHub deep test**: edit `combo-engine/bench/run.json` and push (this session's GitHub access can't start runs by API).
   Each job posts its top boards as annotations, readable without logging in: list jobs with
   `curl -s https://api.github.com/repos/gabegriffin16-commits/ygo-md-companion/actions/runs/<run>/jobs`, then
