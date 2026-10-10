@@ -1490,6 +1490,35 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 /* full view in the app: a little more room under the top bar (compact unchanged) */
 html.in-overlay:not(.compact) header.top{margin-top:14px !important}
 html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.right{padding-top:14px !important}
+/* ---- deck analysis ---- */
+.bldana{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+.bld[data-view="ana"] .bldbody{display:none !important}
+.bld[data-view="ana"] .bldana{display:block}
+.ana{display:flex; flex-direction:column; gap:12px}
+.anastats{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
+.anastat{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 55%, transparent)}
+.anastat .v{font:700 1.5rem/1.1 var(--display); color:var(--ink)}
+.anastat .k{font:600 .7rem var(--display); letter-spacing:.06em; text-transform:uppercase; color:var(--muted)}
+.anastat.ar-starter .v{color:var(--gold)}
+.anaodds{display:flex; flex-wrap:wrap; gap:6px}
+.anaodds .pill{background:color-mix(in srgb, var(--muted) 10%, transparent); color:var(--muted); border:1px solid color-mix(in srgb, var(--muted) 35%, transparent); border-radius:999px; padding:3px 11px; font:500 .8rem var(--body)}
+.anaodds .pill b{color:var(--ink); font-family:var(--display)}
+.anatips{margin:0}
+.anah{margin:4px 0 -4px}
+.anacp .cp.clk{cursor:pointer} .anacp .cp.clk:hover .what{color:var(--gold)}
+.anacp .cphead.safe{color:var(--muted)}
+.b.droll{background:color-mix(in srgb, var(--fire) 14%, transparent) !important; color:color-mix(in srgb, var(--fire) 75%, var(--ink)) !important; border:1px solid color-mix(in srgb, var(--fire) 45%, transparent) !important}
+.b.belle{background:color-mix(in srgb, var(--dark) 14%, transparent) !important; color:color-mix(in srgb, var(--dark) 75%, var(--ink)) !important; border:1px solid color-mix(in srgb, var(--dark) 45%, transparent) !important}
+.anaroles{display:flex; flex-direction:column; gap:8px}
+.anarole{display:flex; flex-wrap:wrap; gap:6px; align-items:center}
+.anarole .fhead{min-width:96px}
+.anarole .pill{background:color-mix(in srgb, var(--muted) 10%, transparent); color:var(--ink); border:1px solid color-mix(in srgb, var(--muted) 30%, transparent); border-radius:999px; padding:2px 10px; font:500 .8rem var(--body)}
+.anafoot{margin:0; font-size:.78rem}
+.simohead{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap}
+.simsug{padding:4px 12px; border-radius:999px; font-size:.78rem}
+#tab-check .ana{margin-top:4px}
+html.compact .anastats{grid-template-columns:repeat(2, minmax(0,1fr))}
+html.fadebg .anastat{background:color-mix(in srgb, var(--panel) 85%, transparent) !important}
 </style>
 </head>
 <body>
@@ -1814,6 +1843,115 @@ function ovGroup(bar){
   if (!g){ g = document.createElement("div"); g.id = "ovRight"; g.className = "ovgrp"; bar.appendChild(g); }
   return g;
 }
+// ================= deck analyzer: reads card text to find starters, handtraps and what each handtrap can stop =================
+// Pure text rules, no AI: each card's text is split into its effects, then each effect is checked against what
+// Ash Blossom, Infinite Impermanence / Effect Veiler, Droll & Lock Bird and Ghost Belle can negate.
+var MDA = (function(){
+  var SPLIT = /(?<=[.)\]"])\s+(?=(?:You can(?!not)|If |When |During |Once per turn|Each time|At the start|At the end|While this|Target \d|Discard |Tribute |Banish \d|Pay )\b)/;
+  function effects(c){
+    var t = String(c.d || "").replace(/\r/g, "");
+    var parts = t.split(/\n(?=[^●])/).map(function(x){ return x.trim(); }).filter(Boolean), out = [];
+    parts.forEach(function(p){ p.split(SPLIT).forEach(function(e){ e = e.trim(); if (e) out.push(e); }); });
+    // Material requirements on Extra Deck cards ("2+ Effect Monsters") and once-per-turn notes aren't effects.
+    return out.filter(function(e){ return !/^You can only (use|activate|Special Summon)/i.test(e) && !/^[0-9]\+? [^.:;]*$/.test(e) && /[:;]|You can|Summon|add |send |negate|destroy|draw|banish/i.test(e) && !/^If you control no cards, you can activate this card from your hand\.?$/i.test(e); });
+  }
+  function bodyOf(e){
+    var b = e;
+    if (/includes any of these/i.test(b)) b = b.replace(/\n?●[^\n]*/g, "");   // a handtrap's own list of what it stops
+    var semi = b.lastIndexOf(";"); if (semi >= 0) return b.slice(semi + 1);
+    var col = b.indexOf(":"); if (col >= 0) return b.slice(col + 1);
+    return b;
+  }
+  function headOf(e, body){ return e.slice(0, Math.max(0, e.length - body.length)); }
+  var RX = {
+    deckAdd: /add[^.;]*?from (?:your|the) (?:hand, |GY, )?(?:hand or |GY or )?Deck[^.;]*?to (?:your|the) hand|add[^.;]*?from (?:your|the) Deck(?: or GY)?/i,
+    deckSS: /Special Summon[^.;]*?from (?:your|the) (?:hand or |hand, GY, or |GY or )?Deck(?! and\/or Extra)/i,
+    deckSend: /send[^.;]*?from (?:your|the) (?:hand or )?Deck to the GY|from your [^.;]{0,20}Deck[^.;]{0,15} as (?:Fusion |Link |Synchro |Xyz )?(?:Material|material)|excavate/i,
+    anyAdd: /add[^.;]*?to (?:your|the) hand/i,
+    gyMove: /(?:Special Summon|add|banish|shuffle|return)[^.;]*?(?:from|in) (?:your|either|the|their) (?:Deck or )?(?:GY|Graveyard)/i,
+    fromHand: /\(from your hand\)|discard this card|from your hand to the GY|send this card from your hand|reveal this card in your hand|If this card is in your hand|Special Summon this card from your hand|activate this card from your hand/i,
+    fromGY: /(?:banish|shuffle|place) this card from (?:your )?(?:GY|Graveyard)|while this card is in your (?:GY|Graveyard)|If this card is in your (?:GY|Graveyard)|If this card is (?:sent|destroyed|banished|detached|added)|this card in your (?:GY|Graveyard)|If this card in your possession/i,
+    quick: /\(Quick Effect\)|During either player's turn|during your opponent's turn/i,
+    ssSelf: /Special Summon this card/i,
+    normalSum: /Normal(?: or Special)? Summoned|Normal or Flip Summoned/i,
+    needs: /If you control (?:a|an|\d)|while you control|Tribute|If your opponent controls|(?:face-up )?cards? you control|monsters? you control(?! no)|monster(?:s)? you control as|using monsters (?:on|from) your (?:hand or )?field/i,
+    summonExtra: /(?:Fusion|Synchro|Xyz|Link|Ritual) Summon/i
+  };
+  function verbsOf(body){
+    var v = [];
+    if (RX.deckAdd.test(body)) v.push("search");
+    if (RX.deckSS.test(body)) v.push("summon from Deck");
+    if (RX.deckSend.test(body)) v.push("send from Deck");
+    if (!v.length && RX.anyAdd.test(body)) v.push("add to hand");
+    if (RX.summonExtra.test(body)) v.push((body.match(RX.summonExtra)[0]));
+    if (/Special Summon this card/i.test(body)) v.push("summon itself");
+    else if (/Special Summon[^.;]*?from (?:your|the) (?:GY|Graveyard)/i.test(body)) v.push("revive from GY");
+    else if (!v.some(function(x){ return /summon/i.test(x); }) && /Special Summon/i.test(body)) v.push("Special Summon");
+    if (/\bdraw\b/i.test(body)) v.push("draw");
+    if (/\bnegate\b/i.test(body)) v.push("negate");
+    if (/\bdestroy\b/i.test(body)) v.push("destroy");
+    if (/\bbanish\b/i.test(body) && !/banish this card/i.test(body)) v.push("banish");
+    if (/place[^.;]*?from (?:your )?Deck/i.test(body)) v.push("place from Deck");
+    if (/Set[^.;]*?(?:directly )?from your Deck/.test(body)) v.push("Set from Deck");
+    return v;
+  }
+  function whenOf(e, head, isMon){
+    if (RX.fromHand.test(e)) return RX.quick.test(e) ? "From hand, any time (Quick Effect)" : "From your hand";
+    if (RX.fromGY.test(head || e)) return "From the GY / when it leaves the field";
+    if (RX.normalSum.test(head || e)) return /Special/.test((head || e).match(RX.normalSum)[0]) ? "When it's Normal or Special Summoned" : "When it's Normal Summoned";
+    if (/Special Summoned/i.test(head || "")) return "When it's Special Summoned";
+    if (!isMon) return "When you activate it";
+    if (RX.quick.test(e)) return "On the field (Quick Effect)";
+    return "On the field";
+  }
+  function analyzeCard(c){
+    var isMon = /Monster/.test(c.t || ""), isTrap = /Trap/.test(c.t || ""), out = [];
+    effects(c).forEach(function(e, i){
+      var body = bodyOf(e), head = headOf(e, body);
+      var activated = /:|;|You can/i.test(e) || (!isMon && i === 0);   // a Spell/Trap's main text is its activation
+      var oppOnly = /each time your opponent/i.test(body);           // e.g. a handtrap describing what the opponent does
+      var deck = !oppOnly && (RX.deckAdd.test(body) || RX.deckSS.test(body) || RX.deckSend.test(body));
+      var hand = RX.fromHand.test(e), gy = RX.fromGY.test(head || e);
+      var f = {
+        text: e, head: head, body: body, verbs: verbsOf(body), when: whenOf(e, head, isMon), activated: activated, deck: deck,
+        ash: activated && deck,
+        imp: activated && isMon && !hand && !gy && !/if this card is treated as/i.test(head),   // Imperm / Effect Veiler: face-up monster effects on the field
+        droll: activated && !oppOnly && RX.anyAdd.test(body),
+        belle: activated && RX.gyMove.test(body),
+        hand: hand, gy: gy
+      };
+      f.safe = !f.ash && !f.imp;
+      if (activated) out.push(f);
+    });
+    var handtrap = /activate this card from your hand/i.test(c.d || "") || out.some(function(f){ return f.hand && (RX.quick.test(f.text) || /If you control no cards, you can activate this card from your hand|opponent/i.test(f.text)); }) && !out.some(function(f){ return f.deck && !f.hand; });
+    var oneCard = out.some(function(f){ return f.deck && !RX.needs.test(f.head || "") && !f.gy && (!isMon || RX.normalSum.test(f.text) || /^You can/i.test(f.text)); });
+    var extender = !oneCard && out.some(function(f){ return RX.ssSelf.test(f.body) && !f.gy; });
+    var role = /^(fusion|synchro|xyz|link)/.test(c.f || "") ? "extra" : handtrap ? "handtrap" : oneCard ? "starter" : extender ? "extender" : "engine";
+    if (isTrap && role === "starter" && !/activate this card from your hand/i.test(c.d || "")) role = "engine";
+    return {effects:out, role:role};
+  }
+  var ROLE_NAME = {starter:"Starter", extender:"Extender", handtrap:"Handtrap", engine:"Combo piece", extra:"Extra Deck"};
+  function hyper(N, K, n){ if (K <= 0) return 0; if (n >= N) return 1; var miss = 1; for (var i = 0; i < n; i++) miss *= (N - K - i) / (N - i); return Math.max(0, 1 - miss); }
+  // rows: [{id, n}] for main and extra; byId: passcode -> card
+  function analyzeDeck(main, extra, byId){
+    var cards = [];
+    function add(rows, zone){ (rows || []).forEach(function(r){ var c = byId[r.id]; if (!c) return; var a = analyzeCard(c); cards.push({c:c, n:r.n, zone:zone, role:zone === "extra" ? "extra" : a.role, effects:a.effects}); }); }
+    add(main, "main"); add(extra, "extra");
+    var N = cards.filter(function(x){ return x.zone === "main"; }).reduce(function(a, x){ return a + x.n; }, 0);
+    function copies(role){ return cards.filter(function(x){ return x.zone === "main" && x.role === role; }).reduce(function(a, x){ return a + x.n; }, 0); }
+    var S = copies("starter"), H = copies("handtrap");
+    var starterFx = [], ashStarter = 0;
+    cards.forEach(function(x){ if (x.role === "starter") x.effects.forEach(function(f){ if (f.deck){ starterFx.push(f); if (f.ash) ashStarter++; } }); });
+    var impCount = 0, impTop = null;
+    cards.forEach(function(x){ var k = x.effects.filter(function(f){ return f.imp; }).length; impCount += k; if (k && (!impTop || k > impTop.k)) impTop = {c:x.c, k:k}; });
+    return {cards:cards, mainCount:N, starters:S, handtraps:H, extenders:copies("extender"), engine:copies("engine"),
+      odds:{first:hyper(N, S, 5), second:hyper(N, S, 6), handFirst:hyper(N, H, 5), handSecond:hyper(N, H, 6)},
+      starterFx:starterFx.length, ashStarter:ashStarter, impCount:impCount, impTop:impTop,
+      ssCount:cards.reduce(function(a, x){ return a + x.effects.filter(function(f){ return /summon/i.test(f.verbs.join(" ")); }).length; }, 0)};
+  }
+  return {analyzeCard:analyzeCard, analyzeDeck:analyzeDeck, ROLE_NAME:ROLE_NAME};
+})();
+
 var CLOUD = (function(){
   var cfg = window.MDC_CLOUD, sb = null, user = null, profile = null;
   var LIB = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js";
@@ -2675,12 +2813,78 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   TIPS.forEach(function(t){ var li = document.createElement("li"); li.textContent = t; tl.appendChild(li); });
 
 
+  // ---------- deck analysis (built decks): starters, odds and what each handtrap can stop ----------
+  function pctTxt(x){ return Math.round(x * 100) + "%"; }
+  function renderAnalysis(box, main, extra, opts){
+    opts = opts || {};
+    box.innerHTML = "";
+    var A = MDA.analyzeDeck(main, extra, CARD_BY_ID);
+    if (!A.mainCount){ box.appendChild(nodes("p", "hint", "Add cards to see starters, opening odds and what handtraps can stop.")); return A; }
+    var wrap = nodes("div", "ana");
+    var stats = nodes("div", "anastats");
+    [["starter", "Starters", A.starters], ["extender", "Extenders", A.extenders], ["handtrap", "Handtraps", A.handtraps], ["engine", "Combo pieces", A.engine]].forEach(function(r){
+      var t = nodes("div", "anastat ar-" + r[0]); t.appendChild(nodes("span", "v", String(r[2]))); t.appendChild(nodes("span", "k", r[1])); stats.appendChild(t);
+    });
+    wrap.appendChild(stats);
+    var odds = nodes("div", "anaodds");
+    function odd(label, v){ var o = nodes("span", "pill"); o.appendChild(nodes("b", null, pctTxt(v))); o.appendChild(document.createTextNode(" " + label)); odds.appendChild(o); }
+    odd("open a starter going first", A.odds.first); odd("going second", A.odds.second);
+    if (A.handtraps) odd("open a handtrap going second", A.odds.handSecond);
+    wrap.appendChild(odds);
+    var tips = [];
+    if (A.starters){ if (A.odds.first < 0.8) tips.push("You open a starter " + pctTxt(A.odds.first) + " of the time going first. Most decks aim for 80% or more; another starter or two would help."); else tips.push("You open a starter " + pctTxt(A.odds.first) + " of the time going first. That's a consistent deck."); }
+    else tips.push("No one-card starters found. Mark your own starters in the Draw simulator so the odds make sense.");
+    if (A.starterFx){ if (A.ashStarter === A.starterFx) tips.push("Ash Blossom can stop every one of your starter effects. Lead with the search you need least so Ash gets used there."); else if (A.ashStarter) tips.push("Ash Blossom can stop " + A.ashStarter + " of your " + A.starterFx + " starter effects. The ones it can't stop are your safest openers."); else tips.push("Ash Blossom can't stop your starters. Imperm and Veiler are the handtraps to watch."); }
+    if (A.impCount) tips.push("Imperm or Effect Veiler can stop " + A.impCount + " monster effects on the field." + (A.impTop ? " " + A.impTop.c.n + " is the most exposed (" + A.impTop.k + (A.impTop.k > 1 ? " effects)." : " effect).") : ""));
+    var drolls = 0; A.cards.forEach(function(x){ drolls += x.effects.filter(function(f){ return f.droll; }).length; });
+    if (drolls > 1) tips.push("Droll & Lock Bird after your first search shuts off your other " + (drolls - 1) + " add-to-hand effects for the turn.");
+    if (A.ssCount >= 6) tips.push("Your deck Special Summons a lot (" + A.ssCount + " summoning effects): Maxx \u201CC\u201D and Mulcharmy draw your opponent extra cards, so think about stopping early.");
+    var tl = nodes("ul", "notes anatips"); tips.forEach(function(t){ tl.appendChild(nodes("li", null, t)); }); wrap.appendChild(tl);
+    // checkpoints
+    var rows = [];
+    A.cards.forEach(function(x){ x.effects.forEach(function(f){ if (!f.verbs.length && !f.ash && !f.imp) return;
+      var grp = (x.role === "starter" && f.deck) ? 1 : (f.ash || f.imp) ? 2 : 3; rows.push({x:x, f:f, g:grp}); }); });
+    rows.sort(function(a, b){ return a.g - b.g || (b.x.n - a.x.n); });
+    var cp = nodes("div", "card anacp"), last = 0;
+    var HEAD = {1:"Protect these: your starters", 2:"Also open to handtraps", 3:"Safe from Ash and Imperm"};
+    rows.forEach(function(r){
+      if (r.g !== last){ cp.appendChild(nodes("h3", "cphead" + (r.g === 1 ? " pri1" : r.g === 3 ? " safe" : ""), HEAD[r.g])); last = r.g; }
+      var row = nodes("div", "cp");
+      var t = nodes("div"); var w = nodes("div", "what", r.x.c.n + (r.f.verbs.length ? " \u2014 " + r.f.verbs.join(", ") : ""));
+      var y = nodes("div", "why", r.f.when + ". " + (r.f.body.trim().length > 140 ? r.f.body.trim().slice(0, 138) + "\u2026" : r.f.body.trim()));
+      t.appendChild(w); t.appendChild(y); row.appendChild(t);
+      var bd = nodes("div", "badges");
+      if (r.f.ash) bd.appendChild(nodes("span", "b ash", "Ash"));
+      if (r.f.imp) bd.appendChild(nodes("span", "b imp", "Imperm"));
+      if (r.f.droll) bd.appendChild(nodes("span", "b droll", "Droll"));
+      if (r.f.belle) bd.appendChild(nodes("span", "b belle", "Belle"));
+      if (!r.f.ash && !r.f.imp) bd.appendChild(nodes("span", "b safe", "Safe"));
+      row.appendChild(bd);
+      if (opts.onCard){ row.classList.add("clk"); row.addEventListener("click", function(){ opts.onCard(r.x.c); }); }
+      cp.appendChild(row);
+    });
+    if (rows.length){ wrap.appendChild(nodes("h3", "anah", "Every checkpoint")); wrap.appendChild(cp); }
+    // roles
+    var rl = nodes("div", "anaroles");
+    ["starter", "extender", "handtrap", "engine", "extra"].forEach(function(role){
+      var xs = A.cards.filter(function(x){ return x.role === role; }); if (!xs.length) return;
+      var g = nodes("div", "anarole"); g.appendChild(nodes("span", "fhead", MDA.ROLE_NAME[role]));
+      xs.forEach(function(x){ g.appendChild(nodes("span", "pill", x.c.n + (x.n > 1 ? " \u00D7" + x.n : ""))); });
+      rl.appendChild(g);
+    });
+    wrap.appendChild(rl);
+    wrap.appendChild(nodes("p", "hint anafoot", "Worked out from each card's text: a strong first read, not a ruling. Check unusual cards against the in-game text."));
+    box.appendChild(wrap);
+    return A;
+  }
   if (!HEROMODE){
-    var noLines = '<div class="dbox nolines"><h3>No lines written for ' + PILOT_NAME.replace(/[<>&]/g, "") + ' yet</h3><p class="hint">Combo lines, checkpoints and bait order are written per deck. Ask Claude to write them for this deck and they\'ll show up here. Until then the Duel tab still reads your hand, draws, turns and LP, and Manual tracking covers the rest.</p></div>';
+    var noLines = '<div class="dbox nolines"><h3>No lines written for ' + PILOT_NAME.replace(/[<>&]/g, "") + ' yet</h3><p class="hint">Combo lines are written per deck. The Checkpoints tab already works out your starters, opening odds and what each handtrap can stop. The Duel tab still reads your hand, draws, turns and LP, and Manual tracking covers the rest.</p></div>';
     var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim();
     document.getElementById("tab-lines").innerHTML = (myNotes ? '<div class="dbox mynotes"><h3>Your notes</h3><p></p></div>' : "") + noLines;
     if (myNotes) document.querySelector("#tab-lines .mynotes p").textContent = myNotes;
-    document.getElementById("tab-check").innerHTML = noLines;
+    var tc = document.getElementById("tab-check");
+    if (DECKDATA.none || !myDeck) tc.innerHTML = noLines;
+    else { tc.innerHTML = ""; renderAnalysis(tc, myDeck.main || [], myDeck.extra || [], {onCard:function(c){ if (document.documentElement.classList.contains("compact") || window.innerWidth < 1220){ closeFind(); openFind(true); } paintDbCard(c.id); }}); }
   }
   // ---------- desktop panes: decklist + card details ----------
   // Effects are summarized in plain words; check the in-game text for exact wording.
@@ -4310,7 +4514,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<div class="bldbtns"><button type="button" class="fadeitem fadetog bldshare" role="switch" title="Shared decks show in the Users tab for other players. Unlisted decks don\u2019t."><span>Shared</span><span class="sw" aria-hidden="true"></span></button><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldbar"><div class="bldstat"></div>' +
-      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button></div></div>' +
+      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button><button type="button" data-v="ana" aria-selected="false">Analysis</button></div></div>' +
       '<div class="bldbody">' +
         '<section class="bldbrowse">' +
           '<div class="bldtools">' +
@@ -4326,6 +4530,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<section class="blddeck"><div class="blddecklist"></div><div class="bldnotes"><div class="bldnhead"><label class="fhead" for="bldNotes">Deck notes</label><span class="bldgrip" title="Drag up or down to resize" aria-hidden="true"></span></div><textarea id="bldNotes" placeholder="Combo lines, side plans, matchup reminders\u2026 These show in the Lines tab while you pilot this deck."></textarea></div></section>' +
       '</div>' +
       '<section class="bldsim"></section>' +
+      '<section class="bldana"></section>' +
       '<div class="bldinfo" hidden></div>';
     document.body.appendChild(root);
     document.documentElement.classList.add("building");
@@ -4414,7 +4619,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     // ---- deck edits ----
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
-    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
+    function paintAna(){ var bx = $(".bldana"); if (bx) renderAnalysis(bx, deck.main, deck.extra, {onCard:function(c){ showInfo(c); }}); }
+    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "ana") paintAna(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
       var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
@@ -4755,7 +4961,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var st = deck.starters.filter(function(id){ return deck.main.some(function(r){ return r.id === id; }); });
       var K = deck.main.filter(function(r){ return st.indexOf(r.id) >= 0; }).reduce(function(a, r){ return a + r.n; }, 0);
       var odds = nodes("div", "simodds");
-      odds.appendChild(nodes("div", "fhead simlab", "Opening odds (" + N + "-card Main Deck)"));
+      var oh = nodes("div", "simohead"); oh.appendChild(nodes("div", "fhead simlab", "Opening odds (" + N + "-card Main Deck)"));
+      var sug = nodes("button", "ghost simsug", "Use suggested starters"); sug.type = "button"; sug.title = "Mark the cards the analyzer reads as one-card starters";
+      sug.addEventListener("click", function(){
+        var A = MDA.analyzeDeck(deck.main, deck.extra, CARD_BY_ID);
+        deck.starters = A.cards.filter(function(x){ return x.zone === "main" && x.role === "starter"; }).map(function(x){ return x.c.id; });
+        dirty = true; paintSim(); toast(deck.starters.length ? deck.starters.length + " starters marked" : "No one-card starters found");
+      });
+      oh.appendChild(sug); odds.appendChild(oh);
       var sum = nodes("p", "simsum");
       if (K){ sum.innerHTML = "At least one starter: <b></b> going first · <b></b> going second";
         var bs = sum.querySelectorAll("b"); bs[0].textContent = pct(atLeastOne(N, K, 5)); bs[1].textContent = pct(atLeastOne(N, K, 6)); }
@@ -4791,6 +5004,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           o.setAttribute("aria-selected", v === view || (o.dataset.v === "build" && view === "deck") ? "true" : "false");
         });
         if (view === "sim"){ if (!simHand.length && mainPile().length >= 5) newHand(); else paintSim(); }
+        else if (view === "ana") paintAna();
         else { paintGrid(); if (list.offsetParent) fitDeck(); }
       });
     });
