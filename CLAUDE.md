@@ -95,6 +95,9 @@ Key parts of `src/main.cpp`:
 - **Draws** come from 12 blank stand-ins (Spiral Serpent) on top of the Deck, hidden in output (shown as code 0).
 - **Handtrap backups**: `oppHand` + `prefix` (choice labels of a line) + `hitCard/hitStep` replays a line and chains
   Ash/Imperm/Veiler/Droll at that step.
+- **Search output**: `complete` (every line checked), `stable` (complete, or the best board stopped improving in the
+  last 40% of the time), `stats.bestAt` (seconds). Request `stable`: 0..1 enables the early stop (`stableMinMs`, default 5000).
+  Bench: `STABLE=0.4`.
 - **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc.
 - Known limits: opponent never acts except the tested handtrap; Spell/Trap zones always first free; revival reads
   only the quoted name and Level cap (not Type/Attribute) and ignores once-per-turn names; scoring is generic, so goals
@@ -140,9 +143,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
-- Search stopping: a full search can't finish on long combos. Add (1) stop when the best board hasn't changed for
-  a good share of the time and report "stable"; (2) merge positions that differ only in ways that can't matter (GY order,
-  zone of non-zone cards) so searches go faster and short combos can truly finish; (3) show complete vs stable separately.
+- Search stopping (engine part done): results now carry `stable` + `stats.bestAt`; request `stable` (fraction) stops early
+  once the best hasn't improved for that share of the time (off by default: runs vary, e.g. HERO's best came at 155s of
+  180 once, and a 180s Elfnote run settled on a worse board than a 120s one). Beam ties are now broken by a hash of the
+  line (reproducible beam runs). Zone decks key positions by center/side of center-aware monsters only (keying every
+  monster's zone blew up HERO, which counts as a zone deck). Left: UI wording for complete vs stable (ask the owner),
+  and reducing run-to-run variance (e.g. seed later beam passes with the best lines found so far).
 - Reference suite: add 2-3 guide-rich decks next (MD tier list 2026-10-06: Tier 1 Dracotail, Elfnote Engine, Branded;
   pick different styles), each as a decklist JSON + `bench/refs/<deck>.json` with guide boards and sources, then tune.
   Elfnote: the guide board (Baronne) is 0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.

@@ -70,6 +70,7 @@ struct CardRow {
 	int32_t atk = 0, def = 0;
 	std::vector<uint16_t> setcodes;
 	std::string name, lname;   // lname: lowercase, for matching what a reviver asks for
+	bool centerAware = false;  // its text cares about the center Main Monster Zone
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -100,7 +101,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) { r.name = (const char*)nm; r.lname = evalx::lower(r.name); }
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
-		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); }
+		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); r.centerAware = evalx::lower(r.desc).find("center main monster zone") != std::string::npos; }
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -565,7 +566,29 @@ struct Search {
 	std::condition_variable cv;
 	int busy = 0;
 
-	bool out_of_time() const { return stop.load() || std::chrono::duration<double>(Clock::now() - t0).count() > timeLimit; }
+	// Stable stop: once the best board hasn't improved for stableFrac of the time spent (and at least stableMin seconds
+	// have passed), more searching is unlikely to find better, so stop early. 0 = off: run the full time.
+	double stableFrac = 0, stableMin = 5;
+	std::atomic<double> bestAt{0}; double bestScore = -1e18;   // when the best board so far was found (seconds)
+	mutable std::atomic<bool> stoppedStable{false};
+	double elapsed() const { return std::chrono::duration<double>(Clock::now() - t0).count(); }
+	bool out_of_time() const {
+		if(stop.load() || stoppedStable.load()) return true;
+		double el = elapsed();
+		if(el > timeLimit) return true;
+		if(stableFrac > 0 && el >= stableMin && el - bestAt.load() >= stableFrac * el) { stoppedStable = true; return true; }
+		return false;
+	}
+	// Positions are keyed by their cards (sorted, so GY order doesn't matter); for zone decks also by whether each
+	// center-aware monster is in the center or a side zone. Other monsters' zones don't split positions (that would
+	// multiply equal states and crowd out real lines).
+	static std::string zkey(const Board& b) {
+		if(!g_zones) return "";
+		std::vector<std::string> z;
+		for(size_t i = 0; i < b.mzone.size(); i++) { auto it = g_cards.find(b.mzone[i]); if(it == g_cards.end() || !it->second.centerAware) continue;
+			z.push_back(std::to_string(b.mzone[i]) + (i < b.mslot.size() && b.mslot[i] == 2 ? "C" : "S")); }
+		std::sort(z.begin(), z.end()); std::string k = "Z"; for(auto& x : z) k += x + ","; return k;
+	}
 	static bool extra_type(uint32_t code) { auto it = g_cards.find(code); return it != g_cards.end() && (it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)); }
 	// How strong this end board is (see src/evaluate.h): every way it can stop the opponent, best first with a
 	// gentle fall-off, plus locks, sturdiness, bodies and spare cards, plus the deck's own goal cards.
@@ -713,6 +736,7 @@ struct Search {
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
 		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; boards[k] = f; }
+		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
 		auto d = std::make_unique<Duel>(setup);
@@ -847,7 +871,7 @@ struct Search {
 			}
 			if(m.type == MSG_SELECT_IDLECMD) {
 				Board b = read_board(*d);
-				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
+				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				{ std::lock_guard<std::mutex> lk(mx); if(!visited.insert(k).second) return; }
 				record(*d, st);
@@ -885,7 +909,7 @@ struct Search {
 	// by each action (and every choice inside it), keep the most promising few, repeat. The beam widens on
 	// each pass until time runs out, so early choices (what to search, what to discard) all get a fair look,
 	// which plain depth-first search with a time limit doesn't give them.
-	struct Node { St st; double h = 0; size_t parent = 0; };
+	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; };   // tie: fixed pseudo-random order for equal h
 	std::mutex vmx; std::unordered_set<std::string> bvisited;
 	// How good a mid-combo state looks: the board so far, plus how much is still left to do from here
 	// (effects ready to use, cards in hand, the Normal Summon).
@@ -911,13 +935,14 @@ struct Search {
 			if((m.type == MSG_SELECT_IDLECMD || window) && !atStart) {
 				Board b = read_board(*d);
 				std::vector<Opt> opts = choices(m);
-				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
+				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				if(window) k = "W" + k;
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
 				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par;
+				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
 				return;
 			}
@@ -971,7 +996,9 @@ struct Search {
 				std::vector<Node> next = expand_level(level);
 				if(getenv("MDC_BEAMLOG2") && next.size() > 200) { for(size_t q = 0; q < 12; q++) { std::string t; auto& lb = next[q * next.size() / 12].st.labels; for(size_t k = 0; k < lb.size(); k++) t += lb[k] + " | "; fprintf(stderr, "  %s\n", t.c_str()); } }
 				if(getenv("MDC_BEAMLOG")) fprintf(stderr, "width %zu depth %d: %zu nodes -> %zu children, %llu replays, %.1fs\n", width, depth, level.size(), next.size(), (unsigned long long)(replays.load() - r0), std::chrono::duration<double>(Clock::now() - tl).count());
-				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h > b.h; });
+				// Ties are broken by a hash of the line, not by which thread finished first: the same search keeps the same
+				// states every time (reproducible for tuning) while ties still land in a scattered order (no bias by name).
+				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h != b.h ? a.h > b.h : a.tie < b.tie; });
 				if(next.size() > width) {
 					trimmed = true;
 					if(diverse) {
@@ -982,7 +1009,7 @@ struct Search {
 							bool any = false;
 							std::vector<Node*> round; for(auto& kv : byParent) if(r < kv.second.size()) { round.push_back(kv.second[r]); any = true; }
 							if(!any) break;
-							std::sort(round.begin(), round.end(), [](Node* a, Node* b) { return a->h > b->h; });
+							std::sort(round.begin(), round.end(), [](Node* a, Node* b) { return a->h != b->h ? a->h > b->h : a->tie < b->tie; });
 							for(Node* n : round) { if(keep.size() >= width) break; keep.push_back(std::move(*n)); }
 						}
 						next.swap(keep);
@@ -1052,8 +1079,11 @@ struct Search {
 			res.push_back(bj);
 			if(res.size() >= top) break;
 		}
-		bool complete = useBeam ? beam_complete : (!stop.load() && secs <= timeLimit);
-		return {{"id", id}, {"done", true}, {"complete", complete}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"width", beam_width}, {"depth", beam_depth}}}};
+		bool complete = useBeam ? beam_complete : (!stop.load() && !stoppedStable.load() && secs <= timeLimit);
+		// "stable": every line was checked, or the best board stopped improving well before the end (the last 40% of the
+		// time, or the stable-stop share when that's on).
+		bool stable = complete || stoppedStable.load() || (secs - bestAt.load() >= std::max(stableFrac, 0.4) * secs);
+		return {{"id", id}, {"done", true}, {"complete", complete}, {"stable", stable}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"bestAt", bestAt.load()}, {"stoppedStable", stoppedStable.load()}, {"width", beam_width}, {"depth", beam_depth}}}};
 	}
 };
 
@@ -1115,6 +1145,7 @@ int main(int argc, char** argv) {
 			s->setup.deck = deck;
 			s->maxActions = req.value("maxActions", 8);
 			s->timeLimit = req.value("timeMs", 20000) / 1000.0;
+			s->stableFrac = req.value("stable", 0.0); s->stableMin = req.value("stableMinMs", 5000) / 1000.0;
 			s->threads = std::max(1, std::min(16, req.value("threads", 2)));
 			s->top = (size_t)req.value("top", 12);
 			for(uint32_t t : ids(req, "targets")) s->targets.insert(t);

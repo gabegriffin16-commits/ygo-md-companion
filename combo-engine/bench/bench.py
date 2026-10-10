@@ -32,7 +32,7 @@ rv = ["%s (from %s, tag %r, max Lv %s)" % (v["name"], v["revive"]["from"], v["re
 print("REVIVERS", "; ".join(rv) or "none")
 t = time.time()
 send({"id": 2, "cmd": "search", "deck": deck, "extra": EXTRA, "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads,
-      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {})})
+      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {}), **({"stable": float(os.environ["STABLE"])} if os.environ.get("STABLE") else {})})
 r = wait(2)
 print("HAND", " + ".join(n(c) for c in hand), "| threads", threads, "| mode", mode or "hybrid", "| stats", r["stats"], "| complete", r["complete"])
 for b in r["boards"]:
