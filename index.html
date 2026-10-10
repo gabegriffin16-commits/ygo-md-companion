@@ -1516,6 +1516,36 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .anafoot{margin:0; font-size:.78rem}
 .simohead{display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap}
 .simsug{padding:4px 12px; border-radius:999px; font-size:.78rem}
+/* Find combos */
+.cfpanel{display:flex; flex-direction:column; gap:8px}
+.cftop{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+.cftop .cfgo{padding:8px 18px; font-size:.9rem}
+.cftop .cfgo:disabled{opacity:.5; cursor:default}
+.cfgoal{flex:0 1 340px; min-width:0; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 8px; font:400 .88rem var(--body)}
+.cfprog{display:flex; flex-direction:column; gap:6px}
+.cfbar{height:4px; border-radius:999px; background:var(--bg); overflow:hidden}
+.cfbar i{display:block; height:100%; width:0; background:var(--gold); border-radius:inherit; transition:width .4s linear}
+.cfprow{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.cfptxt{font-size:.84rem; color:var(--muted)}
+.cfsum, .cffine{margin:0}
+.cffine{font-size:.76rem}
+.cferr{color:var(--red)}
+.cfline{background:var(--bg); border:1px solid var(--line); border-radius:10px; padding:9px 11px}
+.cfhead{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.cfhead b{font:700 .9rem var(--display); line-height:1.3}
+.cfhead .mini{flex:none; padding:4px 9px; font-size:.76rem}
+.cfmeta{margin:4px 0 0; font-size:.78rem; color:var(--muted)}
+.cfsteps{margin:7px 0 0; padding-left:20px; font-size:.85rem; line-height:1.4}
+.cfsteps li{margin:2px 0}
+.cfsteps li::marker{color:var(--muted)}
+.cfmark{display:inline-block; margin-left:6px; padding:0 7px; border-radius:999px; font:600 .7rem/1.5 var(--display); vertical-align:1px;
+  color:var(--red); border:1px solid color-mix(in srgb, var(--red) 55%, transparent); background:color-mix(in srgb, var(--red) 12%, transparent)}
+.cfmark.cf-imperm{color:var(--trap); border-color:color-mix(in srgb, var(--trap) 55%, transparent); background:color-mix(in srgb, var(--trap) 12%, transparent)}
+.cfmark.cf-droll{color:var(--muted); border-color:var(--line); background:none}
+.cffoot{display:flex; gap:8px; flex-wrap:wrap}
+.cffoot .ghost{padding:5px 12px; font-size:.82rem}
+.savedlines{display:flex; flex-direction:column; gap:8px}
+.savedlines > h3{margin-bottom:0}
 #tab-check .ana{margin-top:4px}
 html.compact .anastats{grid-template-columns:repeat(2, minmax(0,1fr))}
 html.fadebg .anastat{background:color-mix(in srgb, var(--panel) 85%, transparent) !important}
@@ -1761,6 +1791,9 @@ var MDC = (function(){
     var l = list(); return l.length ? l[0].id : null;
   }
   function heroAllowed(){ return heroOK; }
+  // Combo lines saved from Find combos: on the deck record when there is one, else (the built-in deck) on this device.
+  function lines(id){ var d = id && get(id); return d ? (d.lines || []) : id === "hero" ? rd(KEY.replace(/^mdc-decks/, "mdc-herolines"), []) : []; }
+  function setLines(id, a){ var d = id && get(id); if (d){ d.lines = a; return put(d); } return id === "hero" ? wr(KEY.replace(/^mdc-decks/, "mdc-herolines"), a) : false; }
   function setPilot(id){ wr(PILOT, id); location.reload(); }
   function newId(){ return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
   var EXTRA_RE = /^(fusion|synchro|xyz|link)/;
@@ -1823,7 +1856,7 @@ var MDC = (function(){
     });
     inp.click();
   }
-  return {scope:scope, on:on, replaceAll:replaceAll, heroAllowed:heroAllowed, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
+  return {scope:scope, on:on, lines:lines, setLines:setLines, replaceAll:replaceAll, heroAllowed:heroAllowed, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
     toDeckData:toDeckData, toYdk:toYdk, fromYdk:fromYdk, download:download, pickFile:pickFile};
 })();
 
@@ -2632,6 +2665,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function n(id){ return hand[id] || 0; }
 
   function evaluate(){
+    if (duelCF && duelCF.isConnected) duelCF.repaint();
     var out = document.getElementById("result");
     out.innerHTML = "";
     if (!HEROMODE) return;
@@ -3456,6 +3490,169 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(nodes("p", "hint autonote", "Waiting for the duel. Turn order, your opening hand, turns, phases and LP are read from the screen."));
   }
 
+  // ---------- combo finder ----------
+  // The desktop app ships a helper that plays the hand out in the real rules engine (see combo-engine/).
+  // One search runs at a time; results stay with the hand they were found for.
+  var CF_OK = !!(window.overlayApp && overlayApp.findCombos);
+  var CF = {run:null, state:{}};
+  var CODE_SHORT = {}; DECK_ALL.forEach(function(c){ var f = F[c.id]; if (f && f.db && f.db.id) CODE_SHORT[f.db.id] = f.short; });
+  function cfName(code){ return CODE_SHORT[code] || (CARD_BY_ID[code] && CARD_BY_ID[code].n) || ("#" + code); }
+  function cfCode(k){ var f = F[k]; return f && f.db && f.db.id ? +f.db.id : (+k || 0); }
+  function cfList(rows){ var a = []; rows.forEach(function(r){ var code = cfCode(r.id); for (var i = 0; i < (r.n || 1); i++) if (code) a.push(code); }); return a; }
+  // Which handtraps can hit this step: match the engine's effect description to the analyzer's read of the card text.
+  function cfMarks(st){
+    if (st.do === "Normal Summon" || st.do === "Special Summon") return [];
+    var c = CARD_BY_ID[st.card]; if (!c || !window.MDA) return [];
+    var fx = MDA.analyzeCard(c).effects || [];
+    var key = (st.effect || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim().slice(0, 24), hit = null;
+    if (key) fx.forEach(function(e){ if (!hit && (e.text || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").indexOf(key) >= 0) hit = e; });
+    if (!hit && fx.length === 1) hit = fx[0];
+    if (!hit) return [];
+    var m = []; if (hit.ash) m.push("Ash"); if (hit.imp) m.push("Imperm"); if (hit.droll) m.push("Droll");
+    return m;
+  }
+  function cfStepText(st){
+    var n = cfName(st.card), picks = (st.picks || []).map(cfName);
+    if (st.do === "Normal Summon") return "Normal Summon " + n;
+    if (st.do === "Special Summon") return "Special Summon " + n + (picks.length ? " using " + picks.join(", ") : "");
+    var fx = (st.effect || "").replace(/\s+/g, " ").trim().replace(/\.$/, "");
+    return n + ": " + (fx || (st.do === "Use" ? "use its effect" : "activate")) + (picks.length ? " (choosing " + picks.join(", ") + ")" : "");
+  }
+  // A found board, written out as plain steps plus the backrow cards left in hand to Set.
+  function cfLine(b, hand){
+    var steps = b.steps.map(function(st){ return {t:cfStepText(st), m:cfMarks(st)}; });
+    var sets = (b.hand || []).filter(function(code){ var c = CARD_BY_ID[code]; return c && (c.f === "trap" || (c.f === "spell" && /Quick-Play/.test(c.r || ""))); });
+    sets.forEach(function(code){ steps.push({t:"Set " + cfName(code), m:[]}); });
+    return {id:"L" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), at:Date.now(), hand:hand.slice(),
+      board:b.field.slice(), backrow:(b.backrow || []).concat(sets), left:(b.hand || []).filter(function(c){ return sets.indexOf(c) < 0; }), steps:steps};
+  }
+  function cfBoardTitle(L){ return L.board.length ? L.board.map(cfName).join(" · ") : "No monsters left on the field"; }
+  function cfLineEl(L, actions){
+    var w = nodes("div", "cfline");
+    var hd = nodes("div", "cfhead"); hd.appendChild(nodes("b", null, cfBoardTitle(L))); if (actions) hd.appendChild(actions); w.appendChild(hd);
+    var meta = [];
+    if (L.backrow && L.backrow.length) meta.push("Backrow: " + L.backrow.map(cfName).join(", "));
+    if (L.left && L.left.length) meta.push("Still in hand: " + L.left.map(cfName).join(", "));
+    if (L.hand && L.hand.length) meta.push("From: " + L.hand.map(cfName).join(", "));
+    if (meta.length) w.appendChild(nodes("p", "cfmeta", meta.join("  ·  ")));
+    var ol = nodes("ol", "cfsteps");
+    L.steps.forEach(function(st){
+      var li = nodes("li", null, st.t);
+      (st.m || []).forEach(function(m){ var t = nodes("span", "cfmark cf-" + m.toLowerCase(), m); t.title = m + " can stop this"; li.appendChild(t); });
+      ol.appendChild(li);
+    });
+    w.appendChild(ol);
+    return w;
+  }
+  // Saved lines live on the deck (so they sync and copy with it); the built-in deck keeps them on this device.
+  function cfSaved(){ return MDC.lines(PILOT_ID); }
+  function cfSave(L){ var a = cfSaved(); a.unshift(L); return MDC.setLines(PILOT_ID, a); }
+  function paintSavedLines(){
+    var tab = document.getElementById("tab-lines"); if (!tab) return;
+    var host = document.getElementById("savedLines");
+    var a = cfSaved(), nl = tab.querySelector(".nolines");
+    if (nl) nl.hidden = a.length > 0;
+    if (!a.length){ if (host) host.remove(); return; }
+    if (!host){ host = nodes("div", "dbox savedlines"); host.id = "savedLines"; tab.insertBefore(host, tab.firstChild); }
+    host.innerHTML = ""; host.appendChild(nodes("h3", null, "Found combo lines"));
+    a.forEach(function(L){
+      var del = nodes("button", "mini", "Remove"); del.type = "button";
+      del.addEventListener("click", function(){ MDC.setLines(PILOT_ID, cfSaved().filter(function(x){ return x.id !== L.id; })); paintSavedLines(); });
+      host.appendChild(cfLineEl(L, del));
+    });
+  }
+  // The panel: Find combos + optional goal, a progress strip with Stop, then the boards found.
+  // o = {key, hand(): [codes], deck(): {main:[codes], extra:[codes]}, extraOpts(): [codes], save(L)}
+  function comboFinder(o){
+    var st = CF.state[o.key] || (CF.state[o.key] = {goal:"", res:null, sig:"", more:false});
+    var wrap = nodes("div", "cfpanel");
+    function sig(){ return o.hand().slice().sort().join(",") + "|" + st.goal; }
+    function paint(){
+      wrap.innerHTML = "";
+      var hand = o.hand(), running = CF.run && CF.run.key === o.key;
+      if (st.res && st.sig !== sig()) st.res = null;
+      var top = nodes("div", "cftop");
+      var go = nodes("button", "primary cfgo", running ? "Searching…" : st.res ? "Search again" : "Find combos"); go.type = "button";
+      go.disabled = running || !hand.length || (CF.run && !running);
+      go.title = hand.length ? "Play this hand out in the rules engine and list the end boards it reaches" : "Add cards to the hand first";
+      go.addEventListener("click", function(){ start(20000); });
+      var sel = nodes("select", "cfgoal"); sel.setAttribute("aria-label", "Goal");
+      sel.appendChild(nodes("option", null, "Goal: best board")).value = "";
+      var seen = {};
+      o.extraOpts().forEach(function(code){ if (seen[code]) return; seen[code] = 1; var op = nodes("option", null, "Goal: " + cfName(code)); op.value = String(code); sel.appendChild(op); });
+      sel.value = st.goal; sel.disabled = running;
+      sel.addEventListener("change", function(){ st.goal = sel.value; paint(); });
+      top.appendChild(go); top.appendChild(sel); wrap.appendChild(top);
+      if (running){
+        var pr = nodes("div", "cfprog");
+        var bar = nodes("div", "cfbar"); var fill = nodes("i"); bar.appendChild(fill); pr.appendChild(bar);
+        var row = nodes("div", "cfprow"); var txt = nodes("span", "cfptxt", CF.run.text || "Starting…"); row.appendChild(txt);
+        var stop = nodes("button", "mini", "Stop"); stop.type = "button"; stop.addEventListener("click", function(){ overlayApp.stopCombos(); txt.textContent = "Stopping…"; });
+        row.appendChild(stop); pr.appendChild(row);
+        fill.style.width = Math.round((CF.run.frac || 0) * 100) + "%";
+        CF.run.paint = function(){ txt.textContent = CF.run.text; fill.style.width = Math.round((CF.run.frac || 0) * 100) + "%"; };
+        wrap.appendChild(pr);
+        return;
+      }
+      if (!st.res){ if (!hand.length) wrap.appendChild(nodes("p", "hint", "Add your hand, then Find combos plays it out turn one and lists the boards it can reach.")); return; }
+      var r = st.res;
+      if (r.error){ wrap.appendChild(nodes("p", "hint cferr", "Couldn't search: " + r.error)); return; }
+      if (r.missing && r.missing.length) wrap.appendChild(nodes("p", "hint", "Not scripted in the engine yet, so treated as blanks: " + r.missing.map(cfName).join(", ") + "."));
+      var boards = (r.boards || []).filter(function(b){ return b.steps.length; });
+      if (!boards.length){ wrap.appendChild(nodes("p", "hint", "No plays found for this hand.")); return; }
+      wrap.appendChild(nodes("p", "hint cfsum", boards.length + " end board" + (boards.length > 1 ? "s" : "") + (r.complete ? ", every line checked." : " from " + (r.stats && r.stats.replays ? r.stats.replays.toLocaleString() + " lines tried" : "the time allowed") + ".")));
+      boards.slice(0, st.more ? 12 : 4).forEach(function(b){
+        var L = cfLine(b, hand);
+        var sv = nodes("button", "mini", "Save to Lines"); sv.type = "button";
+        sv.addEventListener("click", function(){ if (o.save(L) === false){ toast("Couldn't save the line"); return; } sv.textContent = "Saved"; sv.disabled = true; paintSavedLines(); toast("Saved to the Lines tab"); });
+        wrap.appendChild(cfLineEl(L, sv));
+      });
+      var foot = nodes("div", "cffoot");
+      if (boards.length > 4 && !st.more){ var mo = nodes("button", "ghost", "Show " + (Math.min(12, boards.length) - 4) + " more"); mo.type = "button"; mo.addEventListener("click", function(){ st.more = true; paint(); }); foot.appendChild(mo); }
+      if (!r.complete){ var lg = nodes("button", "ghost", "Search longer"); lg.type = "button"; lg.title = "Run for a minute to check more lines"; lg.addEventListener("click", function(){ start(60000); }); foot.appendChild(lg); }
+      if (foot.children.length) wrap.appendChild(foot);
+      wrap.appendChild(nodes("p", "hint cffine", "Played out in the EDOPro rules engine with the ProjectIgnis card scripts. Your opponent doesn't respond, and zone choices are simplified."));
+    }
+    function start(ms){
+      var hand = o.hand(); if (!hand.length || CF.run) return;
+      var d = o.deck();
+      CF.run = {key:o.key, text:"Starting…", frac:0, ms:ms, missing:[], paint:null};
+      st.more = false; st.sig = sig(); paint();
+      overlayApp.findCombos({deck:d.main, extra:d.extra, hand:hand, targets:st.goal ? [+st.goal] : [], timeMs:ms, top:12}).then(function(r){
+        var run = CF.run; CF.run = null;
+        r = r || {}; r.missing = run ? run.missing : []; st.res = r; st.sig = sig();
+        if (wrap.isConnected) paint(); else if (o.repaint) o.repaint();
+      });
+    }
+    window.addEventListener("overlay-combo", function(e){
+      var d = e.detail || {}, run = CF.run; if (!run || run.key !== o.key) return;
+      if (d.stage === "prepare") run.text = "Getting ready…";
+      else if (d.stage === "download"){ var mb = function(x){ return (x / 1048576).toFixed(1) + " MB"; };
+        run.text = "Downloading the " + d.what + " (first run): " + mb(d.got) + (d.total ? " of " + mb(d.total) : "");
+        run.frac = d.total ? d.got / d.total : 0; }
+      else if (d.warning){ run.missing = d.cards || []; }
+      else if (d.progress){ var p = d.progress;
+        run.text = "Trying lines… " + (p.replays || 0).toLocaleString() + " tried · " + (p.boards || 0) + " boards";
+        run.frac = Math.min(1, (p.seconds || 0) * 1000 / run.ms); }
+      else if (d.stage === "search") run.text = "Trying lines…";
+      if (run.paint && wrap.isConnected) run.paint();
+    });
+    paint();
+    wrap.repaint = paint;
+    return wrap;
+  }
+
+  var duelCF = null;
+  function duelFinder(){
+    if (!duelCF) duelCF = comboFinder({key:"duel",
+      hand:function(){ var a = []; Object.keys(D.hand).forEach(function(k){ var c = cfCode(k); for (var i = 0; i < (D.hand[k] || 0); i++) if (c) a.push(c); }); return a; },
+      deck:function(){ return {main:cfList(DECKDATA.main), extra:cfList(DECKDATA.extra)}; },
+      extraOpts:function(){ return cfList(DECKDATA.extra); },
+      save:cfSave});
+    else duelCF.repaint();
+    return duelCF;
+  }
+  paintSavedLines();
   function renderOpening(){
     var b = box("Your opening hand");
     b.appendChild(document.getElementById("openHint"));
@@ -3464,6 +3661,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
     if (HEROMODE){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
+    if (CF_OK) box("Find combos").appendChild(duelFinder());
     paintChips(); evaluate();
   }
 
@@ -4920,6 +5118,21 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
     // ---- draw simulator ----
     var simOrder = "first", simHand = [], simRest = [];
+    var simCF = null;
+    function simFinder(){
+      if (!simCF) simCF = comboFinder({key:"sim:" + (deck.id || "new"),
+        hand:function(){ return simHand.map(function(id){ return +id; }); },
+        deck:function(){ return {main:cfList(deck.main), extra:cfList(deck.extra || [])}; },
+        extraOpts:function(){ return cfList(deck.extra || []); },
+        save:function(L){
+          deck.lines = [L].concat(deck.lines || []); dirty = true;
+          var rec = deck.id && MDC.get(deck.id);
+          if (rec){ rec.lines = deck.lines.slice(); return MDC.put(rec); }
+          return true;
+        }});
+      else simCF.repaint();
+      return simCF;
+    }
     function mainPile(){ var a = []; deck.main.forEach(function(r){ for (var i = 0; i < r.n; i++) a.push(r.id); }); return a; }
     function shuffle(a){ for (var i = a.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)), t = a[i]; a[i] = a[j]; a[j] = t; } return a; }
     function newHand(){
@@ -4955,6 +5168,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var hw = nodes("div", "simhand");
         simHand.forEach(function(id){ var c = CARD_BY_ID[id]; if (c){ var t = tile(c, {deck:true, sim:true}); hw.appendChild(t); } });
         box.appendChild(hw);
+        if (CF_OK){ box.appendChild(nodes("div", "fhead simlab", "Find combos")); box.appendChild(simFinder()); }
       }
       // Starters: tap cards to mark them, see the odds of opening at least one.
       deck.starters = deck.starters || [];

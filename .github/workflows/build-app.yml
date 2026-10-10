@@ -64,6 +64,22 @@ jobs:
           cp combo-engine/README.md app/engine/README.md
           ./app/engine/combo-engine.exe --version
 
+      # Same downloads the app makes on first use, then a short search with a known HERO hand.
+      - name: Smoke test combo engine
+        shell: bash
+        run: |
+          set -e
+          curl -fsSL -o ce-scripts.zip https://codeload.github.com/ProjectIgnis/CardScripts/zip/refs/heads/master
+          curl -fsSL -o ce-cards.cdb https://raw.githubusercontent.com/ProjectIgnis/BabelCDB/master/cards.cdb
+          DECK='[40044918,18094166,18094166,18094166,27780618,22865492,9411399,9411399,50720316,50720316,59392529,59392529,13093792,89943723,14124483,64184058,16605586,213326,213326,8949584,24094653,24094653,52947044,52947044,52947044,21143940,14558127,14558127,14558127,10045474,10045474,10045474,23434538,23434538,23434538,97268402,97268402,97268402,24224830,24224830]'
+          EXTRA='[22908820,60461804,60461804,30757127,90579153,40854197,3642509,33574806,45170821,46759931,58481572,1948619,58004362,63813056,19324993]'
+          ( echo '{"id":1,"cmd":"init","cdb":"ce-cards.cdb","scripts":"ce-scripts.zip"}'
+            echo "{\"id\":2,\"cmd\":\"search\",\"deck\":$DECK,\"extra\":$EXTRA,\"hand\":[40044918,18094166],\"timeMs\":5000,\"threads\":2,\"top\":3}"
+            sleep 9; echo '{"cmd":"quit"}' ) | ./app/engine/combo-engine.exe > ce-out.txt
+          head -c 1500 ce-out.txt; echo
+          grep -q '"ready":true' ce-out.txt
+          grep '"done":true' ce-out.txt | grep -q '"steps":\[{'
+
       - uses: actions/setup-node@v4
         if: steps.v.outputs.skip != '1'
         with:

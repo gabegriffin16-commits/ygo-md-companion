@@ -359,6 +359,117 @@ ipcMain.on("settings:set", (e, { key, value }) => {
   else if (key === "clickThrough"){ settings.clickThrough = !!value; saveSettings(); applyClickThrough(); }
 });
 
+// ---------- combo finder ----------
+// "Find combos" runs a separate helper program (engine/combo-engine.exe, AGPL, source in combo-engine/ of the repo)
+// that plays the hand out in the real rules engine. The card scripts and card database it needs are downloaded
+// from ProjectIgnis on first use and refreshed weekly.
+const COMBO_DIR = path.join(app.getPath("userData"), "combo-data");
+const COMBO_FILES = {
+  scripts: { file: "CardScripts.zip", url: "https://codeload.github.com/ProjectIgnis/CardScripts/zip/refs/heads/master", label: "card scripts" },
+  cdb: { file: "cards.cdb", url: "https://raw.githubusercontent.com/ProjectIgnis/BabelCDB/master/cards.cdb", label: "card database" }
+};
+const COMBO_MAX_AGE = 7 * 24 * 3600 * 1000;
+let comboProc = null, comboReady = null, comboBuf = "", comboWaiters = new Map(), comboSeq = 1, comboData = null, comboActive = 0;
+function comboExe() {
+  if (process.env.OMNI_ENGINE) return process.env.OMNI_ENGINE;
+  const dir = app.isPackaged ? path.join(process.resourcesPath, "engine") : path.join(__dirname, "engine");
+  return path.join(dir, process.platform === "win32" ? "combo-engine.exe" : "combo-engine");
+}
+function comboEvent(d) { pageEvent("overlay-combo", d); }
+async function comboDownload(key, id) {
+  const f = COMBO_FILES[key], dest = path.join(COMBO_DIR, f.file), part = dest + ".part";
+  const r = await net.fetch(f.url, { headers: { "User-Agent": "MasterDuelCompanion" } });
+  if (!r.ok) throw new Error("couldn't download the " + f.label + " (" + r.status + ")");
+  const total = Number(r.headers.get("content-length")) || 0;
+  const out = fs.createWriteStream(part);
+  const reader = r.body.getReader();
+  let got = 0, last = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      got += value.length;
+      if (!out.write(Buffer.from(value))) await new Promise(res => out.once("drain", res));
+      const now = Date.now();
+      if (now - last > 250) { last = now; comboEvent({ id, stage: "download", what: f.label, got, total }); }
+    }
+  } finally { await new Promise(res => out.end(res)); }
+  if (got < 100000) throw new Error("the " + f.label + " download was cut short");
+  fs.renameSync(part, dest);
+}
+// Make sure the scripts and database are on disk; returns true when they changed (the helper must reload them).
+async function comboEnsureData(id) {
+  fs.mkdirSync(COMBO_DIR, { recursive: true });
+  const metaFile = path.join(COMBO_DIR, "meta.json");
+  let meta = {}; try { meta = JSON.parse(fs.readFileSync(metaFile, "utf8")); } catch {}
+  const have = Object.values(COMBO_FILES).every(f => fs.existsSync(path.join(COMBO_DIR, f.file)));
+  if (have && Date.now() - (meta.fetched || 0) < COMBO_MAX_AGE) return false;
+  try {
+    for (const key of Object.keys(COMBO_FILES)) await comboDownload(key, id);
+    fs.writeFileSync(metaFile, JSON.stringify({ fetched: Date.now() }));
+    return true;
+  } catch (e) {
+    if (have) return false;          // offline: keep using the copy we already have
+    throw e;
+  }
+}
+function comboKill() {
+  if (comboProc) { try { comboProc.stdin.write('{"cmd":"quit"}\n'); } catch {} const p = comboProc; setTimeout(() => { try { p.kill(); } catch {} }, 1500); }
+  comboProc = null; comboReady = null; comboBuf = "";
+  for (const w of comboWaiters.values()) w.reject(new Error("the combo helper stopped"));
+  comboWaiters.clear();
+}
+function comboSend(obj) { comboProc.stdin.write(JSON.stringify(obj) + "\n"); }
+function comboStart() {
+  if (comboReady) return comboReady;
+  const exe = comboExe();
+  if (!fs.existsSync(exe)) return Promise.reject(new Error("the combo helper isn't in this build"));
+  const proc = require("child_process").spawn(exe, [], { windowsHide: true, stdio: ["pipe", "pipe", "ignore"] });
+  comboProc = proc;
+  proc.stdout.setEncoding("utf8");
+  proc.stdout.on("data", chunk => {
+    comboBuf += chunk;
+    let i;
+    while ((i = comboBuf.indexOf("\n")) >= 0) {
+      const line = comboBuf.slice(0, i).trim(); comboBuf = comboBuf.slice(i + 1);
+      if (!line) continue;
+      let m; try { m = JSON.parse(line); } catch { continue; }
+      const w = comboWaiters.get(m.id);
+      if (m.progress || m.warning) { comboEvent(Object.assign({ stage: "search" }, m)); continue; }
+      if (w && (m.done || m.ready || m.error)) { comboWaiters.delete(m.id); m.error ? w.reject(new Error(m.error)) : w.resolve(m); }
+    }
+  });
+  proc.on("error", () => { if (comboProc === proc) comboKill(); });
+  proc.on("exit", () => { if (comboProc === proc) comboKill(); });
+  comboReady = comboRequest({ cmd: "init", cdb: path.join(COMBO_DIR, COMBO_FILES.cdb.file), scripts: path.join(COMBO_DIR, COMBO_FILES.scripts.file) });
+  comboReady.catch(() => { if (comboProc === proc) comboKill(); });
+  return comboReady;
+}
+function comboRequest(obj) {
+  const id = obj.id || comboSeq++;
+  return new Promise((resolve, reject) => { comboWaiters.set(id, { resolve, reject }); comboSend(Object.assign({ id }, obj)); });
+}
+ipcMain.handle("combo:available", () => fs.existsSync(comboExe()));
+ipcMain.handle("combo:search", async (e, q) => {
+  const id = comboSeq++;
+  comboActive = id;
+  try {
+    comboEvent({ id, stage: "prepare" });
+    const changed = await comboEnsureData(id);
+    if (changed) comboKill();
+    if (comboActive !== id) return { id, stopped: true, boards: [] };
+    await comboStart();
+    if (comboActive !== id) return { id, stopped: true, boards: [] };
+    comboEvent({ id, stage: "search" });
+    const threads = Math.max(1, Math.min(8, require("os").cpus().length - 1));
+    return await comboRequest({ id, cmd: "search", deck: q.deck || [], extra: q.extra || [], hand: q.hand || [],
+      targets: q.targets || [], maxActions: q.maxActions || 10, timeMs: q.timeMs || 20000, top: q.top || 12, threads });
+  } catch (err) {
+    return { id, error: err.message || String(err) };
+  } finally { if (comboActive === id) comboActive = 0; }
+});
+ipcMain.on("combo:stop", () => { comboActive = 0; if (comboProc) try { comboSend({ cmd: "stop" }); } catch {} });
+
 // ---------- hand reader ----------
 // A hidden window watches the Master Duel window, recognizes the cards in your hand,
 // and tells the companion page what changed. It only looks at pixels; it never touches the game.
@@ -640,6 +751,6 @@ else {
     try { tray = new Tray(path.join(__dirname, "icon.ico")); tray.on("click", toggleVisible); buildTrayMenu(); } catch (e) { tray = null; }
   });
   app.on("before-quit", () => { quitting = true; stopFgWatch(); });
-  app.on("will-quit", () => { globalShortcut.unregisterAll(); stopFgWatch(); stopMouse(); });
+  app.on("will-quit", () => { globalShortcut.unregisterAll(); stopFgWatch(); stopMouse(); comboKill(); });
   app.on("window-all-closed", () => app.quit());
 }

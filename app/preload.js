@@ -15,5 +15,8 @@ contextBridge.exposeInMainWorld("overlayApp", {
   version: () => ipcRenderer.invoke("app:version"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSetting: (key, value) => ipcRenderer.send("settings:set", { key, value }),
-  setPassthrough: (on) => ipcRenderer.send("mouse:passthrough", !!on)
+  setPassthrough: (on) => ipcRenderer.send("mouse:passthrough", !!on),
+  comboAvailable: () => ipcRenderer.invoke("combo:available"),
+  findCombos: (q) => ipcRenderer.invoke("combo:search", q),
+  stopCombos: () => ipcRenderer.send("combo:stop")
 });

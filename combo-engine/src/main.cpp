@@ -674,6 +674,7 @@ int main(int argc, char** argv) {
 		}
 		if(cmd == "search") {
 			if(!ready) { emit({{"id", id}, {"error", "not initialized"}}); continue; }
+			{ std::lock_guard<std::mutex> lk(g_search_mx); if(g_search) g_search->stop = true; }  // a new search replaces the old one
 			if(g_search_thread.joinable()) g_search_thread.join();
 			auto s = std::make_unique<Search>();
 			s->setup.hand = ids(req, "hand");
@@ -687,7 +688,11 @@ int main(int argc, char** argv) {
 			s->top = (size_t)req.value("top", 12);
 			for(uint32_t t : ids(req, "targets")) s->targets.insert(t);
 			std::vector<uint32_t> missing;
-			for(uint32_t c : s->setup.hand) if(!g_cards.count(c) || !g_zip_index.count("c" + std::to_string(c) + ".lua")) missing.push_back(c);
+			for(uint32_t c : s->setup.hand) {
+				auto ci = g_cards.find(c);
+				bool vanilla = ci != g_cards.end() && (ci->second.type & 0x10) && !(ci->second.type & 0x20);  // Normal monsters need no script
+				if(ci == g_cards.end() || (!vanilla && g_zip_open && !g_zip_index.count("c" + std::to_string(c) + ".lua"))) missing.push_back(c);
+			}
 			{ std::lock_guard<std::mutex> lk(g_search_mx); g_search = std::move(s); }
 			Search* sp = g_search.get();
 			if(!missing.empty()) emit({{"id", id}, {"warning", "not scripted yet"}, {"cards", missing}});
