@@ -157,4 +157,3 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   "<Dtail name>" are skipped; (d) run compare.py on Branded (not done yet); (e) Elfnote: the guide board (Baronne) is
   0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
-- First engine-test-button run: the owner needs to run the bench tables SQL (bottom of `supabase/schema.sql`) and update to 1.19.0.
