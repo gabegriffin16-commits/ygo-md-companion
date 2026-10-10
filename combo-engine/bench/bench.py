@@ -11,6 +11,7 @@ targets = [int(x) for x in sys.argv[9].split(",")] if len(sys.argv) > 9 and sys.
 hand = [int(x) for x in hand.split(",")]
 db = sqlite3.connect(cdb)
 def n(c):
+    if c == 0: return "(a drawn card)"
     r = db.execute("select name from texts where id=?", (c,)).fetchone(); return r[0] if r else str(c)
 p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
 def send(o): p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
@@ -24,11 +25,13 @@ send({"id": 1, "cmd": "init", "cdb": cdb, "scripts": scripts}); print(wait(1))
 deck = list(MAIN)
 t = time.time()
 send({"id": 2, "cmd": "search", "deck": deck, "extra": EXTRA, "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads,
-      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets})
+      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {})})
 r = wait(2)
 print("HAND", " + ".join(n(c) for c in hand), "| threads", threads, "| mode", mode or "hybrid", "| stats", r["stats"], "| complete", r["complete"])
 for b in r["boards"]:
-    print("\nSCORE %.2f  FIELD: %s  BACKROW: %s  HAND: %s" % (b["score"], ", ".join(n(c) for c in b["field"]), ", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"])))
+    z = b.get("zones") or []
+    field = ", ".join(n(c) + (" [center]" if i < len(z) and z[i] == 2 else (" [EMZ]" if i < len(z) and z[i] >= 5 else "")) for i, c in enumerate(b["field"]))
+    print("\nSCORE %.2f  FIELD: %s  BACKROW: %s  HAND: %s" % (b["score"], field, ", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"])))
     for i, s in enumerate(b["steps"], 1):
         g = "; ".join("%s:%s" % (h, ", ".join(n(c) for c in cs)) for h, cs in s.get("groups", []))
         print("  %2d. %s %s %s %s" % (i, s["do"], n(s["card"]), ("| " + s["effect"][:50]) if s["effect"] else "", ("[" + g + "]") if g else ""))

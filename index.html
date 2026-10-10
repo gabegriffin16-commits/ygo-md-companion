@@ -3537,7 +3537,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var CF_OK = !!(window.overlayApp && overlayApp.findCombos);
   var CF = {run:null, state:{}};
   var CODE_SHORT = {}; DECK_ALL.forEach(function(c){ var f = F[c.id]; if (f && f.db && f.db.id) CODE_SHORT[f.db.id] = f.short; });
-  function cfName(code){ return CODE_SHORT[code] || (CARD_BY_ID[code] && CARD_BY_ID[code].n) || ("#" + code); }
+  function cfName(code){ if (code === 0) return "a drawn card"; return CODE_SHORT[code] || (CARD_BY_ID[code] && CARD_BY_ID[code].n) || ("#" + code); }
   function cfCode(k){ var f = F[k]; return f && f.db && f.db.id ? +f.db.id : (+k || 0); }
   function cfList(rows){ var a = []; rows.forEach(function(r){ var code = cfCode(r.id); for (var i = 0; i < (r.n || 1); i++) if (code) a.push(code); }); return a; }
   // Which handtraps can hit this step: match the engine's effect description to the analyzer's read of the card text.
@@ -3595,9 +3595,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var sets = (b.hand || []).filter(function(code){ var c = CARD_BY_ID[code]; return c && (c.f === "trap" || (c.f === "spell" && /Quick-Play/.test(c.r || ""))); });
     sets.forEach(function(code){ steps.push({t:"Set " + cfName(code), m:[]}); });
     return {id:"L" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36), at:Date.now(), hand:hand.slice(),
-      board:b.field.slice(), backrow:(b.backrow || []).concat(sets), left:(b.hand || []).filter(function(c){ return sets.indexOf(c) < 0; }), steps:steps};
+      board:b.field.slice(), zones:(b.zones || []).slice(), backrow:(b.backrow || []).concat(sets), left:(b.hand || []).filter(function(c){ return sets.indexOf(c) < 0; }), steps:steps};
   }
-  function cfBoardTitle(L){ return L.board.length ? L.board.map(cfName).join(" · ") : "No monsters left on the field"; }
+  function cfBoardTitle(L){ return L.board.length ? L.board.map(function(c, i){ return cfName(c) + (L.zones && L.zones[i] === 2 ? " (center)" : ""); }).join(" · ") : "No monsters left on the field"; }
   function cfLineEl(L, actions){
     var w = nodes("div", "cfline");
     var hd = nodes("div", "cfhead"); hd.appendChild(nodes("b", null, cfBoardTitle(L))); if (actions) hd.appendChild(actions); w.appendChild(hd);
@@ -3756,7 +3756,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     return {do:x[0], card:x[1], effect:x[2], picks:picks, groups:x[4]};
   }
   function genNames(codes){ return (codes || []).map(cfName).join(" · "); }
-  function genEnds(L){ return (L.f && L.f.length ? "Ends on " + genNames(L.f) : "No monsters left on the field") + (L.b && L.b.length ? "  ·  Backrow: " + genNames(L.b) : ""); }
+  // Field cards, with the one in the center Main Monster Zone marked (zone-based decks care where things sit).
+  function genField(L){ return L.f.map(function(c, i){ return cfName(c) + (L.z && L.z[i] === 2 ? " (center)" : ""); }).join(" \u00B7 "); }
+  function genEnds(L){ return (L.f && L.f.length ? "Ends on " + genField(L) : "No monsters left on the field") + (L.b && L.b.length ? "  ·  Backrow: " + genNames(L.b) : ""); }
   function genTitle(L){ return L.h.map(cfName).join(" + "); }
   function genHits(L){ var by = {}; (L.fb || []).forEach(function(f){ (by[f.i] = by[f.i] || []).push(f); }); return by; }
   // One line as a plan card. Tags on a step open what to do if that handtrap lands there.

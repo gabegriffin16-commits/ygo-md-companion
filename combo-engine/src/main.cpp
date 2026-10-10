@@ -72,6 +72,7 @@ struct CardRow {
 	std::string name;
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
+	std::string desc;
 };
 static std::unordered_map<uint32_t, CardRow> g_cards;
 
@@ -99,7 +100,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) r.name = (const char*)nm;
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
-		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.ev = evalx::evaluate(dt ? (const char*)dt : "", r.type); }
+		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); }
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -357,6 +358,12 @@ static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_
 static std::unordered_map<OCG_Duel, int> g_uses;   // how many times each pooled duel has been reused
 static void pool_flush() { std::lock_guard<std::mutex> lk(g_pool_mx); for(OCG_Duel d : g_pool) { mdc_forget_duel(d); OCG_DestroyDuel(d); } g_pool.clear(); g_uses.clear(); }
 static const uint32_t DUMMY = 46986414;   // opponent's deck: Dark Magician x5, they never act on our turn
+// Draws are random in a real duel. Cards drawn during a line come off a stack of these vanilla Spiral Serpents
+// on top of the Deck, so a line never counts on drawing a specific card (and boards don't show them).
+static const uint32_t BLANK = 32626733;
+static const int BLANKS = 12;
+// Whether zone choices are worth branching on: only for decks whose cards care about zones (set per search).
+static std::atomic<bool> g_zones{false};
 
 struct Duel {
 	OCG_Duel h = nullptr;
@@ -378,6 +385,7 @@ struct Duel {
 		}
 		auto add = [&](uint8_t team, uint32_t code, uint32_t loc) { OCG_NewCardInfo i{team, 0, code, team, loc, 0, POS_FACEDOWN_DEFENSE}; OCG_DuelNewCard(h, &i); };
 		for(uint32_t c : s.deck) add(0, c, LOCATION_DECK);
+		for(int i = 0; i < BLANKS; i++) add(0, BLANK, LOCATION_DECK);
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
 		for(uint32_t c : s.hand) add(0, c, LOCATION_HAND);
 		for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
@@ -427,12 +435,14 @@ struct Duel {
 		return false;
 	}
 	void respond(const Bytes& b) { OCG_DuelSetResponse(h, b.data(), (uint32_t)b.size()); }
-	std::vector<uint32_t> cards(uint32_t loc, bool faceupOnly = false) {
+	std::vector<uint32_t> cards(uint32_t loc, bool faceupOnly = false, std::vector<int>* slots = nullptr) {
 		OCG_QueryInfo q{QUERY_CODE | QUERY_POSITION, 0, loc, 0, 0};
 		uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q);
 		std::vector<uint32_t> out;
 		Rd r(p, n, 4);
+		int slot = -1;
 		while(r.o + 2 <= n) {
+			slot++;
 			uint16_t sz = r.u16();
 			if(sz == 0) continue;
 			uint32_t code = 0, pos = 0;
@@ -445,7 +455,7 @@ struct Duel {
 				r.o = start + (sz - 4);
 				sz = r.u16();
 			}
-			if(code && (!faceupOnly || (pos & POS_FACEUP))) out.push_back(code);
+			if(code && (!faceupOnly || (pos & POS_FACEUP))) { out.push_back(code); if(slots) slots->push_back(slot); }
 		}
 		return out;
 	}
@@ -532,7 +542,7 @@ static std::vector<Opt> choices0(const Prompt& m) {
 	}
 }
 
-struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished; };
+struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
 struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; };
 
 struct Search {
@@ -562,12 +572,17 @@ struct Search {
 	double score_of(const Board& b) const {
 		std::vector<double> stops; double s = 0;
 		auto ev = [](uint32_t c) -> const CardEval* { auto it = g_cards.find(c); return it == g_cards.end() ? nullptr : &it->second.ev; };
-		for(uint32_t c : b.mzone) {
+		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
+		for(size_t i = 0; i < b.mzone.size(); i++) {
+			uint32_t c = b.mzone[i]; int slot = i < b.mslot.size() ? b.mslot[i] : -1;
 			const CardEval* e = ev(c);
 			s += 0.5 + (extra_type(c) ? 0.3 : 0);
 			if(!e) continue;
-			if(e->field > 0) stops.push_back(e->field);
-			s += e->lock + e->sturdy;
+			// Zone-dependent cards: "switch with the center monster" only works from a side zone with the center filled;
+			// "while in the center Main Monster Zone" only works in the center.
+			bool works = !(e->fromSide && (slot == 2 || !centerTaken)) && !(e->inCenter && slot != 2);
+			if(e->field > 0 && works) stops.push_back(e->field);
+			s += (works ? e->lock : 0) + e->sturdy;
 		}
 		for(uint32_t c : b.szone) {
 			const CardEval* e = ev(c); if(!e) { s += 0.3; continue; }
@@ -583,7 +598,7 @@ struct Search {
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
 			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { stops.push_back(e->set); room--; }
 			else if(e && e->hand > 0) stops.push_back(e->hand);
-			else s += 0.3;   // a card for next turn
+			else s += 0.3;   // a card for next turn (or one drawn during the line)
 		}
 		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); }
 		std::sort(stops.rbegin(), stops.rend());
@@ -593,7 +608,7 @@ struct Search {
 		return s;
 	}
 	Board read_board(Duel& d) {
-		Board b; b.mzone = d.cards(LOCATION_MZONE); b.szone = d.cards(LOCATION_SZONE); b.hand = d.cards(LOCATION_HAND);
+		Board b; b.mzone = d.cards(LOCATION_MZONE, false, &b.mslot); b.szone = d.cards(LOCATION_SZONE); b.hand = d.cards(LOCATION_HAND);
 		b.grave = d.cards(LOCATION_GRAVE); b.banished = d.cards(LOCATION_REMOVED); return b;
 	}
 	static std::string key_of(std::vector<uint32_t> v) { std::sort(v.begin(), v.end()); std::string s; for(uint32_t c : v) s += std::to_string(c) + ","; return s; }
@@ -628,6 +643,43 @@ struct Search {
 			}
 			else if(o.step.kind == "Option" && steps.back().effect.empty()) steps.back().effect = o.step.effect;
 		}
+	}
+	// Where a monster goes, for decks that care about zones (center Main Monster Zone, columns):
+	// - a card that wants the center (a trigger "Summoned to the center Main Monster Zone", or effects that only
+	//   work "while ... in the center") goes there when it's free;
+	// - other zone-aware cards (e.g. ones that later switch into the center) go to a side zone, keeping it free;
+	// - when the summon is the action itself (Normal Summon, Synchro / Link... from the Extra Deck) of a zone-aware
+	//   card, both the center and a side zone are tried.
+	// Anything else takes the first free zone, as before.
+	static uint32_t placing(const St& st, bool& isAction) {
+		isAction = false;
+		if(st.steps.empty()) return 0;
+		const Step& s = st.steps.back();
+		for(auto it = s.groups.rbegin(); it != s.groups.rend(); ++it) if(it->first == 509 && !it->second.empty()) return it->second.back();
+		if(s.kind == "Normal Summon" || s.kind == "Special Summon") { isAction = true; return s.card; }
+		return 0;
+	}
+	static void zone_opts(const Prompt& m, const St& st, std::vector<Opt>& opts) {
+		if(!g_zones || m.type != MSG_SELECT_PLACE || m.count != 1 || m.player != 0) return;
+		auto freeM = [&](int seq) { return !(m.flag & (1u << seq)); };
+		auto pick = [&](int seq, const char* lbl) { Opt o; o.label = lbl; o.resp = Bytes(); o.resp += (char)m.player; o.resp += (char)LOCATION_MZONE; o.resp += (char)seq; return o; };
+		int side = -1; for(int seq : {0, 1, 3, 4}) if(freeM(seq)) { side = seq; break; }
+		if(side < 0 && !freeM(2)) return;   // no Main Monster Zone choice to make
+		bool isAction; uint32_t c = placing(st, isAction);
+		auto it = g_cards.find(c);
+		if(it == g_cards.end()) return;
+		std::string d = evalx::lower(it->second.desc);
+		bool aware = d.find("center main monster zone") != std::string::npos;
+		if(!aware) return;
+		bool wantsCenter = d.find("summoned to the center main monster zone") != std::string::npos || d.find("summoned to your center main monster zone") != std::string::npos ||
+			d.find("while this card is in the center main monster zone") != std::string::npos || d.find("if this card is in the center main monster zone") != std::string::npos ||
+			d.find("while in the center main monster zone") != std::string::npos;
+		std::vector<Opt> out;
+		if(isAction) { if(freeM(2)) out.push_back(pick(2, "zone center")); if(side >= 0) out.push_back(pick(side, "zone side")); }
+		else if(wantsCenter && freeM(2)) out.push_back(pick(2, "zone center"));
+		else if(side >= 0) out.push_back(pick(side, "zone side"));
+		else out.push_back(pick(2, "zone center"));
+		if(!out.empty()) opts.swap(out);
 	}
 	// The opponent's side of every prompt: pass, except chaining hitCard at the planned moment.
 	Opt opp_choice(const Prompt& m, const St& st, bool& hitNow) const {
@@ -682,6 +734,7 @@ struct Search {
 			st.aim = false;   // back to us: any target was already chosen
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			zone_opts(m, st, opts);
 			if(interrupting() && !st.hit) {
 				// Still replaying the planned line: only its next choice is allowed.
 				size_t pi = st.labels.size();
@@ -759,13 +812,17 @@ struct Search {
 				if(!d->run(m, retry)) return;
 				continue;
 			}
-			if(m.type == MSG_SELECT_IDLECMD && !atStart) {
+			// A new decision point ends this expansion: back in the Main Phase with a free choice, or a chain window
+			// where we could respond (decks full of Quick Effects play whole combos inside chain windows).
+			bool window = m.type == MSG_SELECT_CHAIN && !m.chains.empty() && !m.forced;
+			if((m.type == MSG_SELECT_IDLECMD || window) && !atStart) {
 				Board b = read_board(*d);
 				std::vector<Opt> opts = choices(m);
 				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
 				for(auto& o : opts) k += o.label + ";";
+				if(window) k = "W" + k;
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
-				record(*d, st);
+				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
 				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par;
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
@@ -773,6 +830,7 @@ struct Search {
 			}
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			zone_opts(m, st, opts);
 			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
 				record(*d, st);
 				if(st.actions >= maxActions) return;
@@ -814,9 +872,12 @@ struct Search {
 			std::vector<Node> level(1);
 			bool trimmed = false;
 			beam_width = width;
-			for(int depth = 0; depth <= maxActions && !level.empty() && !out_of_time(); depth++) {
+			for(int depth = 0; depth <= maxActions * 4 && !level.empty() && !out_of_time(); depth++) {
 				beam_depth = depth;
+				auto tl = Clock::now(); uint64_t r0 = replays.load();
 				std::vector<Node> next = expand_level(level);
+				if(getenv("MDC_BEAMLOG2") && next.size() > 200) { for(size_t q = 0; q < 12; q++) { std::string t; auto& lb = next[q * next.size() / 12].st.labels; for(size_t k = 0; k < lb.size(); k++) t += lb[k] + " | "; fprintf(stderr, "  %s\n", t.c_str()); } }
+				if(getenv("MDC_BEAMLOG")) fprintf(stderr, "width %zu depth %d: %zu nodes -> %zu children, %llu replays, %.1fs\n", width, depth, level.size(), next.size(), (unsigned long long)(replays.load() - r0), std::chrono::duration<double>(Clock::now() - tl).count());
 				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h > b.h; });
 				if(next.size() > width) {
 					trimmed = true;
@@ -886,10 +947,14 @@ struct Search {
 		for(const Found& f : all) {
 			std::string fk = key_of(f.board.mzone) + "|" + key_of(f.board.szone);
 			if(!fieldSeen.insert(fk).second) continue;   // same field, different hand: keep the best one only
+			// Drawn cards are unknown: leave the stand-ins out of the board, and show them as 0 ("a drawn card") in steps.
+			auto known = [](std::vector<uint32_t> v) { v.erase(std::remove(v.begin(), v.end(), BLANK), v.end()); return v; };
+			auto mask = [](std::vector<uint32_t> v) { for(auto& c : v) if(c == BLANK) c = 0; return v; };
 			json steps = json::array();
-			for(const Step& s : f.steps) { json g = json::array(); for(auto& gr : s.groups) g.push_back({gr.first, gr.second});
-				steps.push_back({{"do", s.kind}, {"card", s.card}, {"effect", s.effect}, {"picks", s.picks}, {"groups", g}}); }
-			json bj = {{"score", f.score}, {"field", f.board.mzone}, {"backrow", f.board.szone}, {"hand", f.board.hand}, {"gy", f.board.grave}, {"banished", f.board.banished}, {"steps", steps}};
+			for(const Step& s : f.steps) { json g = json::array(); for(auto& gr : s.groups) g.push_back({gr.first, mask(gr.second)});
+				steps.push_back({{"do", s.kind}, {"card", s.card == BLANK ? 0 : s.card}, {"effect", s.effect}, {"picks", mask(s.picks)}, {"groups", g}}); }
+			json slots = json::array(); for(int z : f.board.mslot) slots.push_back(z);
+			json bj = {{"score", f.score}, {"field", f.board.mzone}, {"zones", slots}, {"backrow", f.board.szone}, {"hand", known(f.board.hand)}, {"gy", known(f.board.grave)}, {"banished", known(f.board.banished)}, {"steps", steps}};
 			if(wantLabels) bj["labels"] = f.labels;
 			res.push_back(bj);
 			if(res.size() >= top) break;
@@ -951,6 +1016,16 @@ int main(int argc, char** argv) {
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
 			s->mode = req.value("mode", std::string());
+			{
+				// Branch on zones only if some card in the deck talks about zones or columns.
+				bool z = false;
+				for(const auto* v : {&s->setup.deck, &s->setup.extra, &s->setup.hand}) for(uint32_t c : *v) {
+					auto it = g_cards.find(c); if(it == g_cards.end()) continue;
+					const std::string& d = it->second.desc;
+					if(d.find("center Main Monster Zone") != std::string::npos || d.find(" column") != std::string::npos || d.find("adjacent") != std::string::npos) { z = true; break; }
+				}
+				g_zones = req.value("zones", z);
+			}
 			if(req.value("reuse", true) != g_reuse) { pool_flush(); g_reuse = req.value("reuse", true); }
 			s->diverse = req.value("diverse", true);
 			s->width0 = (size_t)std::max(2, req.value("width", 8));

@@ -11,6 +11,7 @@
 #pragma once
 #include <algorithm>
 #include <cctype>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -21,6 +22,8 @@ struct CardEval {
 	float gy = 0;        // ...from the GY
 	float lock = 0;      // a lasting restriction on the opponent while on the field
 	float sturdy = 0;    // protection / floats: harder to break
+	bool fromSide = false;   // its interruption switches it into the center zone: needs a side zone + a center monster
+	bool inCenter = false;   // its effects only work while it's in the center Main Monster Zone
 };
 
 namespace evalx {
@@ -52,7 +55,7 @@ inline std::vector<Fx> effects(const std::string& text) {
 // How much one effect hurts the opponent, if it can be used on their turn.
 inline float hurt(const std::string& e) {
 	float v = 0;
-	if(has(e, "negate the activation") || (has(e, "negate") && has(e, "summon"))) v = 3.5f;
+	if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
 	else if(has(e, "negate")) v = 3.0f;
 	else if(has(e, "banish") && (has(e, "your opponent controls") || has(e, "on the field") || has(e, "opponent's"))) v = 2.5f;
 	else if(has(e, "destroy") && (has(e, "your opponent controls") || has(e, "on the field") || has(e, "opponent's") || has(e, "that card") || has(e, "that monster"))) v = 2.0f;
@@ -86,16 +89,22 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		bool laterBetter = false;
 		for(size_t fj = 0; fj < fxs.size(); fj++) if(fj != fi && fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) > hurt(e)) laterBetter = true;
 		for(size_t fj = 0; fj < fi; fj++) if(fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) == hurt(e)) laterBetter = true;
-		bool fromGy = has(e, "in your gy") || has(e, "from your gy") || has(e, "banish this card from your gy") || has(e, "if this card is in your graveyard");
-		bool fromHand = has(e, "discard this card") || has(e, "from your hand") || has(e, "send this card from your hand") || has(e, "reveal this card");
+		// Where the effect is used from is about *this card*: "a monster from your hand" is just a summon source.
+		bool fromGy = has(e, "this card is in your gy") || has(e, "this card from your gy") || has(e, "this card in your gy") || has(e, "this card is in your graveyard");
+		bool fromHand = has(e, "discard this card") || has(e, "this card from your hand") || has(e, "this card in your hand") || has(e, "this card is in your hand") || has(e, "reveal this card");
 		bool theirTurn = on_their_turn(e, (trap || quickplay) && !fromGy);
 		bool battleOnly = has(e, "attack is declared") || has(e, "declares an attack") || has(e, "during the battle phase");
 		float h = theirTurn && !laterBetter ? hurt(e) * (battleOnly ? 0.5f : 1.0f) : 0;
 		bool leaves = (has(e, "this card") || has(e, "this face-up card")) && (has(e, "leaves the field") || has(e, "is destroyed") || has(e, "sent from the field"));
 		if(!theirTurn && leaves && mon) { float d = hurt(e); if(d > 0) onField.push_back(d * 0.5f); }   // punishes removal (e.g. Absolute Zero)
 		// Playing on their turn: a set Trap / Quick-Play (or a Quick Effect) that summons something.
-		if(h == 0 && theirTurn && !fromGy && (has(e, "special summon") || has(e, "fusion summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "link summon"))
-			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card from your hand")) h = 2.0f;
+		if(h == 0 && !laterBetter && hurt(e) == 0 && theirTurn && !fromGy && (has(e, "special summon") || has(e, "fusion summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "link summon"))
+			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card from your hand")) {
+			h = 2.0f;
+			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
+			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck") + has(e, "gy"); h += 1.0f * std::max(0, n - 1); }
+			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
+		}
 		if(h > 0) {
 			if(fromGy) inGy.push_back(h);
 			else if(mon && fromHand) inHand.push_back(h);
@@ -112,6 +121,11 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 	if(trap && continuous) r.field = std::max(r.field, r.set);   // a continuous Trap keeps working once flipped
 	if(field || (spell && continuous)) r.field += r.lock;            // continuous / Field Spells: their lock is the point
 	r.sturdy = std::min(r.sturdy, 1.2f);
+	{
+		std::string t = lower(text);
+		r.fromSide = has(t, "switch the locations of this card") && has(t, "center main monster zone");
+		r.inCenter = has(t, "while this card is in the center main monster zone") || has(t, "if this card is in the center main monster zone");
+	}
 	(void)field;
 	return r;
 }

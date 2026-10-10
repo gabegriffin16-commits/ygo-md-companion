@@ -502,7 +502,7 @@ async function genRun(job) {
         const parts = hand.length > 1 ? hand.map(c => best[c] || 0) : [];
         // A two-card hand only earns its own line when it beats what either card does alone.
         if (!parts.length || b.score > Math.max.apply(null, parts) + 0.5) {
-          lines.push({ h: hand, s: b.score, f: b.field, b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]), lab: b.labels, fb: [] });
+          lines.push({ h: hand, s: b.score, f: b.field, z: b.zones || [], b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]), lab: b.labels, fb: [] });
         }
         if (hand.length === 1) best[hand[0]] = b.score;
       }
@@ -516,7 +516,7 @@ async function genRun(job) {
       if (g.cancel) break;
       const r = await send({ hand: L.h, oppHand: [ht], prefix: L.lab, hitCard: ht, hitStep: i, timeMs: 2500, maxActions: 6 });
       const b = r.boards && r.boards[0];
-      if (b) L.fb.push({ i, by: ht, s: b.score, f: b.field, b: b.backrow, st: b.steps.slice(i + 2).map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]) });
+      if (b) L.fb.push({ i, by: ht, s: b.score, f: b.field, z: b.zones || [], b: b.backrow, st: b.steps.slice(i + 2).map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]) });
       g.done++;
       if (g.done % 4 === 0 || g.done === g.total) genEvent(Object.assign({ state: "running" }, genInfo()));
     }
