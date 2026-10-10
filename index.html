@@ -5996,10 +5996,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     paintBgs();
   })();
   // ---------- guided tour: shows each part of the app; starts once on a new account, re-run from Settings ----------
-  // Nothing in it builds or saves anything. It opens the builder itself to show it (an empty deck, or your deck
-  // untouched) and closes it again. Two versions: before your first deck, and with a deck (the UI is different).
+  // To show the deck tools it makes a temporary "Tutorial deck" (this device only, never synced), switches to it, and at
+  // the end deletes it the way you would (deck menu > Delete) and switches back. Switching decks reloads the page, so the
+  // tour keeps its place in sessionStorage and picks up again after each reload. Steps belong to a segment:
+  // "pre" (your own setup), "deck" (Tutorial deck piloted), "post" (deleted, back to your setup).
   (function(){
-    var T = null;   // the running tour
+    var T = null, KEY = "mdc-tour-run", PREV = "mdc-tour-prev";
+    function ss(k, v){ try { if (v === undefined) return JSON.parse(sessionStorage.getItem(k) || "null"); if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, JSON.stringify(v)); } catch (e) { return null; } }
+    function isTourId(id){ return typeof id === "string" && id.indexOf("tour-") === 0; }
     function vis(el){ if (!el || !el.isConnected) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"; }
     function find(sel){
       var list = [].concat(sel || []);
@@ -6016,81 +6020,98 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function bldView(v){ var r = bld(); if (!r) return; var b = r.querySelector('.bldviews [data-v="' + v + '"]'); if (b && vis(b)) b.click(); }
     function openBld(){
       if (bld()) return;
-      var rec = DECKDATA.custom && !DECKDATA.none ? MDC.get(PILOT_ID) : null;
-      openBuilder(rec ? JSON.parse(JSON.stringify(rec)) : {id:MDC.newId(), name:"", main:[], extra:[]}, !rec);
+      var rec = MDC.get(PILOT_ID); if (!rec) return;
+      openBuilder(JSON.parse(JSON.stringify(rec)), false);
       T.openedBld = true;
       setTimeout(function(){ if (document.activeElement && bld() && bld().contains(document.activeElement)) document.activeElement.blur(); }, 60);
     }
     function closeBld(){ if (T && T.openedBld && bld()){ var c = bld().querySelector(".bldcancel"); if (c) c.click(); if (bld() && c) c.click(); } if (T) T.openedBld = false; }
+    function closeAll(){ closeBld(); closeFind(); closeMenus(null); }
+    function segNow(st){ return st && isTourId(PILOT_ID) && PILOT_ID === st.testId ? "deck" : st && st.deleted ? "post" : "pre"; }
 
-    function steps(){
-      var hasDeck = !DECKDATA.none, app = inApp(), cpt = compactNow(), cust = DECKDATA.custom && !DECKDATA.none;
-      var S = [];
-      S.push(hasDeck ? {title:"Tour: playing with a deck", text:"A walk through the app now that you have a deck. Next and Back (or the arrow keys) move through it, and Esc leaves any time. Nothing gets changed or saved."}
-                     : {title:"Welcome to Master Duel Companion", text:"A quick look around, about two minutes. You won't have to build or save anything. Next and Back (or the arrow keys) move through it, and Esc leaves any time."});
-      // ---- decks ----
-      if (!hasDeck){
-        S.push({sel:cpt ? "#cDeck" : "#deckPane .nodeck", title:"Your decks",
-          text:cpt ? "Deck opens your decks. With none yet, it offers three ways in: build one from scratch, import a .ydk file, or copy a deck another player shared."
-                   : "Your decks live here. With none yet, there are three ways in: build one from scratch, import a .ydk file, or copy a deck another player shared."});
-      } else {
-        S.push({sel:cpt ? "#cDeck" : "#deckPane .deckpick", title:"The deck you're playing",
-          text:(cpt ? "Deck opens your decklist. In it, tap" : "Tap") + " the deck's name for the deck menu: switch decks, + Build a new deck, edit this one, import or export a .ydk, or delete it."});
-        if (!cpt) S.push({sel:"#deckPane .dl-item", pad:4, hole:"#deckPane", title:"Your decklist", text:"Every card in the deck, grouped by type. Tap one to see its art, stats and what it does on the right."});
-      }
-      // ---- the builder (opened just to show it) ----
-      S.push({sel:".bld .bldtools", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:cust ? "The deck builder (your deck)" : "The deck builder",
-        text:(cust ? "Here's your deck in the builder. Nothing changes unless you press Save. " : "We opened an empty deck just to show you around. Nothing gets saved. ") +
-          "Search every Master Duel card, narrow it down with Filters and sort, then click or drag a card to add it. Right-click a card for its details."});
-      S.push(cpt ? {sel:'.bld .bldviews [data-v="deck"]', before:function(){ openBld(); }, title:"Your deck", text:"Your deck shows the Main and Extra Deck with copy counts. Use − and + to change copies. Deck notes go at the bottom and show in the Lines tab while you play the deck."}
-                 : {sel:".bld .blddeck", before:function(){ openBld(); bldView("build"); }, title:"Your deck", text:"Main and Extra Deck with copy counts. Use − and + or drag a card out to remove it. Deck notes underneath show in the Lines tab while you play the deck."});
-      if (hasDeck && cust){
-        S.push({sel:".bld .bldsim", place:"inside", before:function(){ openBld(); bldView("sim"); }, title:"Draw simulator",
-          text:"Deal test hands and draw cards. Tap cards in the odds table to mark your starters and see how often you open one." + (CF_OK ? " Find combos plays a hand out in the real rules engine and shows the end boards it can reach." : "")});
-        S.push({sel:".bld .bldana", place:"inside", before:function(){ openBld(); bldView("ana"); }, title:"Analysis",
-          text:"Reads your cards: starters, extenders, handtraps, opening odds, and what Ash, Imperm and Droll can stop. Pick end-board goals and Generate lines" + (GEN_OK ? "" : " (desktop app)") + " to fill the Lines, Checkpoints and Counter Guide tabs for this deck."});
-      } else {
-        S.push({sel:".bld .bldviews", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Draw simulator and Analysis",
-          text:"Once there are cards in the deck: Draw simulator deals test hands and shows your odds of opening a starter. Analysis reads your cards for starters, handtraps and what Ash and Imperm can stop, and" + (GEN_OK ? "" : " in the desktop app") + " generates combo lines for the deck."});
-      }
-      S.push({sel:".bld .bldbtns", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Save and share",
+    // The test deck: the Omni HERO list, as an ordinary built deck.
+    function makeTestDeck(){
+      return fetch("deck.json", {cache:"no-cache"}).then(function(r){ return r.json(); }).then(function(d){
+        function rows(a){ return (a || []).map(function(c){ var x = CARD_BY_NAME[c.name]; return x ? {id:x.id, n:c.n} : null; }).filter(Boolean); }
+        var deck = {id:"tour-" + Date.now().toString(36), name:"Tutorial deck", main:rows(d.main), extra:rows(d.extra), shared:false, tour:true,
+          notes:"A temporary deck for the tour. It's deleted when the tour ends."};
+        if (!deck.main.length) throw new Error("no cards");
+        return deck;
+      });
+    }
+    function dropTestDeck(st){
+      MDC.list().filter(function(d){ return isTourId(d.id); }).forEach(function(d){ MDC.remove(d.id); try { localStorage.removeItem("hbc-duel-" + d.id); } catch (e) {} });
+      var prev = st && st.prevPilot !== undefined ? st.prevPilot : (function(){ try { return JSON.parse(localStorage.getItem(PREV) || "null"); } catch (e) { return null; } })();
+      try { localStorage.removeItem(PREV); } catch (e) {}
+      if (prev && !MDC.get(prev) && prev !== "hero") prev = null;
+      if (st && st.prevTab) save("hbc-tab", st.prevTab);
+      MDC.setPilot(prev || (MDC.heroAllowed() ? "hero" : null));   // reloads
+    }
+
+    function steps(st){
+      var app = inApp(), cpt = compactNow(), had = st.hadDecks, S = [];
+      var where = app ? "Settings" : "your account menu";
+      // ---- before: your own setup ----
+      S.push({seg:"pre", title:"Welcome to Master Duel Companion", text:"A quick look around, about three minutes. You won't have to build or save anything: the tour makes a test deck to show you, then deletes it. Next and Back (or the arrow keys) move through it, and Esc leaves any time."});
+      if (!had) S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .nodeck", title:"Your decks",
+        text:(cpt ? "Deck opens your decks. With none yet, it offers" : "Your decks live here. With none yet, there are") + " three ways in: build one from scratch, import a .ydk file, or copy a deck another player shared."});
+      else S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .deckpick", title:"Your decks",
+        text:(cpt ? "Deck opens your decklist. In it, tap" : "Tap") + " the deck's name for the deck menu: switch decks, + Build a new deck, edit, import or export a .ydk, or delete."});
+      S.push({seg:"pre", title:"A test deck", text:"Next, the tour makes a temporary Tutorial deck (the Omni HERO list) and switches to it, so you can see what the app does with a deck. It stays on this device and gets deleted at the end of the tour."});
+      // ---- with the Tutorial deck ----
+      S.push({seg:"deck", first:true, sel:cpt ? "#cDeck" : "#deckPane .deckpick", before:closeAll, title:"The deck you're playing",
+        text:"Now you're playing the Tutorial deck. " + (cpt ? "Deck opens the decklist; in it, tap" : "Tap") + " the deck's name for the deck menu: switch decks, + Build a new deck, edit, import, export or delete."});
+      if (!cpt) S.push({seg:"deck", sel:"#deckPane .dl-item", hole:"#deckPane", before:closeAll, title:"Your decklist", text:"Every card in the deck, grouped by type. Tap one to see its art, stats and what it does on the right."});
+      S.push({seg:"deck", sel:".bld .bldtools", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"The deck builder",
+        text:"Edit this deck (deck menu > Edit this deck) and it opens here. Search every Master Duel card, narrow it down with Filters and sort, then click or drag a card to add it. Right-click a card for its details."});
+      S.push(cpt ? {seg:"deck", sel:'.bld .bldviews [data-v="deck"]', before:function(){ openBld(); bldView("browse"); }, title:"Your deck", text:"Your deck shows the Main and Extra Deck with copy counts. Use − and + to change copies. Deck notes go at the bottom and show in the Lines tab while you play the deck."}
+                 : {seg:"deck", sel:".bld .blddeck", before:function(){ openBld(); bldView("build"); }, title:"Your deck", text:"Main and Extra Deck with copy counts. Use − and + or drag a card out to remove it. Deck notes underneath show in the Lines tab while you play the deck."});
+      S.push({seg:"deck", sel:".bld .bldsim", place:"inside", before:function(){ openBld(); bldView("sim"); }, title:"Draw simulator",
+        text:"Deal test hands and draw cards. Tap cards in the odds table to mark your starters and see how often you open one." + (CF_OK ? " Find combos plays a hand out in the real rules engine and shows the end boards it can reach." : "")});
+      S.push({seg:"deck", sel:".bld .bldana", place:"inside", before:function(){ openBld(); bldView("ana"); }, title:"Analysis",
+        text:"Reads your cards: starters, extenders, handtraps, opening odds, and what Ash, Imperm and Droll can stop. Pick end-board goals and Generate lines" + (GEN_OK ? "" : " (desktop app)") + " to fill the Lines, Checkpoints and Counter Guide tabs for the deck."});
+      S.push({seg:"deck", sel:".bld .bldbtns", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Save and share",
         text:"Shared decks show in the Users tab for other players; Unlisted ones don't. Import or export a .ydk file, and Save. Close asks first if you have unsaved changes."});
       // ---- Duel tab ----
-      var leave = function(){ closeBld(); tab("hand"); };
-      S.push({sel:"#stepper", before:leave, title:"Duel tab: turn and phase",
+      var duel = function(){ closeAll(); tab("hand"); };
+      S.push({seg:"deck", sel:"#stepper", before:duel, title:"Duel tab: turn and phase",
         text:"The Duel tab follows your duel step by step. This row shows the turn and phase. Their deck? sets your opponent's deck for matchup tips, and New duel starts over."});
-      S.push({sel:"#lpBar", before:leave, title:"Life points",
+      S.push({seg:"deck", sel:"#lpBar", before:duel, title:"Life points",
         text:"Type 500 and press Enter for 500 damage, +500 to gain, =4000 to set it. The buttons take 1000 or halve your LP."});
-      S.push({sel:"#stepBody", before:leave, place:"below", title:"One step at a time",
-        text:hasDeck ? "Each step asks one thing: who goes first, your opening hand, your draw, your plays. On Opening hand, tap the 5 cards you opened" + (app ? " (or let Read my hand pick them up from the screen)" : "") + " and the best line for that hand shows up. Next moves on, Back undoes."
-                     : "Each step asks one thing: who goes first, your opening hand, your draw, your plays. With a deck, the opening hand step shows your cards to tap and the best line for that hand. Next moves on, Back undoes."});
-      S.push({sel:cpt ? "#cLog" : "#duelLog", before:leave, title:"Duel log", text:"Finished turns land here: what you opened, drew and used, and the LP after each turn."});
+      S.push({seg:"deck", sel:["#stepBody #chipArea", "#stepBody"], before:function(){ duel(); if (D && D.phase === "setup") document.getElementById("stepNext").click(); }, title:"Your opening hand",
+        text:"Each step asks one thing: who goes first, your opening hand, your draw, your plays. Here, tap the 5 cards you opened with" + (app ? " (or let Read my hand pick them up from the screen)" : "") + " and the best line for that hand shows up. Next moves on, Back undoes."});
+      S.push({seg:"deck", sel:cpt ? "#cLog" : "#duelLog", before:duel, title:"Duel log", text:"Finished turns land here: what you opened, drew and used, and the LP after each turn."});
       // ---- other tabs ----
-      S.push({sel:"#t-lines", before:function(){ closeBld(); tab("lines"); }, title:"Lines",
-        text:hasDeck ? (HEROMODE ? "Combo lines for this deck, from each starter to the end board, with what to do when a handtrap hits." :
-                         PGEN ? "The lines generated for this deck: each starter's route to an end board, with a backup when a handtrap hits." :
-                         "Combo lines for the deck you're playing. Your deck notes show here, plus any lines you save from Find combos. Generate lines in the builder's Analysis view to fill it in" + (GEN_OK ? "." : " (desktop app)."))
-                     : "Combo lines for the deck you're playing: your deck notes, lines you save from Find combos, and lines the desktop app generates for the deck."});
-      S.push({sel:"#t-check", before:function(){ closeBld(); tab("check"); }, title:"Checkpoints",
+      S.push({seg:"deck", sel:"#t-lines", before:function(){ closeAll(); tab("lines"); }, title:"Lines",
+        text:"Combo lines for the deck you're playing: your deck notes, lines you save from Find combos, and lines generated in the builder's Analysis view" + (GEN_OK ? "." : " (desktop app).")});
+      S.push({seg:"deck", sel:"#t-check", before:function(){ closeAll(); tab("check"); }, title:"Checkpoints",
         text:"Built from your cards: your starters, the odds of opening one, and where Ash, Imperm and Droll can hit you, so you know what to bait first."});
-      S.push({sel:"#t-counter", before:function(){ closeBld(); tab("counter"); }, title:"Counter Guide",
+      S.push({seg:"deck", sel:"#t-counter", before:function(){ closeAll(); tab("counter"); }, title:"Counter Guide",
         text:"Pick the deck you're up against for what to Ash, what to let resolve, and what their cards can do to your board."});
-      S.push({sel:["#ovUsers", "#t-users"], before:function(){ closeBld(); tab("hand"); }, title:"Users",
+      S.push({seg:"deck", sel:["#ovUsers", "#t-users"], before:duel, title:"Users",
         text:"Players and the decks they share. Open a player, then a deck, to see the list and copy it to your decks."});
-      S.push({sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:function(){ closeBld(); tab("hand"); }, title:"Card lookup",
+      S.push({seg:"deck", sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:duel, title:"Card lookup",
         text:"Look up any card. Its art, stats, what it does and the official text show " + (cpt ? "in the Find panel." : "here.")});
-      // ---- display and settings ----
       if (app){
-        S.push({sel:"#ovLeft", title:"Window controls", text:"Snap the window to the left or right side of the screen, switch between full and compact view, reload, and pick a theme."});
-        S.push({sel:"#ovK", title:"Settings", text:"Window opacity, the click-through lock (clicks go to the game), Read my hand, hotkeys, and this tour if you want it again."});
+        S.push({seg:"deck", sel:"#ovLeft", before:closeAll, title:"Window controls", text:"Snap the window to the left or right side of the screen, switch between full and compact view, reload, and pick a theme."});
+        S.push({seg:"deck", sel:"#ovK", before:closeAll, title:"Settings", text:"Window opacity, the click-through lock (clicks go to the game), Read my hand, hotkeys, and this tour if you want it again."});
       } else {
-        S.push({sel:"header.top .hdrside", title:"Display", text:"Pick a theme, Fade for a calmer background, and switch between full and compact view."});
-        S.push({sel:"#acctBtn", title:"Your account", text:"Your account menu. Run this tour again from here, or sign out."});
+        S.push({seg:"deck", sel:"header.top .hdrside", before:closeAll, title:"Display", text:"Pick a theme, Fade for a calmer background, and switch between full and compact view."});
+        S.push({seg:"deck", sel:"#acctBtn", before:closeAll, title:"Your account", text:"Your account menu. Run this tour again from here, or sign out."});
       }
-      // ---- finish ----
-      S.push(hasDeck ? {title:"That's the tour", text:"Make more decks any time from the deck menu (tap your deck's name, then + Build a new deck or Import). This tour is in " + (app ? "Settings" : "your account menu") + " whenever you want it again."}
-        : {sel:cpt ? "#cDeck" : "#deckPane .nodeck", before:function(){ closeBld(); tab("hand"); }, title:"Your first deck",
-           text:"Start with Build a deck, Import .ydk, or Browse players' decks. After your first deck, these buttons give way to your decklist; make more decks from the deck menu (tap your deck's name, then + Build a new deck or Import). Once you have a deck, run this tour again from " + (app ? "Settings" : "your account menu") + " to see the deck tools."});
+      // ---- delete it, the way you would ----
+      S.push({seg:"deck", sel:".deckmenu .dmitem.danger", place:"below", before:function(){
+          closeAll(); tab("hand");
+          setTimeout(function(){   // after the click that got us here has finished, or it would close the menu again
+            if (cpt) document.getElementById("cDeck").click();
+            setTimeout(function(){ var p = document.querySelector("#deckPane .deckpick"); if (p && document.querySelector(".deckmenu").hidden) p.click(); if (T) place(); }, cpt ? 80 : 0);
+          }, 0);
+        }, delay:260, title:"Deleting a deck",
+        text:"Deck menu > Delete this deck. It takes two taps: the first asks “Tap again to delete”, the second deletes it. Press Next and the tour deletes the Tutorial deck this way and switches you back."});
+      // ---- after ----
+      S.push({seg:"post", first:true, sel:had ? (cpt ? "#cDeck" : "#deckPane .deckpick") : (cpt ? "#cDeck" : "#deckPane .nodeck"), before:closeAll, title:"Your turn",
+        text:had ? "The Tutorial deck is gone and you're back on your own deck. Make more decks from the deck menu (tap the deck's name, then + Build a new deck or Import). This tour is in " + where + " whenever you want it again."
+                 : "The Tutorial deck is gone. Start your own with Build a deck, Import .ydk, or Browse players' decks. After your first deck these buttons give way to your decklist; make more from the deck menu (tap the deck's name, then + Build a new deck or Import). This tour is in " + where + " whenever you want it again."});
       return S;
     }
 
@@ -6110,7 +6131,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       else {
         var below = vh - r.bottom - m, above = r.top - m, right = vw - r.right - m, left = r.left - m;
         x = Math.min(Math.max(m, (r.left + r.right) / 2 - cw / 2), vw - cw - m);
-        if (s.place === "inside" || (below < ch + m && above < ch + m && right < cw + m && left < cw + m)){ y = Math.max(m, vh - ch - 24); }   // big target: sit over its lower part
+        if (s.place === "inside" || (below < ch + m && above < ch + m && right < cw + m && left < cw + m)){ y = Math.max(m, vh - ch - 24); }
         else if (below >= ch + m && s.place !== "above") y = r.bottom + m;
         else if (above >= ch + m) y = r.top - m - ch;
         else if (right >= cw + m){ x = r.right + m; y = Math.min(Math.max(m, r.top), vh - ch - m); }
@@ -6119,39 +6140,58 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       card.style.left = Math.round(x) + "px"; card.style.top = Math.round(y) + "px";
     }
+    function saveState(){ if (T) ss(KEY, {i:T.i, testId:T.st.testId, prevPilot:T.st.prevPilot, prevTab:T.st.prevTab, hadDecks:T.st.hadDecks, deleted:T.st.deleted}); }
+    function busy(msg){ T.card.querySelector("h3").textContent = msg; T.card.querySelector("p").textContent = ""; T.next.disabled = T.back.disabled = true; T.root.classList.add("nohole"); place(); }
+    function go(i){
+      if (!T) return;
+      i = Math.max(0, Math.min(T.steps.length - 1, i));
+      var want = T.steps[i].seg, now = segNow(T.st);
+      if (want === now) return show(i);
+      // Crossing into another segment means switching decks, which reloads the page; the tour resumes at step i.
+      closeAll();
+      if (now === "pre" && want === "deck"){
+        busy("Making the Tutorial deck…");
+        makeTestDeck().then(function(deck){
+          T.st.testId = deck.id; T.i = i; saveState();
+          try { localStorage.setItem(PREV, JSON.stringify(T.st.prevPilot)); } catch (e) {}
+          MDC.put(deck); MDC.setPilot(deck.id);
+        }).catch(function(){ toast("Couldn't make the test deck. Check your connection and try again."); end(); });
+      } else if (now === "deck" && want === "post"){
+        busy("Deleting the Tutorial deck…");
+        T.st.deleted = true; T.i = i; saveState();
+        setTimeout(function(){ dropTestDeck(T.st); }, 250);
+      }
+    }
     function show(i){
       if (!T) return;
-      T.i = Math.max(0, Math.min(T.steps.length - 1, i));
-      var s = T.steps[T.i];
-      if (s.before) try { s.before(); } catch (e) {} else closeBld();
+      T.i = i; saveState();
+      var s = T.steps[i];
+      if (s.before) try { s.before(); } catch (e) {} else closeAll();
       T.card.querySelector("h3").textContent = s.title;
       T.card.querySelector("p").textContent = s.text;
-      T.card.querySelector(".tcount").textContent = (T.i + 1) + " of " + T.steps.length;
-      T.back.disabled = T.i === 0;
-      T.next.textContent = T.i === T.steps.length - 1 ? "Done" : "Next";
-      // Let views open and lay out, bring the target into view, then measure.
+      T.card.querySelector(".tcount").textContent = (i + 1) + " of " + T.steps.length;
+      T.back.disabled = i === 0 || !!s.first;   // can't step back across a deck switch
+      T.next.disabled = false;
+      T.next.textContent = i === T.steps.length - 1 ? "Done" : "Next";
       setTimeout(function(){
         if (!T) return;
         var el = s.sel ? find(s.sel) : null;
         if (el){ var r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({block:"center"}); }
         requestAnimationFrame(function(){ place(); T && T.next.focus({preventScroll:true}); });
-      }, s.before ? 120 : 0);
+      }, s.delay || (s.before ? 120 : 0));
     }
     function end(){
       if (!T) return;
-      var t = T; closeBld(); T = null;
+      var t = T; closeAll(); T = null; ss(KEY, null);
       t.root.remove();
       document.removeEventListener("keydown", t.onKey, true); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true);
-      var back = document.getElementById("t-" + t.tab); if (back && vis(back) && back.getAttribute("aria-selected") !== "true") back.click();
-      try { localStorage.setItem("mdc-tour-seen", "1"); } catch (e) {}
+      if (segNow(t.st) === "deck"){ dropTestDeck(t.st); return; }   // left early: clean up and switch back (reloads)
+      try { localStorage.removeItem(PREV); } catch (e) {}
+      var back = document.getElementById("t-" + t.st.prevTab); if (back && vis(back) && back.getAttribute("aria-selected") !== "true") back.click();
     }
-    window.startTour = function(){
-      if (T) return;
-      var b0 = bld(); if (b0 && !b0.querySelector(".bldcancel")) return;
-      if (b0){ toast("Close the builder first, then start the tour."); return; }
-      var cur = document.querySelector(".tabs .tab[aria-selected='true']");
-      T = {i:0, steps:null, tab:cur ? cur.dataset.tab : "hand", openedBld:false};
-      T.steps = steps();
+    function run(st){
+      T = {st:st, i:st.i || 0, openedBld:false};
+      T.steps = steps(st);
       var root = nodes("div"); root.id = "tour"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", "Tour");
       var block = nodes("div", "tblock"), hole = nodes("div", "thole"), card = nodes("div", "tcard");
       card.appendChild(nodes("h3")); card.appendChild(nodes("p"));
@@ -6161,26 +6201,37 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       root.appendChild(block); root.appendChild(hole); root.appendChild(card); document.body.appendChild(root);
       T.root = root; T.hole = hole; T.card = card; T.back = back; T.next = next;
       skip.addEventListener("click", end);
-      back.addEventListener("click", function(){ show(T.i - 1); });
-      next.addEventListener("click", function(){ if (T.i >= T.steps.length - 1) end(); else show(T.i + 1); });
+      back.addEventListener("click", function(){ if (!back.disabled) go(T.i - 1); });
+      next.addEventListener("click", function(){ if (next.disabled) return; if (T.i >= T.steps.length - 1) end(); else go(T.i + 1); });
       T.onKey = function(e){
         if (!T) return;
         if (e.key === "Escape"){ e.preventDefault(); e.stopImmediatePropagation(); end(); }
         else if (e.key === "ArrowRight"){ e.preventDefault(); e.stopImmediatePropagation(); next.click(); }
-        else if (e.key === "ArrowLeft"){ e.preventDefault(); e.stopImmediatePropagation(); if (T.i > 0) show(T.i - 1); }
-        else if (e.key === "Tab"){   // keep focus on the tour card
+        else if (e.key === "ArrowLeft"){ e.preventDefault(); e.stopImmediatePropagation(); back.click(); }
+        else if (e.key === "Tab"){
           var f = [].filter.call(card.querySelectorAll("button"), function(b){ return !b.disabled; }), k = f.indexOf(document.activeElement);
-          e.preventDefault(); f[(k + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+          e.preventDefault(); if (f.length) f[(k + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
         }
       };
       document.addEventListener("keydown", T.onKey, true);
       window.addEventListener("resize", place); document.addEventListener("scroll", place, true);
       closeMenus(null);
-      show(0);
+      var i = Math.min(T.i, T.steps.length - 1);
+      if (T.steps[i].seg !== segNow(st)) i = 0;   // state doesn't match (e.g. the deck switch failed): start over
+      show(i);
+    }
+    window.startTour = function(){
+      if (T) return;
+      if (bld()){ toast("Close the builder first, then start the tour."); return; }
+      var cur = document.querySelector(".tabs .tab[aria-selected='true']");
+      run({i:0, prevPilot:PILOT_ID, prevTab:cur ? cur.dataset.tab : "hand", hadDecks:MDC.list().some(function(d){ return !isTourId(d.id); }) || (!DECKDATA.none && !isTourId(PILOT_ID))});
     };
-    // A brand-new account sees it once, right after sign-up.
-    var fresh = false; try { fresh = localStorage.getItem("mdc-tour-new") === "1"; if (fresh) localStorage.removeItem("mdc-tour-new"); } catch (e) {}
-    if (fresh && window.CLOUD && CLOUD.user()) setTimeout(function(){ window.startTour(); }, 900);
+    // Pick up after a deck switch; or clean up a Tutorial deck left behind (the app closed mid-tour).
+    var st = ss(KEY), fresh = false;
+    try { fresh = localStorage.getItem("mdc-tour-new") === "1"; if (fresh) localStorage.removeItem("mdc-tour-new"); } catch (e) {}
+    if (st) setTimeout(function(){ run(st); }, 700);
+    else if (MDC.list().some(function(d){ return isTourId(d.id); }) || isTourId(PILOT_ID)) dropTestDeck(null);
+    else if (fresh && window.CLOUD && CLOUD.user()) setTimeout(function(){ window.startTour(); }, 900);
   })();
   // Show the app once it's arranged. In the desktop app, wait (briefly) for the top bar so the theme and
   // settings buttons are already in it rather than jumping there.
@@ -6256,11 +6307,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       return CLOUD.myDecks();
     }).then(function(cloud){
       var have = {}; cloud.forEach(function(d){ have[d.id] = true; });
-      var waiting = MDC.list().filter(function(d){ return d.unsynced && !have[d.id]; });
-      MDC.replaceAll(cloud.concat(waiting));
+      var waiting = MDC.list().filter(function(d){ return d.unsynced && !have[d.id] && !d.tour; });
+      var tourDecks = MDC.list().filter(function(d){ return d.tour; });   // the tour's temporary deck lives only here
+      MDC.replaceAll(cloud.concat(waiting, tourDecks));
       waiting.forEach(function(d){ CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(){}); });
-      MDC.on("put", function(d){ CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(e){ markUnsynced(d.id, true); notify("Saved on this device. Couldn't sync to your account yet (" + e.message + ")."); }); });
-      MDC.on("remove", function(id){ CLOUD.deleteDeck(id).catch(function(e){ notify("Couldn't delete it from your account (" + e.message + ")."); }); });
+      MDC.on("put", function(d){ if (d.tour) return;   // the tour's temporary deck stays on this device
+        CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(e){ markUnsynced(d.id, true); notify("Saved on this device. Couldn't sync to your account yet (" + e.message + ")."); }); });
+      MDC.on("remove", function(id){ if (String(id).indexOf("tour-") === 0) return; CLOUD.deleteDeck(id).catch(function(e){ notify("Couldn't delete it from your account (" + e.message + ")."); }); });
       document.documentElement.classList.add("cloud");
       boot();
     }).catch(function(e){ if (window.console) console.error(e); fail("Couldn't load your account (" + e.message + "). Check your connection and reload."); });
