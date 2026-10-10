@@ -343,7 +343,7 @@ static Bytes r_position(const Prompt& m) {
 }
 
 // ------------------------------------------------------------------ duel
-struct Setup { std::vector<uint32_t> deck, extra, hand; };
+struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand; };
 static const uint32_t DUMMY = 46986414;   // opponent's deck: Dark Magician x5, they never act on our turn
 
 struct Duel {
@@ -351,7 +351,7 @@ struct Duel {
 	explicit Duel(const Setup& s) {
 		OCG_DuelOptions o{};
 		o.seed[0] = 1; o.seed[1] = 2; o.seed[2] = 3; o.seed[3] = 4;
-		o.flags = DUEL_MODE_MR5 | DUEL_SIMPLE_AI | DUEL_PSEUDO_SHUFFLE;
+		o.flags = DUEL_MODE_MR5 | DUEL_PSEUDO_SHUFFLE;   // the opponent's choices are made by Search::opp_choice
 		o.team1 = {8000, 0, 1}; o.team2 = {8000, 0, 1};
 		o.cardReader = card_reader; o.scriptReader = script_reader; o.logHandler = log_handler; o.cardReaderDone = card_reader_done;
 		if(OCG_CreateDuel(&h, &o) != OCG_DUEL_CREATION_SUCCESS) { h = nullptr; return; }
@@ -361,6 +361,7 @@ struct Duel {
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
 		for(uint32_t c : s.hand) add(0, c, LOCATION_HAND);
 		for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
+		for(uint32_t c : s.oppHand) add(1, c, LOCATION_HAND);   // handtraps for "what if they hit this" searches
 		OCG_StartDuel(h);
 	}
 	~Duel() { if(h) OCG_DestroyDuel(h); }
@@ -487,19 +488,24 @@ static std::vector<Opt> choices(const Prompt& m) {
 }
 
 struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished; };
-struct Found { std::vector<Step> steps; Board board; double score = 0; };
+struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; };
 
 struct Search {
 	Setup setup;
-	int maxActions = 8; double timeLimit = 20; int threads = 2; size_t top = 12;
+	int maxActions = 8; double timeLimit = 20; int threads = 2; size_t top = 12; bool wantLabels = false;
 	std::set<uint32_t> targets;
+	// "What if they hit this?": follow `prefix` (our choices, by label) until our step `hitStep` is activated,
+	// let the opponent chain `hitCard` there, then search freely from whatever is left.
+	std::vector<std::string> prefix; uint32_t hitCard = 0; int hitStep = -1;
+	bool interrupting() const { return hitCard != 0; }
 	std::atomic<bool> stop{false};
 	Clock::time_point t0;
 	std::atomic<uint64_t> replays{0}, prompts{0};
 	std::mutex mx;
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
-	struct Task { std::vector<Bytes> path; std::vector<Step> steps; int actions = 0; };
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false; };
+	using Task = St;
 	std::deque<Task> queue;
 	std::condition_variable cv;
 	int busy = 0;
@@ -508,7 +514,8 @@ struct Search {
 	static bool extra_type(uint32_t code) { auto it = g_cards.find(code); return it != g_cards.end() && (it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)); }
 	double score_of(const Board& b) const {
 		double s = 0;
-		for(uint32_t c : b.mzone) s += extra_type(c) ? 3 : 2;
+		// Extra Deck monsters count for more, and bigger ones (higher Level / Rank / Link Rating) more again.
+		for(uint32_t c : b.mzone) { auto it = g_cards.find(c); uint32_t lv = it != g_cards.end() ? std::min<uint32_t>(it->second.level & 0xff, 12) : 0; s += extra_type(c) ? 3 + 0.25 * lv : 2; }
 		s += 1.0 * b.szone.size();
 		for(uint32_t c : b.mzone) if(targets.count(c)) s += 10;
 		for(uint32_t c : b.szone) if(targets.count(c)) s += 10;
@@ -520,12 +527,14 @@ struct Search {
 		b.grave = d.cards(LOCATION_GRAVE); b.banished = d.cards(LOCATION_REMOVED); return b;
 	}
 	static std::string key_of(std::vector<uint32_t> v) { std::sort(v.begin(), v.end()); std::string s; for(uint32_t c : v) s += std::to_string(c) + ","; return s; }
-	void record(Duel& d, const std::vector<Step>& steps) {
+	void record(Duel& d, const St& st) {
+		if(interrupting() && !st.hit) return;
+		const std::vector<Step>& steps = st.steps;
 		Board b = read_board(d);
 		std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand);
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
-		if(it == boards.end() || steps.size() < it->second.steps.size()) { Found f; f.steps = steps; f.board = b; f.score = score_of(b); boards[k] = f; }
+		if(it == boards.end() || steps.size() < it->second.steps.size()) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = score_of(b); boards[k] = f; }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
 		auto d = std::make_unique<Duel>(setup);
@@ -545,54 +554,109 @@ struct Search {
 			else if(o.step.kind == "Option" && steps.back().effect.empty()) steps.back().effect = o.step.effect;
 		}
 	}
+	// The opponent's side of every prompt: pass, except chaining hitCard at the planned moment.
+	Opt opp_choice(const Prompt& m, const St& st, bool& hitNow) const {
+		hitNow = false;
+		uint32_t want = (hitStep >= 0 && hitStep < (int)st.steps.size()) ? st.steps[hitStep].card : 0;
+		Opt o; o.label = "opp";
+		switch(m.type) {
+		case MSG_SELECT_CHAIN:
+			o.resp = p32(m.forced && !m.chains.empty() ? 0 : -1);
+			if(interrupting() && !st.hit && (int)st.steps.size() == hitStep + 1)
+				for(size_t i = 0; i < m.chains.size(); i++) if(m.chains[i].first == hitCard) { o.resp = p32((int)i); hitNow = true; break; }
+			return o;
+		case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {
+			std::vector<uint32_t> idx;
+			for(size_t i = 0; i < m.cards.size() && want; i++) if(m.cards[i] == want) { idx.push_back((uint32_t)i); break; }
+			for(size_t i = 0; idx.size() < std::max<uint32_t>(m.mn, 1) && i < m.cards.size(); i++) if(std::find(idx.begin(), idx.end(), (uint32_t)i) == idx.end()) idx.push_back((uint32_t)i);
+			o.resp = r_cards(idx); return o;
+		}
+		case MSG_SELECT_UNSELECT_CARD: {
+			int pick = -1;
+			for(size_t i = 0; i < m.cards.size(); i++) if(m.cards[i] == want) { pick = (int)i; break; }
+			if(pick < 0 && !m.finishable && !m.cards.empty()) pick = 0;
+			o.resp = r_unselect(pick); return o;
+		}
+		case MSG_SELECT_EFFECTYN: case MSG_SELECT_YESNO: o.resp = p32(1); return o;
+		default: {
+			std::vector<Opt> c = choices(m);
+			o.resp = c.empty() ? p32(0) : c[0].resp; return o;
+		}
+		}
+	}
+	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); }
 	// Explore from a live duel `d` sitting at prompt m. Hands extra branches to idle workers.
-	void dfs(std::unique_ptr<Duel> d, Prompt m, std::vector<Bytes> path, std::vector<Step> steps, int actions) {
+	void dfs(std::unique_ptr<Duel> d, Prompt m, St st) {
 		for(;;) {
 			if(out_of_time()) return;
 			prompts++;
+			bool retry;
+			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
+				// A targeting handtrap (Imperm, Veiler) only counts when it can target the card from the planned step.
+				if(st.aim && (m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_TRIBUTE)) {
+					uint32_t want = st.steps[hitStep].card;
+					if(std::find(m.cards.begin(), m.cards.end(), want) == m.cards.end()) return;
+					st.aim = false;
+				}
+				bool hitNow; Opt o = opp_choice(m, st, hitNow);
+				d->respond(o.resp); st.path.push_back(o.resp);
+				if(hitNow) { st.hit = true; st.aim = true; st.steps.push_back({"Opp", hitCard, "", {}}); }
+				if(!d->run(m, retry)) return;
+				continue;
+			}
+			st.aim = false;   // back to us: any target was already chosen
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			if(interrupting() && !st.hit) {
+				// Still replaying the planned line: only its next choice is allowed.
+				size_t pi = st.labels.size();
+				if(pi >= prefix.size()) return;          // the line finished without them getting the chance
+				std::vector<Opt> keep; for(auto& o : opts) if(o.label == prefix[pi]) keep.push_back(o);
+				opts.swap(keep);
+			}
 			if(opts.empty()) return;
+			bool counts = !interrupting() || st.hit;
 			if(opts.size() == 1) {
 				const Opt& o = opts[0];
-				if(o.end) { record(*d, steps); return; }
-				d->respond(o.resp); path.push_back(o.resp); add_step(steps, o);
-				if(o.main && m.type == MSG_SELECT_IDLECMD) actions++;
-				bool retry; if(!d->run(m, retry)) return;
+				if(o.end) { record(*d, st); return; }
+				d->respond(o.resp); take(st, o);
+				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) st.actions++;
+				if(!d->run(m, retry)) return;
 				continue;
 			}
 			if(m.type == MSG_SELECT_IDLECMD) {
 				Board b = read_board(*d);
-				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
+				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				{ std::lock_guard<std::mutex> lk(mx); if(!visited.insert(k).second) return; }
-				record(*d, steps);
-				if(actions >= maxActions) return;
+				record(*d, st);
+				if(st.actions >= maxActions) return;
 			}
 			// first branch continues on this duel; the rest are replayed (or handed to idle threads)
 			bool first = true;
 			for(const Opt& o : opts) {
 				if(o.end) continue;
-				std::vector<Bytes> p2 = path; p2.push_back(o.resp);
-				std::vector<Step> s2 = steps; add_step(s2, o);
-				int a2 = actions + ((o.main && m.type == MSG_SELECT_IDLECMD) ? 1 : 0);
 				if(first) { first = false; continue; }   // handled last, below
+				St s2 = st; take(s2, o);
+				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) s2.actions++;
 				{
 					std::lock_guard<std::mutex> lk(mx);
-					if((int)queue.size() < threads * 2) { queue.push_back({p2, s2, a2}); cv.notify_one(); continue; }
+					if((int)queue.size() < threads * 2) { queue.push_back(std::move(s2)); cv.notify_one(); continue; }
 				}
 				if(out_of_time()) return;
-				Prompt mm; bool ok; auto dd = replay(p2, mm, ok);
-				if(ok) dfs(std::move(dd), mm, p2, s2, a2);
+				Prompt mm; bool ok; auto dd = replay(s2.path, mm, ok);
+				if(ok) dfs(std::move(dd), mm, std::move(s2));
 			}
 			// the first non-end option, on the live duel
+			bool moved = false;
 			for(const Opt& o : opts) {
 				if(o.end) continue;
-				d->respond(o.resp); path.push_back(o.resp); add_step(steps, o);
-				if(o.main && m.type == MSG_SELECT_IDLECMD) actions++;
-				bool retry; if(!d->run(m, retry)) return;
+				d->respond(o.resp); take(st, o);
+				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) st.actions++;
+				moved = true;
 				break;
 			}
+			if(!moved || !d->run(m, retry)) return;
 		}
 	}
 	void worker() {
@@ -606,27 +670,28 @@ struct Search {
 				t = std::move(queue.front()); queue.pop_front(); busy++;
 			}
 			Prompt m; bool ok; auto d = replay(t.path, m, ok);
-			if(ok) dfs(std::move(d), m, t.path, t.steps, t.actions);
+			if(ok) dfs(std::move(d), m, std::move(t));
 			{ std::lock_guard<std::mutex> lk(mx); busy--; }
 			cv.notify_all();
 		}
 	}
 	json run(int id) {
 		t0 = Clock::now();
-		queue.push_back({{}, {}, 0});
+		queue.push_back(St{});
 		std::vector<std::thread> ts;
 		for(int i = 0; i < std::max(1, threads); i++) ts.emplace_back([this] { worker(); });
 		std::atomic<bool> finished{false};
+		std::mutex pmx; std::condition_variable pcv;
 		std::thread prog([&] {
 			while(!finished.load()) {
-				std::this_thread::sleep_for(std::chrono::milliseconds(500));
+				{ std::unique_lock<std::mutex> lk(pmx); pcv.wait_for(lk, std::chrono::milliseconds(500), [&] { return finished.load(); }); }
 				if(finished.load()) break;
 				size_t nb; { std::lock_guard<std::mutex> lk(mx); nb = boards.size(); }
 				emit({{"id", id}, {"progress", {{"replays", replays.load()}, {"states", visited.size()}, {"boards", nb}, {"seconds", std::chrono::duration<double>(Clock::now() - t0).count()}}}});
 			}
 		});
 		for(auto& t : ts) t.join();
-		finished = true; prog.join();
+		{ std::lock_guard<std::mutex> lk(pmx); finished = true; } pcv.notify_all(); prog.join();
 		double secs = std::chrono::duration<double>(Clock::now() - t0).count();
 		std::vector<Found> all; for(auto& kv : boards) all.push_back(kv.second);
 		std::sort(all.begin(), all.end(), [](const Found& a, const Found& b) { return a.score != b.score ? a.score > b.score : a.steps.size() < b.steps.size(); });
@@ -637,7 +702,9 @@ struct Search {
 			if(!fieldSeen.insert(fk).second) continue;   // same field, different hand: keep the best one only
 			json steps = json::array();
 			for(const Step& s : f.steps) steps.push_back({{"do", s.kind}, {"card", s.card}, {"effect", s.effect}, {"picks", s.picks}});
-			res.push_back({{"score", f.score}, {"field", f.board.mzone}, {"backrow", f.board.szone}, {"hand", f.board.hand}, {"gy", f.board.grave}, {"banished", f.board.banished}, {"steps", steps}});
+			json bj = {{"score", f.score}, {"field", f.board.mzone}, {"backrow", f.board.szone}, {"hand", f.board.hand}, {"gy", f.board.grave}, {"banished", f.board.banished}, {"steps", steps}};
+			if(wantLabels) bj["labels"] = f.labels;
+			res.push_back(bj);
 			if(res.size() >= top) break;
 		}
 		bool complete = !stop.load() && secs <= timeLimit;
@@ -687,6 +754,11 @@ int main(int argc, char** argv) {
 			s->threads = std::max(1, std::min(16, req.value("threads", 2)));
 			s->top = (size_t)req.value("top", 12);
 			for(uint32_t t : ids(req, "targets")) s->targets.insert(t);
+			s->setup.oppHand = ids(req, "oppHand");
+			s->wantLabels = req.value("labels", false);
+			s->hitCard = req.value("hitCard", 0u);
+			s->hitStep = req.value("hitStep", -1);
+			if(req.contains("prefix") && req["prefix"].is_array()) for(auto& x : req["prefix"]) s->prefix.push_back(x.get<std::string>());
 			std::vector<uint32_t> missing;
 			for(uint32_t c : s->setup.hand) {
 				auto ci = g_cards.find(c);

@@ -1546,6 +1546,38 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .cffoot .ghost{padding:5px 12px; font-size:.82rem}
 .savedlines{display:flex; flex-direction:column; gap:8px}
 .savedlines > h3{margin-bottom:0}
+/* Generated lines */
+button.cfmark{cursor:pointer; font:600 .7rem/1.5 var(--display)}
+button.cfmark[aria-expanded="true"]{color:var(--bg); background:var(--red); border-color:var(--red)}
+button.cfmark.cf-imperm[aria-expanded="true"]{background:var(--trap); border-color:var(--trap)}
+.cfmark.cf-veiler{color:var(--sky); border-color:color-mix(in srgb, var(--sky) 55%, transparent); background:color-mix(in srgb, var(--sky) 12%, transparent)}
+button.cfmark.cf-veiler[aria-expanded="true"]{color:var(--bg); background:var(--sky); border-color:var(--sky)}
+button.cfmark.cf-droll[aria-expanded="true"]{color:var(--bg); background:var(--muted); border-color:var(--muted)}
+.genplan h3{margin-bottom:4px}
+.genplan .genends{margin:0 0 8px}
+.genplan.folded .genends, .genplan.folded .gensteps{display:none}
+.genrow{display:flex; flex-wrap:wrap; align-items:center; gap:0 2px}
+.genrow > span:first-child{margin-right:4px}
+.genfb{margin:6px 0 4px; padding:8px 10px; border-radius:8px; background:var(--bg); border:1px solid var(--line); font-size:.88rem}
+.genfb > b{font:700 .82rem var(--display)}
+.genfb ol{margin:4px 0 0; padding-left:1.2rem}
+.genfb li{margin-bottom:2px}
+.genfb li::marker{color:var(--muted)}
+.genfb p{margin:4px 0 0}
+.genalt{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px}
+.genalt .hint{margin:0}
+.generr{color:var(--red)}
+.genbox .cftop{margin-top:4px}
+.genwhy{margin:0; font-size:.8rem}
+.gencheck .card, .gencounter .card{margin-bottom:12px}
+.gencp h3{margin-bottom:2px}
+.gencp > .cfmeta{margin:0 0 6px}
+.gencprow{padding:7px 0; border-top:1px solid var(--line)}
+.gencprow:first-of-type{border-top:0}
+.gencpstep{font-size:.9rem}
+.gencphit{display:flex; align-items:baseline; gap:6px; margin-top:3px; font-size:.84rem; color:var(--muted)}
+.gencphit .cfmark{margin-left:0}
+.gencounter h2:first-child{margin-top:0}
 #tab-check .ana{margin-top:4px}
 html.compact .anastats{grid-template-columns:repeat(2, minmax(0,1fr))}
 html.fadebg .anastat{background:color-mix(in srgb, var(--panel) 85%, transparent) !important}
@@ -2060,6 +2092,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // Copies of Omni HERO (base "hero") keep its play rules, lines, checkpoints and counter tips.
   var HEROMODE = !DECKDATA.custom || !!DECKDATA.heroRules;
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
+  var PREC = null, PGEN = null;   // the piloted deck's record and its generated lines
+  if (!HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = genOf(PREC); }
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   // The Users tab only exists with accounts on.
   if (!(window.CLOUD && CLOUD.user())){ ["t-users", "tab-users"].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); }); }
@@ -2666,6 +2700,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   function evaluate(){
     if (duelCF && duelCF.isConnected) duelCF.repaint();
+    genEvaluate();
     var out = document.getElementById("result");
     out.innerHTML = "";
     if (!HEROMODE) return;
@@ -3653,6 +3688,264 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     return duelCF;
   }
   paintSavedLines();
+  // ---------- generated lines: the Omni HERO treatment for any deck ----------
+  // "Generate lines" (builder > Analysis) has the app play every starter and two-card start in the rules engine,
+  // then replay each line with Ash / Imperm / Veiler / Droll hitting each step to find the backup line.
+  // The result is saved on the deck as deck.gen = {sig, at, lines:[{h, s, f, b, l, st, fb:[{i, by, s, f, b, st}]}]}.
+  var GEN_HT = {14558127:"Ash", 10045474:"Imperm", 97268402:"Veiler", 94145021:"Droll"};
+  var GEN_OK = !!(window.overlayApp && overlayApp.genStart);
+  var GEN = {run:null, paints:[]};
+  function genSig(rec){ return [rec.main || [], rec.extra || []].map(function(rows){ return rows.map(function(r){ return cfCode(r.id) + "x" + r.n; }).sort().join(","); }).join("|"); }
+  function genOf(rec){ return rec && rec.gen && rec.gen.lines ? rec.gen : null; }
+  function genStep(x){ return {do:x[0], card:x[1], effect:x[2], picks:x[3] || []}; }
+  function genNames(codes){ return (codes || []).map(cfName).join(" · "); }
+  function genEnds(L){ return (L.f && L.f.length ? "Ends on " + genNames(L.f) : "No monsters left on the field") + (L.b && L.b.length ? "  ·  Backrow: " + genNames(L.b) : ""); }
+  function genTitle(L){ return L.h.map(cfName).join(" + "); }
+  function genHits(L){ var by = {}; (L.fb || []).forEach(function(f){ (by[f.i] = by[f.i] || []).push(f); }); return by; }
+  // One line as a plan card. Tags on a step open what to do if that handtrap lands there.
+  function genLineEl(L, fold){
+    var card = nodes("div", "plan genplan"), h = nodes("h3"), hits = genHits(L);
+    var title = genTitle(L);
+    if (fold){
+      var pb = nodes("button", "planbtn", title); pb.type = "button"; h.appendChild(pb);
+      var key = "gen:" + title;
+      var setFold = function(f){ card.classList.toggle("folded", f); pb.setAttribute("aria-expanded", f ? "false" : "true"); };
+      setFold(!!planFold[key]);
+      pb.addEventListener("click", function(){ var f = !card.classList.contains("folded"); if (f) planFold[key] = true; else delete planFold[key]; save("hbc-planfold", planFold); setFold(f); });
+    } else h.textContent = title;
+    card.appendChild(h);
+    card.appendChild(nodes("p", "cfmeta genends", genEnds(L)));
+    var ol = nodes("ol", "gensteps");
+    L.st.forEach(function(x, i){
+      var li = nodes("li"), row = nodes("div", "genrow");
+      row.appendChild(nodes("span", null, cfStepText(genStep(x))));
+      var box = null;
+      (hits[i] || []).forEach(function(f){
+        var nm = GEN_HT[f.by] || cfName(f.by);
+        var t = nodes("button", "cfmark cf-" + nm.toLowerCase(), nm); t.type = "button"; t.title = "If they " + nm + " this";
+        t.setAttribute("aria-expanded", "false");
+        t.addEventListener("click", function(){
+          var open = t.getAttribute("aria-expanded") === "true";
+          li.querySelectorAll(".cfmark").forEach(function(o){ o.setAttribute("aria-expanded", "false"); });
+          if (box) box.remove(); box = null;
+          if (open) return;
+          t.setAttribute("aria-expanded", "true");
+          box = nodes("div", "genfb");
+          box.appendChild(nodes("b", null, "If they " + nm + " this"));
+          if (f.st.length){ var fol = nodes("ol"); f.st.forEach(function(y){ fol.appendChild(nodes("li", null, cfStepText(genStep(y)))); }); box.appendChild(fol); }
+          else box.appendChild(nodes("p", null, "Nothing else to play after that."));
+          box.appendChild(nodes("p", "cfmeta", genEnds(f)));
+          li.appendChild(box);
+        });
+        row.appendChild(t);
+      });
+      li.appendChild(row); ol.appendChild(li);
+    });
+    card.appendChild(ol);
+    return card;
+  }
+  // Lines that start from cards in this hand, best first.
+  function genMatches(G, codes){
+    var have = {}; codes.forEach(function(c){ have[c] = (have[c] || 0) + 1; });
+    return G.lines.filter(function(L){
+      var need = {}; L.h.forEach(function(c){ need[c] = (need[c] || 0) + 1; });
+      return Object.keys(need).every(function(c){ return (have[c] || 0) >= need[c]; });
+    }).sort(function(a, b){ return b.s - a.s || a.st.length - b.st.length; });
+  }
+  // Which starting hands to try: every engine card alone, and each starter with each other engine card.
+  function genHands(rec){
+    var A = MDA.analyzeDeck(rec.main || [], rec.extra || [], CARD_BY_ID);
+    var eng = A.cards.filter(function(x){ return x.zone === "main" && /^(starter|extender|engine)$/.test(x.role); });
+    var codes = eng.map(function(x){ return cfCode(x.c.id); }).filter(Boolean);
+    var starters = eng.filter(function(x){ return x.role === "starter"; }).map(function(x){ return cfCode(x.c.id); });
+    if (!starters.length) starters = codes.slice();
+    var hands = codes.map(function(c){ return [c]; }), seen = {};
+    starters.forEach(function(s){ codes.forEach(function(c){
+      if (c === s) return;
+      var k = [s, c].sort().join(","); if (seen[k]) return; seen[k] = 1;
+      if (hands.length < codes.length + 60) hands.push([s, c]);
+    }); });
+    return hands;
+  }
+  function genImport(deckId){
+    return overlayApp.genTake(deckId).then(function(data){
+      if (!data) return false;
+      var rec = MDC.get(deckId); if (!rec) return false;
+      var g = {sig:data.sig, at:data.at, v:data.v, lines:data.lines};
+      rec.gen = g; MDC.put(rec);
+      if (CF.bld && CF.bld.id === deckId) CF.bld.gen = g;
+      if (deckId === PILOT_ID && !HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
+      toast("Lines ready for " + (rec.name || "your deck"));
+      return true;
+    });
+  }
+  function genPaintAll(){ GEN.paints = GEN.paints.filter(function(f){ return f(); }); }
+  if (GEN_OK){
+    window.addEventListener("overlay-gen", function(e){
+      var d = e.detail || {};
+      if (d.state === "running") GEN.run = d;
+      else { GEN.run = null; if (d.state === "ready") genImport(d.deckId); else if (d.state === "error") toast("Couldn't generate lines: " + (d.note || "unknown error"), 4000); }
+      genPaintAll();
+    });
+    overlayApp.genStatus().then(function(st){
+      GEN.run = st && st.running || null; genPaintAll();
+      (st && st.ready || []).forEach(function(id){ if (MDC.get(id)) genImport(id); });
+    });
+  }
+  // The builder's box: generate, progress, or what's there.
+  function genBox(deck, isDirty){
+    var wrap = nodes("div", "dbox genbox");
+    function paint(){
+      if (!wrap.isConnected && wrap.parentNode === null && wrap._painted) return false;
+      wrap._painted = true; wrap.innerHTML = "";
+      var g = genOf(deck), saved = deck.id && MDC.get(deck.id), run = GEN.run;
+      wrap.appendChild(nodes("h3", null, "Lines for this deck"));
+      if (run && run.deckId === deck.id){
+        var pr = nodes("div", "cfprog"), bar = nodes("div", "cfbar"), fill = nodes("i"); bar.appendChild(fill); pr.appendChild(bar);
+        var frac = run.total ? run.done / run.total : 0;
+        fill.style.width = Math.round((run.phase === "handtraps" ? 0.5 + frac / 2 : frac / 2) * 100) + "%";
+        var row = nodes("div", "cfprow");
+        row.appendChild(nodes("span", "cfptxt", (run.phase === "handtraps" ? "Checking handtraps " : run.phase === "lines" ? "Finding lines " : "Getting ready") + (run.total && run.phase !== "prepare" ? run.done + " of " + run.total : "…")));
+        var cx = nodes("button", "mini", "Cancel"); cx.type = "button"; cx.addEventListener("click", function(){ overlayApp.genCancel(); }); row.appendChild(cx);
+        pr.appendChild(row); wrap.appendChild(pr);
+        wrap.appendChild(nodes("p", "hint", "Runs in the background. You can close the builder or keep playing; the lines save to the deck when it's done."));
+        return true;
+      }
+      if (g){
+        var nl = g.lines.length, nf = g.lines.reduce(function(a, L){ return a + (L.fb || []).length; }, 0);
+        wrap.appendChild(nodes("p", "hint", nl + " line" + (nl === 1 ? "" : "s") + " and " + nf + " handtrap backup" + (nf === 1 ? "" : "s") + ", generated " + new Date(g.at).toLocaleDateString() + ". They fill the Lines, Checkpoints and Counter Guide tabs and the Duel tab's best line."));
+        if (saved && g.sig !== genSig(saved)) wrap.appendChild(nodes("p", "hint generr", "The deck changed since these were generated."));
+      } else wrap.appendChild(nodes("p", "hint", "Plays every starter and two-card start through the rules engine, then checks where Ash, Imperm, Veiler and Droll hit each line. Fills the Lines, Checkpoints and Counter Guide tabs and the Duel tab's best line for your hand. Takes a few minutes in the background."));
+      if (!GEN_OK){ wrap.appendChild(nodes("p", "hint", "Generating lines needs the desktop app.")); return true; }
+      var go = nodes("button", "primary cfgo", g ? "Regenerate lines" : "Generate lines"); go.type = "button";
+      var why = !saved ? "Save the deck first" : isDirty() ? "Save your changes first" : run ? "Already generating lines for " + (run.name || "another deck") : "";
+      go.disabled = !!why; if (why) go.title = why;
+      go.addEventListener("click", function(){
+        var rec = MDC.get(deck.id); if (!rec) return;
+        var hands = genHands(rec);
+        if (!hands.length){ toast("No starters or engine cards found to play out"); return; }
+        overlayApp.genStart({deckId:rec.id, name:rec.name, deck:cfList(rec.main), extra:cfList(rec.extra || []), hands:hands, sig:genSig(rec)}).then(function(r){
+          if (r && r.error){ toast(r.error); return; }
+          GEN.run = {deckId:rec.id, name:rec.name, phase:"prepare", done:0, total:hands.length}; genPaintAll();
+        });
+      });
+      var acts = nodes("div", "cftop"); acts.appendChild(go);
+      if (why) acts.appendChild(nodes("span", "hint genwhy", why));
+      wrap.appendChild(acts);
+      return true;
+    }
+    paint();
+    GEN.paints.push(function(){ if (!document.body.contains(wrap)) return false; paint(); return true; });
+    wrap.repaint = paint;
+    return wrap;
+  }
+
+  // ---- what a generated deck shows in the tabs ----
+  function genEvaluate(){
+    var out = document.getElementById("genResult"); if (!out || !PGEN) return;
+    out.innerHTML = "";
+    var codes = []; Object.keys(D.hand).forEach(function(k){ var c = cfCode(k); for (var i = 0; i < (D.hand[k] || 0); i++) if (c) codes.push(c); });
+    if (!codes.length){ out.appendChild(nodes("div", "empty", "Your best line shows here once your opening hand is in.")); return; }
+    var m = genMatches(PGEN, codes);
+    if (!m.length){ out.appendChild(nodes("div", "empty", "None of the generated lines start from this hand. Try Find combos below.")); return; }
+    var shown = m[0];
+    function show(L){
+      shown = L; out.innerHTML = "";
+      out.appendChild(genLineEl(L, false));
+      var others = m.filter(function(x){ return x !== L; }).slice(0, 3);
+      if (others.length){
+        var o = nodes("div", "genalt"); o.appendChild(nodes("span", "hint", "Also from this hand:"));
+        others.forEach(function(x){ var b = nodes("button", "mini", genTitle(x)); b.type = "button"; b.title = genEnds(x); b.addEventListener("click", function(){ show(x); }); o.appendChild(b); });
+        out.appendChild(o);
+      }
+    }
+    show(shown);
+  }
+  function genWorst(L){
+    // The handtrap hit that costs this line the most.
+    var w = null; (L.fb || []).forEach(function(f){ var d = L.s - f.s; if (!w || d > w.d) w = {d:d, f:f}; }); return w;
+  }
+  function paintGen(){
+    if (HEROMODE || !PGEN) return;
+    var stale = PREC && PGEN.sig !== genSig(PREC);
+    var singles = PGEN.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
+    var pairs = PGEN.lines.filter(function(L){ return L.h.length > 1; }).sort(function(a, b){ return b.s - a.s; });
+    // Lines tab
+    var tl = document.getElementById("tab-lines");
+    tl.innerHTML = '<div class="foldall"><button type="button" class="mini">Collapse all</button></div>';
+    var fa = tl.querySelector(".foldall button");
+    fa.addEventListener("click", function(){
+      var cards = tl.querySelectorAll(".genplan"), anyOpen = [].some.call(cards, function(c){ return !c.classList.contains("folded"); });
+      cards.forEach(function(c){ if (c.classList.contains("folded") === anyOpen) c.querySelector(".planbtn").click(); });
+      fa.textContent = anyOpen ? "Expand all" : "Collapse all";
+    });
+    if (stale) tl.appendChild(nodes("p", "hint generr", "The deck changed since these lines were generated. Regenerate them in the builder's Analysis view."));
+    tl.appendChild(nodes("h2", null, "How to start")).style.marginTop = "4px";
+    if (singles.length) singles.forEach(function(L){ tl.appendChild(genLineEl(L, true)); });
+    else tl.appendChild(nodes("p", "hint", "No card in this deck makes a play on its own."));
+    if (pairs.length){ tl.appendChild(nodes("h2", null, "Two-card starts")); pairs.forEach(function(L){ tl.appendChild(genLineEl(L, true)); }); }
+    tl.appendChild(nodes("p", "hint cffine", "Played out in the EDOPro rules engine with the ProjectIgnis card scripts. Tap a handtrap tag on a step for the backup line."));
+    paintSavedLines();
+    // Checkpoints tab: where each start can be stopped, above the card-text analysis.
+    var tc = document.getElementById("tab-check"), cp = document.getElementById("genCheck");
+    if (cp) cp.remove();
+    cp = nodes("div", "gencheck"); cp.id = "genCheck";
+    cp.appendChild(nodes("h2", null, "Where your starts get stopped")).style.marginTop = "4px";
+    singles.concat(pairs).forEach(function(L){
+      var hits = genHits(L), idx = Object.keys(hits).map(Number).sort(function(a, b){ return a - b; });
+      var c = nodes("div", "card gencp");
+      c.appendChild(nodes("h3", null, genTitle(L)));
+      c.appendChild(nodes("p", "cfmeta", genEnds(L)));
+      if (!idx.length){ c.appendChild(nodes("p", "hint", "None of Ash, Imperm, Veiler or Droll can stop this line.")); cp.appendChild(c); return; }
+      idx.forEach(function(i){
+        var row = nodes("div", "gencprow");
+        row.appendChild(nodes("div", "gencpstep", (i + 1) + ". " + cfStepText(genStep(L.st[i]))));
+        hits[i].forEach(function(f){
+          var nm = GEN_HT[f.by] || cfName(f.by), r = nodes("div", "gencphit");
+          r.appendChild(nodes("span", "cfmark cf-" + nm.toLowerCase(), nm));
+          r.appendChild(nodes("span", null, f.f && f.f.length ? "You still end on " + genNames(f.f) + (f.b && f.b.length ? " + " + genNames(f.b) : "") : "Bricks: no monsters left"));
+          row.appendChild(r);
+        });
+        c.appendChild(row);
+      });
+      cp.appendChild(c);
+    });
+    tc.insertBefore(cp, tc.firstChild);
+    // Counter Guide: your lines against each handtrap, and your own handtraps.
+    var tg = document.getElementById("tab-counter"), cg = document.getElementById("genCounter");
+    if (cg) cg.remove();
+    cg = nodes("div", "gencounter"); cg.id = "genCounter";
+    var all = singles.concat(pairs);
+    var c1 = nodes("div", "card"); c1.appendChild(nodes("h2", null, "Your lines vs. their handtraps"));
+    Object.keys(GEN_HT).forEach(function(code){
+      var nm = GEN_HT[code], hit = all.filter(function(L){ return (L.fb || []).some(function(f){ return String(f.by) === code; }); });
+      var row = nodes("div", "gencprow");
+      var hd = nodes("div", "gencpstep"); hd.appendChild(nodes("span", "cfmark cf-" + nm.toLowerCase(), nm));
+      hd.appendChild(nodes("span", null, " can hit " + hit.length + " of your " + all.length + " lines. Where it hurts most:"));
+      row.appendChild(hd);
+      // the most damaging spots for this handtrap
+      var spots = [];
+      hit.forEach(function(L){ (L.fb || []).forEach(function(f){ if (String(f.by) === code) spots.push({L:L, f:f, d:L.s - f.s}); }); });
+      spots.sort(function(a, b){ return b.d - a.d; }).slice(0, 2).forEach(function(s){
+        row.appendChild(nodes("div", "gencphit", genTitle(s.L) + ", step " + (s.f.i + 1) + " (" + cfStepText(genStep(s.L.st[s.f.i])) + "): " + (s.f.f && s.f.f.length ? "you end on " + genNames(s.f.f) : "you brick")));
+      });
+      c1.appendChild(row);
+    });
+    cg.appendChild(c1);
+    var mine = (PREC.main || []).map(function(r){ return CARD_BY_ID[r.id]; }).filter(function(c){ return c && MDA.analyzeCard(c).role === "handtrap"; });
+    var c2 = nodes("div", "card"); c2.appendChild(nodes("h2", null, "Your handtraps"));
+    if (!mine.length) c2.appendChild(nodes("p", "hint", "No handtraps in this deck."));
+    mine.forEach(function(c){
+      var fx = MDA.analyzeCard(c).effects.filter(function(e){ return e.hand; })[0] || MDA.analyzeCard(c).effects[0];
+      var row = nodes("div", "gencprow"); row.appendChild(nodes("div", "gencpstep", c.n));
+      if (fx) row.appendChild(nodes("div", "gencphit", fx.text));
+      c2.appendChild(row);
+    });
+    cg.appendChild(c2);
+    cg.appendChild(nodes("h2", null, "Their deck"));
+    tg.insertBefore(cg, tg.firstChild);
+  }
+  paintGen();
   function renderOpening(){
     var b = box("Your opening hand");
     b.appendChild(document.getElementById("openHint"));
@@ -3661,6 +3954,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
     if (HEROMODE){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
+    else if (PGEN){ var rg = box("Best line for this hand"), gr = nodes("div", "result"); gr.id = "genResult"; rg.appendChild(gr); }
     if (CF_OK) box("Find combos").appendChild(duelFinder());
     paintChips(); evaluate();
   }
@@ -4692,6 +4986,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function openBuilder(deck, isNew){
     var old = document.getElementById("builder"); if (old) old.remove();
     var dirty = false;
+    CF.bld = deck;
     var ART = window.ART_BASE || "";
     var RAR_ORDER = {UR:0, SR:1, R:2, N:3};
     var MTYPES = ["Normal","Effect","Ritual","Fusion","Synchro","Xyz","Link","Pendulum","Tuner","Flip","Spirit","Union","Gemini","Toon"];
@@ -4817,7 +5112,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     // ---- deck edits ----
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
-    function paintAna(){ var bx = $(".bldana"); if (bx) renderAnalysis(bx, deck.main, deck.extra, {onCard:function(c){ showInfo(c); }}); }
+    function paintAna(){ var bx = $(".bldana"); if (!bx) return; renderAnalysis(bx, deck.main, deck.extra, {onCard:function(c){ showInfo(c); }});
+      if (GEN_OK || genOf(deck)) bx.insertBefore(genBox(deck, function(){ return dirty; }), bx.firstChild); }
     function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "ana") paintAna(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }

@@ -18,5 +18,9 @@ contextBridge.exposeInMainWorld("overlayApp", {
   setPassthrough: (on) => ipcRenderer.send("mouse:passthrough", !!on),
   comboAvailable: () => ipcRenderer.invoke("combo:available"),
   findCombos: (q) => ipcRenderer.invoke("combo:search", q),
-  stopCombos: () => ipcRenderer.send("combo:stop")
+  stopCombos: () => ipcRenderer.send("combo:stop"),
+  genStart: (job) => ipcRenderer.invoke("gen:start", job),
+  genStatus: () => ipcRenderer.invoke("gen:status"),
+  genTake: (deckId) => ipcRenderer.invoke("gen:take", deckId),
+  genCancel: () => ipcRenderer.send("gen:cancel")
 });

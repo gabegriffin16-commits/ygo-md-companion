@@ -451,6 +451,7 @@ function comboRequest(obj) {
 }
 ipcMain.handle("combo:available", () => fs.existsSync(comboExe()));
 ipcMain.handle("combo:search", async (e, q) => {
+  if (gen) return { error: "lines are being generated for " + (gen.name || "a deck") + ". Try again when that's done." };
   const id = comboSeq++;
   comboActive = id;
   try {
@@ -469,6 +470,77 @@ ipcMain.handle("combo:search", async (e, q) => {
   } finally { if (comboActive === id) comboActive = 0; }
 });
 ipcMain.on("combo:stop", () => { comboActive = 0; if (comboProc) try { comboSend({ cmd: "stop" }); } catch {} });
+
+// ---------- generated lines ("Omni-style setup" for any deck) ----------
+// Runs in the background here so it survives page reloads: one search per starting hand, then for each line,
+// "what if they Ash / Imperm / Veiler / Droll this step" searches that give the backup line. The finished
+// result waits in userData/generated/<deckId>.json until the page picks it up and saves it onto the deck.
+const GEN_DIR = path.join(app.getPath("userData"), "generated");
+const GEN_HANDTRAPS = [14558127, 10045474, 97268402, 94145021];   // Ash, Imperm, Veiler, Droll
+let gen = null;
+function genEvent(d) { pageEvent("overlay-gen", d); }
+function genThreads() { return Math.max(1, Math.min(8, require("os").cpus().length - 1)); }
+async function genRun(job) {
+  const g = gen;
+  const lines = [];
+  const send = (q) => comboRequest(Object.assign({ cmd: "search", deck: job.deck, extra: job.extra, threads: genThreads(), top: 1 }, q));
+  try {
+    await comboEnsureData(0);
+    await comboStart();
+    g.phase = "lines"; g.total = job.hands.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
+    const best = {};
+    for (const hand of job.hands) {
+      if (g.cancel) break;
+      const r = await send({ hand, timeMs: hand.length > 1 ? 8000 : 6000, maxActions: 10, labels: true });
+      const b = r.boards && r.boards[0];
+      const key = hand.slice().sort().join(",");
+      // Skip "lines" that are just a Normal Summon.
+      if (b && b.steps.length >= 2 && b.steps.some(x => x.do !== "Normal Summon")) {
+        const parts = hand.length > 1 ? hand.map(c => best[c] || 0) : [];
+        // A two-card hand only earns its own line when it beats what either card does alone.
+        if (!parts.length || b.score > Math.max.apply(null, parts) + 0.5) {
+          lines.push({ h: hand, s: b.score, f: b.field, b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.picks || []]), lab: b.labels, fb: [] });
+        }
+        if (hand.length === 1) best[hand[0]] = b.score;
+      }
+      g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
+    }
+    // Backup lines for each step a handtrap can hit.
+    const tries = [];
+    lines.forEach(L => L.st.forEach((x, i) => { if (x[0] === "Activate" || x[0] === "Use") GEN_HANDTRAPS.forEach(ht => tries.push([L, i, ht])); }));
+    g.phase = "handtraps"; g.total = tries.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
+    for (const [L, i, ht] of tries) {
+      if (g.cancel) break;
+      const r = await send({ hand: L.h, oppHand: [ht], prefix: L.lab, hitCard: ht, hitStep: i, timeMs: 2500, maxActions: 6 });
+      const b = r.boards && r.boards[0];
+      if (b) L.fb.push({ i, by: ht, s: b.score, f: b.field, b: b.backrow, st: b.steps.slice(i + 2).map(x => [x.do, x.card, x.effect || "", x.picks || []]) });
+      g.done++;
+      if (g.done % 4 === 0 || g.done === g.total) genEvent(Object.assign({ state: "running" }, genInfo()));
+    }
+    if (g.cancel) { genEvent({ state: "cancelled", deckId: job.deckId }); return; }
+    lines.forEach(L => { delete L.lab; });
+    fs.mkdirSync(GEN_DIR, { recursive: true });
+    fs.writeFileSync(path.join(GEN_DIR, job.deckId + ".json"), JSON.stringify({ deckId: job.deckId, sig: job.sig, at: Date.now(), v: 1, lines }));
+    genEvent({ state: "ready", deckId: job.deckId });
+  } catch (e) {
+    genEvent({ state: "error", deckId: job.deckId, note: e.message || String(e) });
+  } finally { if (gen === g) gen = null; }
+}
+function genInfo() { return gen ? { deckId: gen.deckId, name: gen.name, phase: gen.phase, done: gen.done, total: gen.total } : null; }
+function genReady() { try { return fs.readdirSync(GEN_DIR).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)); } catch { return []; } }
+ipcMain.handle("gen:start", (e, job) => {
+  if (gen) return { error: "Already generating lines for " + (gen.name || "a deck") + "." };
+  if (!job || !job.deckId || !Array.isArray(job.hands) || !job.hands.length) return { error: "Nothing to generate." };
+  gen = { deckId: job.deckId, name: job.name || "", phase: "prepare", done: 0, total: job.hands.length, cancel: false };
+  genRun(job);
+  return { ok: true };
+});
+ipcMain.handle("gen:status", () => ({ running: genInfo(), ready: genReady() }));
+ipcMain.handle("gen:take", (e, deckId) => {
+  const f = path.join(GEN_DIR, String(deckId).replace(/[^\w-]/g, "") + ".json");
+  try { const d = JSON.parse(fs.readFileSync(f, "utf8")); fs.unlinkSync(f); return d; } catch { return null; }
+});
+ipcMain.on("gen:cancel", () => { if (gen) { gen.cancel = true; if (comboProc) try { comboSend({ cmd: "stop" }); } catch {} } });
 
 // ---------- hand reader ----------
 // A hidden window watches the Master Duel window, recognizes the cards in your hand,
