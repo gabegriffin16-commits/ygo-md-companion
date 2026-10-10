@@ -33,6 +33,9 @@ struct CardEval {
 	int reviveMaxLv = 99;
 	std::string reviveTag;
 	float onSummon = 0;      // what it does to them "if this card is Special Summoned" (counts when it lands on their turn)
+	// Left in the end hand without being an interruption: an extender that summons itself from hand on their turn
+	// (Elfnote Regina), or a starter for our next turn (it searches the Deck). Small next to the board itself.
+	bool handExtender = false, starter = false;
 	// Fusion on the opponent's turn from the Extra Deck (Favorite Contact). Used from: an AT_ value. fusionFrom: where
 	// its materials can come from (1 hand, 2 field, 4 GY, 8 banished). fusionTag: what the Fusion must mention ("hero").
 	uint8_t fusionAt = 0, fusionFrom = 0;
@@ -190,6 +193,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
 		}
+		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) r.handExtender = true;
+		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
 		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
 		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "special summon") || has(e, "fusion summon"))) {
 			r.fusionAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;

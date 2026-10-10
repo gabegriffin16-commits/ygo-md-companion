@@ -86,7 +86,8 @@ Key parts of `src/main.cpp`:
   `{"cmd":"score", field/zones/backrow/hand/gy/banished/extra/targets}` scores any board with a per-card breakdown.
   Rules tuned against guide boards: summoning itself is no stop; a generic opponent's-turn summon is 1.5, a revival 0.5
   (+ what it brings back, chains included); negates: "a card or effect" +0.5, Spell/Trap-only -0.7, "would destroy" -1.5;
-  attack-only locks 0.5.
+  attack-only locks 0.5. End hand: handtraps are stops, Traps/Quick-Plays count as set, an extender that summons itself
+  from hand on their turn 0.8, a next-turn starter (searches the Deck) 0.6, anything else 0.3.
 - **Zones**: only for decks whose text mentions the center zone/columns (`g_zones`); zone-aware cards go center or side
   by rule; Normal/Extra Deck summons of them branch both ways.
 - **Draws** come from 12 blank stand-ins (Spiral Serpent) on top of the Deck, hidden in output (shown as code 0).

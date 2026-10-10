@@ -607,7 +607,10 @@ struct Search {
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
 			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set, nm(c) + " (set from hand)"}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
 			else if(e && e->hand > 0) { stops.push_back({e->hand, nm(c) + " (hand)"}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
-			else add(0.3, why ? "hand: " + nm(c) : "");   // a card for next turn (or one drawn during the line)
+			// Anything else is for later: an extender for their turn, a starter for our next turn, or just a card.
+			else if(e && e->handExtender) add(0.8, why ? "hand (extender on their turn): " + nm(c) : "");
+			else if(e && e->starter) add(0.6, why ? "hand (starter next turn): " + nm(c) : "");
+			else add(0.3, why ? "hand: " + nm(c) : "");   // (or one drawn during the line)
 		}
 		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)"}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
 		// Revival: each reviver brings back the best monster in the GY that fits what it asks for, and that monster's
