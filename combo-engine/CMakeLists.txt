@@ -53,7 +53,7 @@ target_include_directories(deps PUBLIC ${DEPS_DIR} ${DEPS_DIR}/sqlite ${DEPS_DIR
 target_compile_definitions(deps PUBLIC SQLITE_OMIT_LOAD_EXTENSION SQLITE_THREADSAFE=1)
 
 find_package(Threads REQUIRED)
-add_executable(combo-engine src/main.cpp)
+add_executable(combo-engine src/main.cpp src/reset.cpp)
 target_link_libraries(combo-engine PRIVATE ocgcore deps Threads::Threads)
 if(MIMALLOC_DIR)
   target_compile_definitions(combo-engine PRIVATE MDC_MIMALLOC)

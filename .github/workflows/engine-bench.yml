@@ -24,6 +24,8 @@ jobs:
           - { name: "Faris + Malicious", hand: "18094166,9411399" }
           - { name: "Vyon", hand: "27780618" }
           - { name: "Stratos Faris Ash Imperm Maxx", hand: "40044918,18094166,14558127,10045474,23434538" }
+          - { name: "Stratos + Faris, goals Sunrise DPE Dangerous Dystopia", hand: "40044918,18094166", targets: "22908820,60461804,30757127,90579153" }
+          - { name: "Stratos + Faris, goals, app default (20s)", hand: "40044918,18094166", targets: "22908820,60461804,30757127,90579153", secs: "20", acts: "16" }
           - { name: "Stratos + Faris, aim Sunrise and DPE", hand: "40044918,18094166", targets: "22908820,60461804" }
           - { name: "Stratos + Faris, app default (20s)", hand: "40044918,18094166", secs: "20", acts: "16" }
     name: ${{ matrix.name }}

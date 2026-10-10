@@ -23,6 +23,7 @@ extern "C++" {
 #include "sqlite3.h"
 #include "miniz.h"
 #include "json.hpp"
+#include "evaluate.h"
 #ifdef MDC_MIMALLOC
 #include <mimalloc-new-delete.h>   // the rules engine's own (C++) allocations go through mimalloc too
 #endif
@@ -70,7 +71,7 @@ struct CardRow {
 	std::vector<uint16_t> setcodes;
 	std::string name;
 	std::vector<std::string> strs;
-	float mon = 0, back = 0, hand = 0;   // extra value on the field / in the backrow / in hand, read from the card text
+	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 };
 static std::unordered_map<uint32_t, CardRow> g_cards;
 
@@ -98,24 +99,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) r.name = (const char*)nm;
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
-		{
-			// Interruptions are what make a board: Quick Effects and negates on the field, handtraps kept in hand.
-			const unsigned char* dt = sqlite3_column_text(st, 26);
-			std::string d = dt ? (const char*)dt : "";
-			auto has = [&](const char* w) { return d.find(w) != std::string::npos; };
-			bool quick = has("Quick Effect"), neg = has("negate") || has("Negate");
-			bool oppTurn = has("your opponent activates") || has("your opponent would") || has("During your opponent's turn") || has("during your opponent's turn");
-			bool floats = has("leaves the field") || has("is destroyed") || has("is sent to the GY");
-			bool fromHand = has("from your hand") || has("discard this card") || has("send this card from your hand");
-			bool mon = (r.type & TYPE_MONSTER) != 0, trap = (r.type & TYPE_TRAP) != 0, qp = (r.type & TYPE_SPELL) && (r.type & TYPE_QUICKPLAY);
-			if(mon) {
-				r.mon = (quick || oppTurn ? 3.0f : 0) + (neg ? 1.5f : 0) + (floats ? 0.5f : 0) + (float)std::min(r.atk, 4000) / 2000.0f;
-				r.hand = ((quick || oppTurn) && fromHand) ? 2.0f : 0;
-			}
-			if(trap) r.back = 1.0f + (neg ? 1.0f : 0); else if(qp) r.back = 0.5f; else r.back = 0;
-			if(qp) r.hand = 0.25f;
-			if(trap && fromHand) r.hand = 2.0f;
-		}
+		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.ev = evalx::evaluate(dt ? (const char*)dt : "", r.type); }
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -367,19 +351,31 @@ static Bytes r_position(const Prompt& m) {
 
 // ------------------------------------------------------------------ duel
 struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand; };
+bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
+void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
+static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
+static std::unordered_map<OCG_Duel, int> g_uses;   // how many times each pooled duel has been reused
+static void pool_flush() { std::lock_guard<std::mutex> lk(g_pool_mx); for(OCG_Duel d : g_pool) { mdc_forget_duel(d); OCG_DestroyDuel(d); } g_pool.clear(); g_uses.clear(); }
 static const uint32_t DUMMY = 46986414;   // opponent's deck: Dark Magician x5, they never act on our turn
 
 struct Duel {
 	OCG_Duel h = nullptr;
 	uint64_t lastHint[2] = {0, 0};
+	// A reused duel slowly keeps a little memory from each game, so after this many reuses it's rebuilt.
+	static constexpr int MAX_REUSE = 150;
 	explicit Duel(const Setup& s) {
-		OCG_DuelOptions o{};
-		o.seed[0] = 1; o.seed[1] = 2; o.seed[2] = 3; o.seed[3] = 4;
-		o.flags = DUEL_MODE_MR5 | DUEL_PSEUDO_SHUFFLE;   // the opponent's choices are made by Search::opp_choice
-		o.team1 = {8000, 0, 1}; o.team2 = {8000, 0, 1};
-		o.cardReader = card_reader; o.scriptReader = script_reader; o.logHandler = log_handler; o.cardReaderDone = card_reader_done;
-		if(OCG_CreateDuel(&h, &o) != OCG_DUEL_CREATION_SUCCESS) { h = nullptr; return; }
-		for(const char* f : {"constant.lua", "utility.lua"}) { const std::string* b = get_script(f); if(!b || !OCG_LoadScript(h, b->data(), (uint32_t)b->size(), f)) { OCG_DestroyDuel(h); h = nullptr; return; } }
+		// Reuse a finished duel when there is one: wiping its field keeps every card script already loaded,
+		// and loading scripts is most of the cost of starting a duel.
+		bool worn = false;
+		if(g_reuse) { std::lock_guard<std::mutex> lk(g_pool_mx); if(!g_pool.empty()) { h = g_pool.back(); g_pool.pop_back(); worn = ++g_uses[h] > MAX_REUSE; } }
+		if(h && worn) { forget(h); OCG_DestroyDuel(h); h = nullptr; }
+		if(h && !reset()) { forget(h); OCG_DestroyDuel(h); h = nullptr; }
+		if(!h) {
+			OCG_DuelOptions o = options();
+			if(OCG_CreateDuel(&h, &o) != OCG_DUEL_CREATION_SUCCESS) { h = nullptr; return; }
+			for(const char* f : {"constant.lua", "utility.lua"}) { const std::string* b = get_script(f); if(!b || !OCG_LoadScript(h, b->data(), (uint32_t)b->size(), f)) { OCG_DestroyDuel(h); h = nullptr; return; } }
+			mdc_mark_duel(h);
+		}
 		auto add = [&](uint8_t team, uint32_t code, uint32_t loc) { OCG_NewCardInfo i{team, 0, code, team, loc, 0, POS_FACEDOWN_DEFENSE}; OCG_DuelNewCard(h, &i); };
 		for(uint32_t c : s.deck) add(0, c, LOCATION_DECK);
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
@@ -388,7 +384,24 @@ struct Duel {
 		for(uint32_t c : s.oppHand) add(1, c, LOCATION_HAND);   // handtraps for "what if they hit this" searches
 		OCG_StartDuel(h);
 	}
-	~Duel() { if(h) OCG_DestroyDuel(h); }
+	// Wipe the field back to an empty Duel (the engine's own puzzle-reload path), keep the loaded scripts, and
+	// clear the "already set up this Duel" flags scripts keep on their card tables so their global effects
+	// register again.
+	static OCG_DuelOptions options() {
+		OCG_DuelOptions o{};
+		o.seed[0] = 1; o.seed[1] = 2; o.seed[2] = 3; o.seed[3] = 4;
+		o.flags = DUEL_MODE_MR5 | DUEL_PSEUDO_SHUFFLE;   // the opponent's choices are made by Search::opp_choice
+		o.team1 = {8000, 0, 1}; o.team2 = {8000, 0, 1};
+		o.cardReader = card_reader; o.scriptReader = script_reader; o.logHandler = log_handler; o.cardReaderDone = card_reader_done;
+		return o;
+	}
+	bool reset() { return mdc_reset_duel(h, options()); }   // src/reset.cpp
+	~Duel() {
+		if(!h) return;
+		if(g_reuse) { std::lock_guard<std::mutex> lk(g_pool_mx); if(g_pool.size() < 256) { g_pool.push_back(h); return; } }
+		forget(h); OCG_DestroyDuel(h);
+	}
+	static void forget(OCG_Duel d) { mdc_forget_duel(d); std::lock_guard<std::mutex> lk(g_pool_mx); g_uses.erase(d); }
 	// Runs until player 0 must decide something. returns false at duel end / error.
 	bool run(Prompt& out, bool& retry) {
 		retry = false;
@@ -544,15 +557,33 @@ struct Search {
 
 	bool out_of_time() const { return stop.load() || std::chrono::duration<double>(Clock::now() - t0).count() > timeLimit; }
 	static bool extra_type(uint32_t code) { auto it = g_cards.find(code); return it != g_cards.end() && (it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)); }
+	// How strong this end board is (see src/evaluate.h): every way it can stop the opponent, best first with a
+	// gentle fall-off, plus locks, sturdiness, bodies and spare cards, plus the deck's own goal cards.
 	double score_of(const Board& b) const {
-		double s = 0;
-		// Extra Deck monsters count for more, and bigger ones (higher Level / Rank / Link Rating) more again.
-		for(uint32_t c : b.mzone) { auto it = g_cards.find(c); uint32_t lv = it != g_cards.end() ? std::min<uint32_t>(it->second.level & 0xff, 12) : 0; s += (extra_type(c) ? 1.5 + 0.15 * lv : 1.0) + (it != g_cards.end() ? it->second.mon : 0); }
-		for(uint32_t c : b.szone) { auto it = g_cards.find(c); s += 1.0 + (it != g_cards.end() ? it->second.back : 0); }
-		for(uint32_t c : b.hand) { auto it = g_cards.find(c); if(it != g_cards.end()) s += it->second.hand; }
-		for(uint32_t c : b.mzone) if(targets.count(c)) s += 10;
-		for(uint32_t c : b.szone) if(targets.count(c)) s += 10;
-		s += 0.25 * b.hand.size();
+		std::vector<double> stops; double s = 0;
+		auto ev = [](uint32_t c) -> const CardEval* { auto it = g_cards.find(c); return it == g_cards.end() ? nullptr : &it->second.ev; };
+		for(uint32_t c : b.mzone) {
+			const CardEval* e = ev(c);
+			s += 0.5 + (extra_type(c) ? 0.3 : 0);
+			if(!e) continue;
+			if(e->field > 0) stops.push_back(e->field);
+			s += e->lock + e->sturdy;
+		}
+		for(uint32_t c : b.szone) {
+			const CardEval* e = ev(c); if(!e) { s += 0.3; continue; }
+			double v = std::max(e->set, e->field);
+			if(v > 0) stops.push_back(v); else s += 0.3;
+			s += e->lock;
+		}
+		for(uint32_t c : b.hand) {
+			const CardEval* e = ev(c);
+			if(e && e->hand > 0) stops.push_back(e->hand); else s += 0.3;   // a handtrap kept, or a card for next turn
+		}
+		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); }
+		std::sort(stops.rbegin(), stops.rend());
+		double f = 1.0; for(double v : stops) { s += v * f; f = std::max(0.5, f - 0.1); }
+		for(uint32_t c : b.mzone) if(targets.count(c)) s += 8;
+		for(uint32_t c : b.szone) if(targets.count(c)) s += 8;
 		return s;
 	}
 	Board read_board(Duel& d) {
@@ -883,11 +914,18 @@ int main(int argc, char** argv) {
 		if(cmd == "stop") { std::lock_guard<std::mutex> lk(g_search_mx); if(g_search) g_search->stop = true; continue; }
 		if(cmd == "init") {
 			std::string err;
+			pool_flush();   // pooled duels hold scripts from the old data
 			g_cards.clear();
 			if(!load_cdb(req.value("cdb", ""), err) || !open_scripts(req.value("scripts", ""), err)) { emit({{"id", id}, {"error", err}}); continue; }
 			ready = true;
 			emit({{"id", id}, {"ready", true}, {"cards", g_cards.size()}, {"scripts", g_zip_index.size()}});
 			continue;
+		}
+		if(cmd == "eval") {   // what the board evaluator reads from each card (for checking src/evaluate.h)
+			json out = json::object();
+			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardEval& e = it->second.ev;
+				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}}; }
+			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {
 			if(!ready) { emit({{"id", id}, {"error", "not initialized"}}); continue; }
@@ -907,6 +945,7 @@ int main(int argc, char** argv) {
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
 			s->mode = req.value("mode", std::string());
+			if(req.value("reuse", true) != g_reuse) { pool_flush(); g_reuse = req.value("reuse", true); }
 			s->diverse = req.value("diverse", true);
 			s->width0 = (size_t)std::max(2, req.value("width", 8));
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
