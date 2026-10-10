@@ -1616,7 +1616,10 @@ html.fadebg .anastat{background:color-mix(in srgb, var(--panel) 85%, transparent
 #tour .tcard{position:absolute; box-sizing:border-box; width:min(380px, calc(100vw - 24px)); background:var(--panel); color:var(--ink); border:1px solid var(--line);
   border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.4); padding:16px 18px 14px; transition:left .25s ease, top .25s ease}
 #tour .tcard h3{margin:0 0 6px; font:700 1.02rem var(--display); color:var(--ink)}
-#tour .tcard p{margin:0; font:400 .92rem/1.5 var(--body); color:var(--ink)}
+#tour .tcard ul{margin:0; padding:0 0 0 18px; font:400 .92rem/1.45 var(--body); color:var(--ink)}
+#tour .tcard li{margin:0 0 5px; padding-left:2px}
+#tour .tcard li:last-child{margin-bottom:0}
+#tour .tcard li::marker{color:var(--gold)}
 #tour .tfoot{display:flex; align-items:center; gap:8px; margin-top:14px}
 #tour .tcount{font:600 .74rem var(--display); color:var(--muted); margin-right:auto; letter-spacing:.04em}
 #tour .tskip{background:none; border:0; padding:6px 4px; font:600 .82rem var(--display); color:var(--muted); cursor:pointer}
@@ -6053,51 +6056,51 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var where = app ? "Settings" : "your account menu";
       var menu = cpt ? "Tap Deck, then the deck's name, to open the deck menu." : "Tap the deck's name to open the deck menu.";
       // ---- before: your own setup ----
-      S.push({seg:"pre", title:"Welcome to Master Duel Companion", text:"A quick tour of the app. It adds a sample deck to show you around, then deletes it. Use Next and Back or the arrow keys. Press Esc to exit."});
+      S.push({seg:"pre", title:"Welcome to Master Duel Companion", text:["A quick tour of the app's main features.", "It adds a sample deck to show you around, then deletes it.", "Use Next and Back or the arrow keys. Press Esc to exit."]});
       if (!had) S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .nodeck", title:"Your decks",
-        text:(cpt ? "Tap Deck to see your decks." : "Your decks live here.") + " Build one, import a .ydk file, or copy one from another player."});
+        text:[cpt ? "Tap Deck to see your decks." : "Your decks live here.", "Build one from scratch.", "Import a .ydk file.", "Or copy one from another player."]});
       else S.push({seg:"pre", sel:cpt ? "#cDeck" : "#deckPane .deckpick", title:"Your decks",
-        text:menu + " From there you can switch, build, edit, import, export or delete decks."});
-      S.push({seg:"pre", title:"Sample deck", text:"Next, the tour adds a temporary Tutorial deck so you can see the deck tools. It stays on this device and is deleted when the tour ends."});
+        text:[menu, "Switch, build, edit, import, export or delete decks from there."]});
+      S.push({seg:"pre", title:"Sample deck", text:["Next, the tour adds a temporary Tutorial deck so you can see the deck tools.", "It stays on this device and is deleted when the tour ends."]});
       // ---- with the Tutorial deck ----
       S.push({seg:"deck", first:true, sel:cpt ? "#cDeck" : "#deckPane .deckpick", before:closeAll, title:"The deck you're playing",
-        text:"You're now playing the Tutorial deck. " + menu});
-      if (!cpt) S.push({seg:"deck", sel:"#deckPane .dl-item", hole:"#deckPane", before:closeAll, title:"Your decklist", text:"Every card in your deck, grouped by type. Tap a card to see its details."});
+        text:["You're now playing the Tutorial deck.", menu]});
+      if (!cpt) S.push({seg:"deck", sel:"#deckPane .dl-item", hole:"#deckPane", before:closeAll, title:"Your decklist", text:["Every card in your deck, grouped by type.", "Tap a card to see its details."]});
       S.push({seg:"deck", sel:".bld .bldtools", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"The deck builder",
-        text:"Search for any card, use Filters to narrow the results, and click or drag a card to add it. Right-click a card for details."});
-      S.push(cpt ? {seg:"deck", sel:'.bld .bldviews [data-v="deck"]', before:function(){ openBld(); bldView("browse"); }, title:"Your deck", text:"Your Main and Extra Deck. Use − and + to change copies. Deck notes show up in the Lines tab."}
-                 : {seg:"deck", sel:".bld .blddeck", before:function(){ openBld(); bldView("build"); }, title:"Your deck", text:"Your Main and Extra Deck. Use − and + to change copies, or drag a card out to remove it. Deck notes show up in the Lines tab."});
+        text:["Search for any card.", "Use Filters to narrow the results.", "Click or drag a card to add it.", "Right-click a card for details."]});
+      S.push(cpt ? {seg:"deck", sel:'.bld .bldviews [data-v="deck"]', before:function(){ openBld(); bldView("browse"); }, title:"Your deck", text:["Your Main and Extra Deck.", "Use − and + to change copies.", "Deck notes show up in the Lines tab."]}
+                 : {seg:"deck", sel:".bld .blddeck", before:function(){ openBld(); bldView("build"); }, title:"Your deck", text:["Your Main and Extra Deck.", "Use − and + to change copies, or drag a card out to remove it.", "Deck notes show up in the Lines tab."]});
       S.push({seg:"deck", sel:".bld .bldsim", place:"inside", before:function(){ openBld(); bldView("sim"); }, title:"Draw simulator",
-        text:"Draw test hands and see how often you open a starter. Tap cards in the table to mark them as starters." + (CF_OK ? " Find combos plays a hand out and shows the boards it can reach." : "")});
+        text:["Draw test hands and see how often you open a starter.", "Tap cards in the table to mark them as starters."].concat(CF_OK ? ["Find combos plays a hand out and shows the boards it can reach."] : [])});
       S.push({seg:"deck", sel:".bld .bldana", place:"inside", before:function(){ openBld(); bldView("ana"); }, title:"Analysis",
-        text:"Your starters, handtraps and opening odds, plus what Ash, Imperm and Droll can stop. Generate lines" + (GEN_OK ? "" : " (desktop app)") + " fills in the Lines, Checkpoints and Counter Guide tabs."});
+        text:["Your starters, handtraps and opening odds.", "What Ash, Imperm and Droll can stop.", "Generate lines" + (GEN_OK ? "" : " (desktop app)") + " fills in the Lines, Checkpoints and Counter Guide tabs."]});
       S.push({seg:"deck", sel:".bld .bldbtns", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Save and share",
-        text:"Save your deck, import or export a .ydk file, and set it to Shared or Unlisted. Shared decks appear in the Users tab."});
+        text:["Save your deck.", "Import or export a .ydk file.", "Set it to Shared or Unlisted. Shared decks appear in the Users tab."]});
       // ---- Duel tab, shown the way auto tracking looks ----
       var duel = function(){ closeAll(); tab("hand"); };
       S.push({seg:"deck", auto:true, sel:"#stepper", before:duel, title:"Auto tracking",
-        text:(app ? "The Duel tab" : "In the desktop app, the Duel tab") + " follows your duel by reading Master Duel's screen. This row shows the turn and phase. Tap Their deck? for matchup tips."});
-      S.push({seg:"deck", auto:true, sel:"#lpBar", before:duel, title:"Life points", text:"Both players' LP update on their own as the duel goes."});
+        text:[(app ? "The Duel tab" : "In the desktop app, the Duel tab") + " follows your duel by reading Master Duel's screen.", "This row shows the turn and phase.", "Tap Their deck? for matchup tips."]});
+      S.push({seg:"deck", auto:true, sel:"#lpBar", before:duel, title:"Life points", text:["Both players' LP update on their own as the duel goes."]});
       S.push({seg:"deck", auto:true, sel:"#stepBody", before:function(){ duel(); if (D && D.phase === "setup") document.getElementById("stepNext").click(); }, title:"Your hand",
-        text:"Your opening hand and draws are read from the screen, and the best line for your hand shows up here."});
-      S.push({seg:"deck", auto:true, sel:cpt ? "#cLog" : "#duelLog", before:duel, title:"Duel log", text:"Each finished turn is saved here: what you opened, drew and used, plus both players' LP."});
+        text:["Your opening hand and draws are read from the screen.", "The best line for your hand shows up here."]});
+      S.push({seg:"deck", auto:true, sel:cpt ? "#cLog" : "#duelLog", before:duel, title:"Duel log", text:["Each finished turn is saved here.", "It shows what you opened, drew and used, plus both players' LP."]});
       // ---- other tabs ----
       S.push({seg:"deck", sel:"#t-lines", before:function(){ closeAll(); tab("lines"); }, title:"Lines",
-        text:"Combo lines for your deck. They come from your deck notes, Find combos and Generate lines."});
+        text:["Combo lines for your deck.", "They come from your deck notes, Find combos and Generate lines."]});
       S.push({seg:"deck", sel:"#t-check", before:function(){ closeAll(); tab("check"); }, title:"Checkpoints",
-        text:"Your starters, your odds of opening one, and where handtraps can stop you."});
+        text:["Your starters and your odds of opening one.", "Where handtraps can stop you."]});
       S.push({seg:"deck", sel:"#t-counter", before:function(){ closeAll(); tab("counter"); }, title:"Counter Guide",
-        text:"Pick your opponent's deck to see what to hit with handtraps and what to watch out for."});
+        text:["Pick your opponent's deck.", "See what to hit with handtraps and what to watch out for."]});
       S.push({seg:"deck", sel:["#ovUsers", "#t-users"], before:duel, title:"Users",
-        text:"Browse other players' shared decks and copy any of them to your own."});
+        text:["Browse other players' shared decks.", "Copy any of them to your own."]});
       S.push({seg:"deck", sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:duel, title:"Card lookup",
-        text:"Search for any card to see its art, stats and effects."});
+        text:["Search for any card to see its art, stats and effects."]});
       if (app){
-        S.push({seg:"deck", sel:"#ovLeft", before:closeAll, title:"Window controls", text:"Snap the window left or right, switch between full and compact view, reload, or change the theme."});
-        S.push({seg:"deck", sel:"#ovK", before:closeAll, title:"Settings", text:"Turn Read my hand on or off, adjust opacity, lock clicks through to the game, set hotkeys, or replay this tour."});
+        S.push({seg:"deck", sel:"#ovLeft", before:closeAll, title:"Window controls", text:["Snap the window left or right.", "Switch between full and compact view.", "Reload, or change the theme."]});
+        S.push({seg:"deck", sel:"#ovK", before:closeAll, title:"Settings", text:["Turn Read my hand on or off.", "Adjust opacity, or lock clicks through to the game.", "Set hotkeys, or replay this tour."]});
       } else {
-        S.push({seg:"deck", sel:"header.top .hdrside", before:closeAll, title:"Display", text:"Change the theme, fade the background, or switch to compact view."});
-        S.push({seg:"deck", sel:"#acctBtn", before:closeAll, title:"Your account", text:"Replay this tour or sign out from your account menu."});
+        S.push({seg:"deck", sel:"header.top .hdrside", before:closeAll, title:"Display", text:["Change the theme.", "Fade the background.", "Switch to compact view."]});
+        S.push({seg:"deck", sel:"#acctBtn", before:closeAll, title:"Your account", text:["Replay this tour or sign out from your account menu."]});
       }
       // ---- delete it, the way you would ----
       S.push({seg:"deck", sel:".deckmenu .dmitem.danger", place:"below", before:function(){
@@ -6107,11 +6110,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
             setTimeout(function(){ var p = document.querySelector("#deckPane .deckpick"); if (p && document.querySelector(".deckmenu").hidden) p.click(); if (T) place(); }, cpt ? 80 : 0);
           }, 0);
         }, delay:260, title:"Deleting a deck",
-        text:"To delete a deck, open the deck menu and tap Delete this deck twice. Press Next to delete the Tutorial deck now."});
+        text:["Open the deck menu and tap Delete this deck twice.", "Press Next to delete the Tutorial deck now."]});
       // ---- after ----
       S.push({seg:"post", first:true, sel:had ? (cpt ? "#cDeck" : "#deckPane .deckpick") : (cpt ? "#cDeck" : "#deckPane .nodeck"), before:closeAll, title:had ? "All done" : "Your first deck",
-        text:had ? "The Tutorial deck is deleted and you're back on your own deck. Make new decks from the deck menu. Replay this tour anytime from " + where + "."
-                 : "The Tutorial deck is deleted. Start your own with Build a deck, Import .ydk or Browse players' decks. After that, make new decks from the deck menu. Replay this tour anytime from " + where + "."});
+        text:had ? ["The Tutorial deck is deleted and you're back on your own deck.", "Make new decks from the deck menu.", "Replay this tour anytime from " + where + "."]
+                 : ["The Tutorial deck is deleted.", "Start your own with Build a deck, Import .ydk or Browse players' decks.", "After that, make new decks from the deck menu.", "Replay this tour anytime from " + where + "."]});
       return S;
     }
 
@@ -6141,7 +6144,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       card.style.left = Math.round(x) + "px"; card.style.top = Math.round(y) + "px";
     }
     function saveState(){ if (T) ss(KEY, {i:T.i, testId:T.st.testId, prevPilot:T.st.prevPilot, prevTab:T.st.prevTab, hadDecks:T.st.hadDecks, deleted:T.st.deleted}); }
-    function busy(msg){ T.card.querySelector("h3").textContent = msg; T.card.querySelector("p").textContent = ""; T.next.disabled = T.back.disabled = true; T.root.classList.add("nohole"); place(); }
+    function busy(msg){ T.card.querySelector("h3").textContent = msg; T.card.querySelector("ul").innerHTML = ""; T.next.disabled = T.back.disabled = true; T.root.classList.add("nohole"); place(); }
     function go(i){
       if (!T) return;
       i = Math.max(0, Math.min(T.steps.length - 1, i));
@@ -6175,7 +6178,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       autoView(!!s.auto);
       if (s.before) try { s.before(); } catch (e) {} else closeAll();
       T.card.querySelector("h3").textContent = s.title;
-      T.card.querySelector("p").textContent = s.text;
+      var ul = T.card.querySelector("ul"); ul.innerHTML = "";
+      [].concat(s.text).forEach(function(t){ ul.appendChild(nodes("li", null, t)); });
       T.card.querySelector(".tcount").textContent = (i + 1) + " of " + T.steps.length;
       T.back.disabled = i === 0 || !!s.first;   // can't step back across a deck switch
       T.next.disabled = false;
@@ -6202,7 +6206,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       T.steps = steps(st);
       var root = nodes("div"); root.id = "tour"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", "Tour");
       var block = nodes("div", "tblock"), hole = nodes("div", "thole"), card = nodes("div", "tcard");
-      card.appendChild(nodes("h3")); card.appendChild(nodes("p"));
+      card.appendChild(nodes("h3")); card.appendChild(nodes("ul"));
       var foot = nodes("div", "tfoot"), cnt = nodes("span", "tcount"), skip = nodes("button", "tskip", "Skip tour"), back = nodes("button", "ghost", "Back"), next = nodes("button", "primary", "Next");
       skip.type = back.type = next.type = "button";
       foot.appendChild(cnt); foot.appendChild(skip); foot.appendChild(back); foot.appendChild(next); card.appendChild(foot);
