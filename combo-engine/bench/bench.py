@@ -1,5 +1,6 @@
 """Deep-search benchmark: runs one hand through combo-engine with a big time and depth budget and prints the best boards.
-Usage: python3 bench.py <engine> <cards.cdb> <scripts.zip> <hand codes comma-separated> <seconds> <maxActions> [threads] [mode] [targets]"""
+Usage: python3 bench.py <engine> <cards.cdb> <scripts.zip> <hand codes comma-separated> <seconds> <maxActions> [threads] [mode] [targets]
+Env: DECK_JSON, ZONES=0/1, STABLE=<fraction>, SIM=1 (rank by playing the opponent's turn; bench/sim.py shows why)."""
 import json, os, sqlite3, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(__file__)); from deck import MAIN, EXTRA
 if os.environ.get("DECK_JSON"):   # {"main":[codes],"extra":[codes]}
@@ -32,13 +33,13 @@ rv = ["%s (from %s, tag %r, max Lv %s)" % (v["name"], v["revive"]["from"], v["re
 print("REVIVERS", "; ".join(rv) or "none")
 t = time.time()
 send({"id": 2, "cmd": "search", "deck": deck, "extra": EXTRA, "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads,
-      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {}), **({"stable": float(os.environ["STABLE"])} if os.environ.get("STABLE") else {})})
+      "top": 5, "maxActions": int(acts), "mode": mode, "targets": targets, **({"zones": os.environ["ZONES"] == "1"} if os.environ.get("ZONES") else {}), **({"stable": float(os.environ["STABLE"])} if os.environ.get("STABLE") else {}), "sim": bool(os.environ.get("SIM"))})
 r = wait(2)
 print("HAND", " + ".join(n(c) for c in hand), "| threads", threads, "| mode", mode or "hybrid", "| stats", r["stats"], "| complete", r["complete"])
 for b in r["boards"]:
     z = b.get("zones") or []
     field = ", ".join(n(c) + (" [center]" if i < len(z) and z[i] == 2 else (" [EMZ]" if i < len(z) and z[i] >= 5 else "")) for i, c in enumerate(b["field"]))
-    print("\nSCORE %.2f  FIELD: %s  BACKROW: %s  HAND: %s" % (b["score"], field, ", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"])))
+    print("\nSCORE %.2f%s  FIELD: %s  BACKROW: %s  HAND: %s" % (b["score"], "  (text %.2f)" % b["sim"]["textScore"] if b.get("sim", {}).get("ok") else "", field,", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"])))
     print("  GY: %s  BANISHED: %s" % (", ".join(n(c) for c in b.get("gy", [])), ", ".join(n(c) for c in b.get("banished", []))))
     for i, s in enumerate(b["steps"], 1):
         g = "; ".join("%s:%s" % (h, ", ".join(n(c) for c in cs)) for h, cs in s.get("groups", []))

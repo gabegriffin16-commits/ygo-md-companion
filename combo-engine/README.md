@@ -41,6 +41,12 @@ choice labels, and a "what if they hit this" search adds `"oppHand":[handtrap]`,
 and the search continues from what's left. Each step's `"groups"` lists picks by what they were for, as
 `[hint id, [cards]]` (EDOPro's HINTMSG ids: 501 discard, 503 banish, 504 send to GY, 506 add to hand, 509 Special Summon...).
 
+`"sim":true` plays the opponent's turn against each returned board (a fixed probe hand: a hand effect, a Spell, a Normal
+Summon and its trigger, a field effect, an Extra Deck summon, two more Spells and a summon from hand) and ranks the
+boards by what actually stopped something. `score` becomes that score; each board gets
+`"sim":{"ok","textScore","plays":[{play,tried,stopped}],"credits":[{card,value,play}],"untested":[{card,value}],"runs"}`
+(`untested`: interruptions that never got a chance, counted at half), and `stats.simSeconds` the time it took.
+
 ```
 {"cmd":"quit"}
 ```

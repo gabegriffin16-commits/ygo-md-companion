@@ -4,7 +4,8 @@ Usage: python3 compare.py <engine> <cards.cdb> <scripts.zip> <refs.json> <secs> 
 Generic hand slots ("<Any>") become the filler card (default Nibiru, the Primal Being: a card the combo won't use). Typed
 slots ("<Dtail name>", "<Lv4 Monster>", "<Urgula / Pan>") become the deck card that fits (name words, abbreviations as
 letters in order, Level), the one with the most copies. Boards whose guide uses cards the deck lacks are marked.
-Env: THREADS (default: all cores), ACTS (max actions, default 40)."""
+Env: THREADS (default: all cores), ACTS (max actions, default 40), SIM=1 (play the opponent's turn against the best
+boards and rank by that; also prints whether the text-ranked and the simulation-ranked #1 hold the guide's field)."""
 import json, os, sqlite3, subprocess, sys
 exe, cdb, scripts, refsf, secs = sys.argv[1:6]
 filler = sys.argv[6] if len(sys.argv) > 6 and sys.argv[6] else "Nibiru, the Primal Being"
@@ -69,6 +70,7 @@ def ask(o):
         if r.get("id") == o["id"] and (r.get("done") or r.get("error") or r.get("ready") or "score" in r): return r
 ask({"id": 1, "cmd": "init", "cdb": cdb, "scripts": scripts})
 threads = int(os.environ.get("THREADS") or os.cpu_count()); acts = int(os.environ.get("ACTS") or 40)
+SIM = bool(os.environ.get("SIM")); tally = {"hands": 0, "text": 0, "sim": 0}
 qid = 10
 for b in refs["boards"]:
     if only and only not in b["name"].lower(): continue
@@ -87,7 +89,7 @@ for b in refs["boards"]:
     for c in hand:   # the hand comes out of the Deck
         if c in main: main.remove(c)
     qid += 1
-    r = ask({"id": qid, "cmd": "search", "deck": main, "extra": deck["extra"], "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads, "top": 3, "maxActions": acts})
+    r = ask({"id": qid, "cmd": "search", "deck": main, "extra": deck["extra"], "hand": hand, "timeMs": int(float(secs) * 1000), "threads": threads, "top": 12 if SIM else 3, "maxActions": acts, "sim": SIM})
     qid += 1
     q = {"id": qid, "cmd": "score", "extra": deck["extra"], "targets": []}
     for k in ("field", "backrow", "hand", "gy", "banished"): q[k] = [code(x) for x in b.get(k, []) if code(x)]
@@ -104,7 +106,16 @@ for b in refs["boards"]:
         if b.get("missing"): verdict += "  [guide uses cards not in this deck: %s]" % ", ".join(b["missing"])
         if b.get("guessed"): verdict += "  [placement guessed: %s]" % ", ".join(b["guessed"])
         print("   -> %s" % verdict)
+        if SIM and r["boards"]:
+            has = lambda bb: all(c in bb["field"] for c in gf)
+            tb = max(r["boards"], key=lambda bb: bb.get("sim", {}).get("textScore", bb["score"]))
+            sb = r["boards"][0]
+            tally["hands"] += 1; tally["text"] += has(tb); tally["sim"] += has(sb)
+            print("   #1 by text (%.2f): %s%s" % (tb.get("sim", {}).get("textScore", tb["score"]), ", ".join(n(c) for c in tb["field"]), "  <- guide's field" if has(tb) else ""))
+            fails = sum(1 for bb in r["boards"] if not bb.get("sim", {}).get("ok")); tally["failed"] = tally.get("failed", 0) + fails; tally["boards"] = tally.get("boards", 0) + len(r["boards"])
+            print("   #1 by sim  (%.2f): %s%s%s" % (sb["score"], ", ".join(n(c) for c in sb["field"]), "  <- guide's field" if has(sb) else "", "  [%d of %d simulations failed]" % (fails, len(r["boards"])) if fails else ""))
     else: print("   engine: no boards (%s)" % r.get("error", ""))
     if os.environ.get("WHY"):
         for x in g.get("stops", []): print("      guide stop %5.2f  %s" % (x["value"], x["what"]))
+if SIM: print("\n#1 holds the guide's field: text %d / sim %d of %d hands (simulations failed: %d of %d boards)" % (tally["text"], tally["sim"], tally["hands"], tally.get("failed", 0), tally.get("boards", 0)))
 p.stdin.write(json.dumps({"cmd": "quit"}) + "\n"); p.stdin.flush()

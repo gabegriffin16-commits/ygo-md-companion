@@ -73,6 +73,7 @@ struct CardRow {
 	bool centerAware = false;  // its text cares about the center Main Monster Zone
 	bool endPhase = false;     // it does something "during the End Phase"
 	bool backAtEnd = false;    // it banishes itself "until the End Phase": still ours once the turn ends
+	bool needsChain = false;   // it acts "in response to" an activation (Zalen): used on top of our own response
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -104,7 +105,9 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		if(nm) { r.name = (const char*)nm; r.lname = evalx::lower(r.name); }
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
 		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos;
-			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos; } }
+			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos;
+			r.needsChain = ld.find("in response to") != std::string::npos; } }
+		r.ev.code = id;
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -249,18 +252,27 @@ struct Loc { uint8_t con = 0, loc = 0; uint32_t seq = 0, pos = 0; };
 static Loc rloc(Rd& r) { Loc l; l.con = r.u8(); l.loc = r.u8(); l.seq = r.u32(); l.pos = r.u32(); return l; }
 
 struct IdleItem { uint32_t code; uint64_t desc = 0; };
+// Which copy of a card: code + controller + place (+ zone, on the field). Tells a card we had when their turn started
+// from another copy that came out during it.
+static uint64_t where_key(uint32_t code, uint8_t con, uint32_t loc, uint32_t seq) {
+	bool zone = loc == LOCATION_MZONE || loc == LOCATION_SZONE;
+	return ((uint64_t)code << 32) | ((uint64_t)(con & 1) << 31) | ((uint64_t)(loc & 0x7fff) << 16) | (zone ? (seq & 0xffff) : 0xffff);
+}
 struct Prompt {
 	int type = 0; uint8_t player = 0;
-	std::vector<IdleItem> summon, spsummon, activate;
+	std::vector<IdleItem> summon, spsummon, activate, sset;   // sset: Spells/Traps that can be Set
 	bool to_ep = false;
 	uint32_t code = 0; uint64_t desc = 0;
 	std::vector<uint64_t> options;
 	uint8_t cancelable = 0, finishable = 0; uint32_t mn = 0, mx = 0;
 	std::vector<uint32_t> cards;         // SELECT_CARD / TRIBUTE / UNSELECT (select list) / SUM cards
 	std::vector<uint64_t> ckeys;         // UNSELECT: where each card is (for picking in a fixed order, see pick_order)
+	std::vector<uint8_t> ccon;           // SELECT_CARD / UNSELECT: who controls each card
 	std::vector<uint32_t> cardParam;     // SUM: per-card value
 	std::vector<uint32_t> mustParam; uint32_t acc = 0;
 	std::vector<std::pair<uint32_t, uint64_t>> chains;
+	std::vector<uint64_t> chainAt; uint64_t codeAt = 0;   // CHAIN options / EFFECTYN card: which copy (see where_key)
+	bool trig = false;                   // CHAIN: these are triggers to pick from
 	uint8_t forced = 0;
 	uint8_t count = 0; uint32_t flag = 0; uint8_t positions = 0;
 	uint64_t available = 0;
@@ -285,20 +297,20 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 			uint32_t k = r.u32();
 			for(uint32_t i = 0; i < k; i++) { IdleItem it; it.code = r.u32(); r.u8(); r.u8(); if(seq8) r.u8(); else r.u32(); if(into) into->push_back(it); }
 		};
-		lst(&m.summon, false); lst(&m.spsummon, false); lst(nullptr, true); lst(nullptr, false); lst(nullptr, false);
+		lst(&m.summon, false); lst(&m.spsummon, false); lst(nullptr, true); lst(nullptr, false); lst(&m.sset, false);
 		uint32_t k = r.u32();
 		for(uint32_t i = 0; i < k; i++) { IdleItem it; it.code = r.u32(); r.u8(); r.u8(); r.u32(); it.desc = r.u64(); r.u8(); m.activate.push_back(it); }
 		r.u8(); m.to_ep = r.u8() != 0; r.u8();
 		break;
 	}
-	case MSG_SELECT_EFFECTYN: m.code = r.u32(); rloc(r); m.desc = r.u64(); break;
+	case MSG_SELECT_EFFECTYN: { m.code = r.u32(); Loc l = rloc(r); m.codeAt = where_key(m.code, l.con, l.loc, l.seq); m.desc = r.u64(); break; }
 	case MSG_SELECT_YESNO: m.desc = r.u64(); break;
 	case MSG_SELECT_OPTION: { uint8_t k = r.u8(); for(int i = 0; i < k; i++) m.options.push_back(r.u64()); break; }
 	case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {
 		m.cancelable = r.u8(); m.mn = r.u32(); m.mx = r.u32();
 		uint32_t k = r.u32();
 		for(uint32_t i = 0; i < k; i++) {
-			if(t == MSG_SELECT_CARD) { m.cards.push_back(r.u32()); rloc(r); }
+			if(t == MSG_SELECT_CARD) { m.cards.push_back(r.u32()); m.ccon.push_back(rloc(r).con); }
 			else { m.cards.push_back(r.u32()); r.u8(); r.u8(); r.u32(); r.u8(); }
 		}
 		break;
@@ -306,14 +318,14 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 	case MSG_SELECT_UNSELECT_CARD: {
 		m.finishable = r.u8(); m.cancelable = r.u8(); m.mn = r.u32(); m.mx = r.u32();
 		auto key = [](uint32_t c, const Loc& l) { return ((uint64_t)l.con << 56) | ((uint64_t)l.loc << 48) | ((uint64_t)(l.seq & 0xffff) << 32) | c; };
-		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); m.cards.push_back(c); m.ckeys.push_back(key(c, l)); }
+		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); m.cards.push_back(c); m.ckeys.push_back(key(c, l)); m.ccon.push_back(l.con); }
 		k = r.u32(); for(uint32_t i = 0; i < k; i++) { r.u32(); rloc(r); }
 		break;
 	}
 	case MSG_SELECT_CHAIN: {
-		r.u8(); m.forced = r.u8(); r.u32(); r.u32();
+		m.trig = r.u8() == 0x7f; m.forced = r.u8(); r.u32(); r.u32();   // 0x7f: choosing among triggers (not a Quick Effect window)
 		uint32_t k = r.u32();
-		for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); rloc(r); uint64_t d = r.u64(); r.u8(); m.chains.push_back({c, d}); }
+		for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); uint64_t d = r.u64(); r.u8(); m.chains.push_back({c, d}); m.chainAt.push_back(where_key(c, l.con, l.loc, l.seq)); }
 		break;
 	}
 	case MSG_SELECT_PLACE: case MSG_SELECT_DISFIELD: m.count = r.u8(); m.flag = r.u32(); break;
@@ -357,7 +369,7 @@ static Bytes r_position(const Prompt& m) {
 }
 
 // ------------------------------------------------------------------ duel
-struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand; };
+struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExtra; };   // oppDeck/oppExtra: the opponent's-turn simulation
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
 void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
@@ -374,6 +386,8 @@ static std::atomic<bool> g_zones{false};
 struct Duel {
 	OCG_Duel h = nullptr;
 	uint64_t lastHint[2] = {0, 0};
+	int turnPlayer = 0, turns = 0, phase = 0;   // whose turn it is (how many turns have started) and the phase
+	std::vector<uint64_t>* left = nullptr;      // if set: cards that left a Monster / Spell & Trap Zone (where_key of the zone left)
 	// A reused duel slowly keeps a little memory from each game, so after this many reuses it's rebuilt.
 	static constexpr int MAX_REUSE = 150;
 	explicit Duel(const Setup& s) {
@@ -394,7 +408,9 @@ struct Duel {
 		for(int i = 0; i < BLANKS; i++) add(0, BLANK, LOCATION_DECK);
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
 		for(uint32_t c : s.hand) add(0, c, LOCATION_HAND);
-		for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
+		if(s.oppDeck.empty()) for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
+		for(uint32_t c : s.oppDeck) add(1, c, LOCATION_DECK);
+		for(uint32_t c : s.oppExtra) add(1, c, LOCATION_EXTRA);
 		for(uint32_t c : s.oppHand) add(1, c, LOCATION_HAND);   // handtraps for "what if they hit this" searches
 		OCG_StartDuel(h);
 	}
@@ -431,6 +447,10 @@ struct Duel {
 					if(t == MSG_RETRY) { retry = true; return false; }
 					if(t == MSG_WIN) return false;
 					if(t == MSG_HINT && ln >= 11 && body[1] == 3 && body[2] < 2) std::memcpy(&lastHint[body[2]], body + 3, 8);   // HINT_SELECTMSG
+					if(t == MSG_NEW_TURN && ln >= 2) { turnPlayer = body[1]; turns++; phase = 0; }
+					if(t == MSG_NEW_PHASE && ln >= 3) { uint16_t ph; std::memcpy(&ph, body + 1, 2); phase = ph; }
+					if(t == MSG_MOVE && left && ln >= 15) { uint32_t code, seq; std::memcpy(&code, body + 1, 4); std::memcpy(&seq, body + 7, 4);
+						if(body[6] & (LOCATION_MZONE | LOCATION_SZONE)) left->push_back(where_key(code, body[5], body[6], seq)); }
 					if(is_prompt(t)) { out = parse_prompt(t, body + 1, ln - 1); if(out.player < 2) { out.hint = lastHint[out.player]; lastHint[out.player] = 0; } got = true; }
 				}
 				o += 4 + ln;
@@ -441,6 +461,30 @@ struct Duel {
 		return false;
 	}
 	void respond(const Bytes& b) { OCG_DuelSetResponse(h, b.data(), (uint32_t)b.size()); }
+	// A player's cards in one place: code, position and ATK (for the simulation's checks on the opponent).
+	struct Seen { uint32_t code = 0, pos = 0, seq = 0; int32_t atk = 0; };
+	std::vector<Seen> look(uint8_t player, uint32_t loc) {
+		OCG_QueryInfo q{QUERY_CODE | QUERY_POSITION | QUERY_ATTACK, player, loc, 0, 0};
+		uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q);
+		std::vector<Seen> out; Rd r(p, n, 4); int slot = -1;
+		while(r.o + 2 <= n) {
+			slot++;
+			uint16_t sz = r.u16();
+			if(sz == 0) continue;
+			Seen c; c.seq = (uint32_t)slot;
+			for(;;) {
+				uint32_t flag = r.u32();
+				if(flag == QUERY_END) break;
+				size_t start = r.o;
+				uint32_t v = r.u32();
+				if(flag == QUERY_CODE) c.code = v; else if(flag == QUERY_POSITION) c.pos = v; else if(flag == QUERY_ATTACK) c.atk = (int32_t)v;
+				r.o = start + (sz - 4);
+				sz = r.u16();
+			}
+			if(c.code) out.push_back(c);
+		}
+		return out;
+	}
 	std::vector<uint32_t> cards(uint32_t loc, bool faceupOnly = false, std::vector<int>* slots = nullptr) {
 		OCG_QueryInfo q{QUERY_CODE | QUERY_POSITION, 0, loc, 0, 0};
 		uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q);
@@ -470,7 +514,7 @@ struct Duel {
 // ------------------------------------------------------------------ search
 struct Step { std::string kind; uint32_t card = 0; std::string effect; std::vector<uint32_t> picks;
 	std::vector<std::pair<uint32_t, std::vector<uint32_t>>> groups; };   // picks grouped by what they were for (hint id)
-struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; uint32_t hint = 0; uint64_t pkey = 0; std::shared_ptr<const std::vector<uint64_t>> avail; };   // avail: every card pickable alongside it
+struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; uint32_t hint = 0; uint64_t pkey = 0; std::shared_ptr<const std::vector<uint64_t>> avail; int ptype = 0; };   // ptype: the prompt it answers (0: any)   // avail: every card pickable alongside it
 
 static std::vector<Opt> dedupe(std::vector<Opt> v) {
 	std::set<std::string> seen; std::vector<Opt> out;
@@ -480,7 +524,7 @@ static std::vector<Opt> dedupe(std::vector<Opt> v) {
 static std::vector<Opt> choices0(const Prompt& m);
 static std::vector<Opt> choices(const Prompt& m) {
 	std::vector<Opt> v = choices0(m);
-	for(auto& o : v) if(!o.picks.empty()) o.hint = (uint32_t)m.hint;
+	for(auto& o : v) { if(!o.picks.empty()) o.hint = (uint32_t)m.hint; o.ptype = m.type; }
 	return v;
 }
 static std::vector<Opt> choices0(const Prompt& m) {
@@ -550,7 +594,7 @@ static std::vector<Opt> choices0(const Prompt& m) {
 }
 
 struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished, extra; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
-struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; };
+struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; std::vector<Bytes> mine; std::vector<int> mineType; };   // mine: our own responses (replays the line even when the opponent gets extra prompts)
 
 struct Search {
 	Setup setup;
@@ -567,7 +611,7 @@ struct Search {
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
 	// ending: the turn was ended and the End Phase is being played out (see ep_worth).
-	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; uint64_t lastPick = 0; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; };
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; uint64_t lastPick = 0; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; std::vector<Bytes> mine; std::vector<int> mineType; };
 	// Is the End Phase worth playing out? Only when a card we have mentions it (Ecclesia / Cartesia adding themselves
 	// back, Branded searches): otherwise the board at "end turn" is already final and searches stay as fast as before.
 	static bool ep_worth(const Board& b) {
@@ -621,7 +665,8 @@ struct Search {
 			auto at = std::find(moved.banished.begin(), moved.banished.end(), c); moved.banished.erase(at); moved.mzone.push_back(c); moved.mslot.resize(moved.mzone.size() - 1, -1); moved.mslot.push_back(-1); }
 		const Board& b = *bp;
 		// stops: (value, what) — "what" is only filled in when a breakdown is asked for.
-		std::vector<std::pair<double, std::string>> stops; double s = 0;
+		struct Stop { double first; std::string second; uint32_t code; };   // value, what (breakdown only), the card that acts on their turn
+		std::vector<Stop> stops; double s = 0;
 		auto nm = [&](uint32_t c) { return why ? card_name(c) : std::string(); };
 		auto add = [&](double v, const std::string& what) { s += v; if(why && v != 0) (*why)["flat"].push_back({{"what", what}, {"value", v}}); };
 		std::vector<const CardEval*> revivers;   // cards that can bring a monster back from the GY on their turn
@@ -641,7 +686,7 @@ struct Search {
 			// with Favorite Contact; its own generic "summons something" share is dropped.
 			bool fuses = works && knowExtra && e->fusionAt == CardEval::AT_FIELD;
 			if(fuses) fusers.push_back(e);
-			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field, nm(c)});
+			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field, nm(c), c});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
@@ -649,7 +694,7 @@ struct Search {
 			const CardEval* e = ev(c); if(!e) { add(0.3, "backrow card"); continue; }
 			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); add(e->lock, why ? "lock: " + nm(c) : ""); continue; }
 			double v = std::max(e->set, e->field);
-			if(v > 0) stops.push_back({v, nm(c) + " (set)"}); else add(0.3, why ? "backrow: " + nm(c) : "");
+			if(v > 0) stops.push_back({v, nm(c) + " (set)", c}); else add(0.3, why ? "backrow: " + nm(c) : "");
 			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(e->lock, why ? "lock: " + nm(c) : "");
 		}
@@ -659,14 +704,14 @@ struct Search {
 			const CardEval* e = ev(c);
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
-			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set, nm(c) + " (set from hand)"}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
-			else if(e && e->hand > 0) { stops.push_back({e->hand, nm(c) + " (hand)"}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set, nm(c) + " (set from hand)", c}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
+			else if(e && e->hand > 0) { stops.push_back({e->hand, nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
 			// Anything else is for later: an extender for their turn, a starter for our next turn, or just a card.
 			else if(e && e->handExtender) add(0.8, why ? "hand (extender on their turn): " + nm(c) : "");
 			else if(e && e->starter) add(0.6, why ? "hand (starter next turn): " + nm(c) : "");
 			else add(0.3, why ? "hand: " + nm(c) : "");   // (or one drawn during the line)
 		}
-		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)"}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
+		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)", c}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
 		// Revival: each reviver brings back the best monster in the GY that fits what it asks for, and that monster's
 		// interruption counts too (an Elfnote that June Pride or Rhapsodia returns on their turn). Any-monster
 		// revivers count for less: their text often has conditions this doesn't read (Type, Attribute).
@@ -702,7 +747,7 @@ struct Search {
 				if(best < 0) continue;
 				used[pick] = 1;
 				double own = val(pick);
-				if(own > 0) stops.push_back({own * (r->reviveTag.empty() ? 0.5 : 0.7), why ? "revive " + nm(b.grave[pick]) : ""}); else add(0.3, why ? "revive body: " + nm(b.grave[pick]) : "");
+				if(own > 0) stops.push_back({own * (r->reviveTag.empty() ? 0.5 : 0.7), why ? "revive " + nm(b.grave[pick]) : "", r->code}); else add(0.3, why ? "revive body: " + nm(b.grave[pick]) : "");
 				if(row(pick)->ev.reviveAt == CardEval::AT_FIELD) revivers.push_back(&row(pick)->ev);   // and it revives in turn
 			}
 		}
@@ -757,12 +802,12 @@ struct Search {
 				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; made = fc; }
 			}
 			if(best < 0) { add(0.3, "dead Fusion card (nothing to make)"); continue; }
-			stops.push_back({best, why ? "fusion into " + nm(made) : ""});
+			stops.push_back({best, why ? "fusion into " + nm(made) : "", fz->code});
 			if(goal) add(8, why ? "goal via fusion: " + nm(made) : "");
 		}
 		std::sort(stops.begin(), stops.end(), [](const auto& x, const auto& y) { return x.first > y.first; });
 		double f = 1.0;
-		for(const auto& st : stops) { s += st.first * f; if(why) (*why)["stops"].push_back({{"what", st.second}, {"value", st.first}, {"counts", st.first * f}}); f = std::max(0.5, f - 0.1); }
+		for(const auto& st : stops) { s += st.first * f; if(why) (*why)["stops"].push_back({{"what", st.second}, {"value", st.first}, {"counts", st.first * f}, {"code", st.code}}); f = std::max(0.5, f - 0.1); }
 		for(uint32_t c : b.mzone) if(targets.count(c)) add(8, why ? "goal: " + nm(c) : "");
 		for(uint32_t c : b.szone) if(targets.count(c)) add(8, why ? "goal: " + nm(c) : "");
 		if(why) (*why)["total"] = s;
@@ -781,7 +826,7 @@ struct Search {
 		double sc = score_of(b);   // can differ for the same visible cards: what's in the GY to revive
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
-		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; boards[k] = f; }
+		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; f.mine = st.mine; f.mineType = st.mineType; boards[k] = f; }
 		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); bestPath = st.path; }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
@@ -874,7 +919,7 @@ struct Search {
 		}
 		}
 	}
-	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; st.lastPick = o.pkey; st.pickedFrom = o.avail; }
+	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.mine.push_back(o.resp); st.mineType.push_back(o.ptype); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; st.lastPick = o.pkey; st.pickedFrom = o.avail; }
 	// Cards picked one at a time: picking A then B ends where B then A does, so after one of our picks only cards that
 	// come later (by where they are) are offered, and each set is tried once instead of once per order. Only our own
 	// picks count (not a material the game selected for us), and only cards that were pickable then are skipped: some
@@ -1140,6 +1185,284 @@ struct Search {
 			cv.notify_all();
 		}
 	}
+	// ---------------- the opponent's turn, played out (re-ranks the best boards) ----------------
+	// Text scoring guesses what a board stops; this plays the opponent's turn for real against each finished board and
+	// checks. The opponent is a fixed "probe" hand where each card stands for one kind of play:
+	//   H  Evil HERO Adusted Gold: a monster effect from the hand that adds from the Deck (Dark Fusion)
+	//   S  Reinforcement of the Army: a Spell that adds from the Deck (Celtic Guardian)
+	//   N  Goblindbergh: a Normal Summon...   T  ...whose trigger Special Summons from the hand (Photon Chargeman)
+	//   F  Photon Chargeman: a monster effect on the field (doubles its ATK)
+	//   X  Gagaga Cowboy: an Extra Deck summon (Goblindbergh + Chargeman)
+	// and a second wave that doesn't depend on the first (so a board's 3rd and 4th interruption still get a target after
+	// the Goblindbergh line is stopped):
+	//   S2 Pot of Greed, S3 Upstart Goblin: more Spells     M2 Photon Thrasher: a monster that comes when their field is empty
+	// None of them has a Quick Effect, so they can't act on our turn. Our side: every choice on their turn (chain or
+	// pass, targets, options) is searched (bounded local search, see simulate), keeping what stops the most; one of our
+	// own interruptions per opponent play (triggers and cards made during their turn aside). A play counts as stopped only if it was tried and its result didn't happen, checked on the field
+	// (the added card isn't in hand, the monster isn't there, the ATK didn't double). Plays that never came because an
+	// earlier one was stopped give no credit (otherwise negating the Normal Summon would score three plays).
+	static constexpr uint32_t P_ADUSTED = 13650422, P_DFUSION = 94820406, P_REINFORCE = 32807846, P_CELTIC = 91152256,
+		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484;
+	static constexpr int PLAYS = 8, THREATS = 9;   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
+	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell"};
+	struct SimDec { int step; bool act, quick; int pass; };   // one of our decisions: during which play, an activation (a Quick Effect, not a trigger), which option passes
+	struct SimRun { bool ok = false; bool att[THREATS] = {}, stop[THREATS] = {}; int stopsAt[PLAYS] = {}; std::vector<std::pair<double, uint32_t>> credits; std::vector<int> creditPlay; int used = 0; std::vector<SimDec> decs; };
+	static double card_value(uint32_t c) {   // what one of our cards' interruption is worth (its text value; 1 if the text missed it)
+		auto it = g_cards.find(c); if(it == g_cards.end()) return 1.0;
+		const CardEval& e = it->second.ev;
+		double v = std::max({(double)e.field, (double)e.set, (double)e.hand, e.gy * 0.8, (double)e.onSummon});
+		return v > 0 ? v : 1.0;
+	}
+	static double falloff(std::vector<double> v) { std::sort(v.rbegin(), v.rend()); double s = 0, f = 1.0; for(double x : v) { s += x * f; f = std::max(0.5, f - 0.1); } return s; }
+	Setup sim_setup() const {
+		Setup s = setup;
+		s.oppHand = {P_ADUSTED, P_REINFORCE, P_GOBLIN, P_CHARGE, P_POT, P_THRASHER, P_UPSTART};
+		s.oppDeck = {P_DFUSION, P_DFUSION, P_CELTIC, P_CELTIC}; for(int i = 0; i < 8; i++) s.oppDeck.push_back(DUMMY);
+		s.oppExtra = {P_COWBOY};
+		return s;
+	}
+	// One play-through. `forced` picks our options at each decision (index; past its end: the first option), and the
+	// options seen are written to `counts` / `chosen` so the caller can walk every combination.
+	bool sim_once(const Found& f, const Setup& s, const std::vector<int>& forced, std::vector<int>& chosen, std::vector<int>& counts, std::set<uint32_t>& offered, SimRun& R) const {
+		Duel d(s); if(!d.h) return false;
+		std::vector<uint64_t> left; d.left = &left;
+		Prompt m; bool retry;
+		if(!d.run(m, retry)) return false;
+		size_t mi = 0, bi = 0;
+		int step = -1, actedAt = -2;          // the opponent's last play (index in the order of plays below), and the play we last used a card on
+		bool tried[PLAYS] = {}, done[PLAYS] = {}, gobTrig = false, reached = false, snapped = false;
+		std::vector<uint32_t> acts[PLAYS];    // our activations while each play was going on
+		std::set<uint64_t> ours;              // our cards when their turn started, by copy (anything else came out during it)
+		std::vector<char> actsOurs[PLAYS];    // whether each activation was by a card we had (decided when it activated)
+		struct Before { int dfusion = 0, celtic = 0, charge = 0, hand = 0; } before;   // what each play's success check compares against
+		auto count = [&](uint32_t loc, uint32_t code) { int n = 0; for(auto& c : d.look(1, loc)) if(c.code == code && (loc != LOCATION_MZONE || (c.pos & POS_FACEUP))) n++; return n; };
+		auto judge = [&](int k) {
+			if(k < 0 || !tried[k] || done[k]) return; done[k] = true;
+			int stops = 0;
+			auto mark = [&](int t, bool stopped) { R.att[t] = true; R.stop[t] = stopped; stops += stopped; R.stopsAt[k] += stopped; };
+			int hand = (int)d.look(1, LOCATION_HAND).size();
+			switch(k) {
+			case 0: mark(0, count(LOCATION_HAND, P_DFUSION) <= before.dfusion); break;
+			case 1: mark(1, count(LOCATION_HAND, P_CELTIC) <= before.celtic); break;
+			case 2: mark(2, count(LOCATION_MZONE, P_GOBLIN) == 0); if(gobTrig) mark(3, count(LOCATION_MZONE, P_CHARGE) <= before.charge); break;
+			case 3: { bool doubled = false; for(auto& c : d.look(1, LOCATION_MZONE)) if(c.code == P_CHARGE && (c.pos & POS_FACEUP) && c.atk >= 2000) doubled = true; mark(4, !doubled); break; }
+			case 4: mark(5, count(LOCATION_MZONE, P_COWBOY) == 0); break;
+			case 5: mark(6, hand < before.hand + 1); break;   // Pot: -1 (itself) +2
+			case 6: mark(7, count(LOCATION_MZONE, P_THRASHER) == 0); break;
+			case 7: mark(8, hand < before.hand); break;       // Upstart: -1 +1
+			}
+			// Credit: one per interruption, at its card's value, best first. A card that only came out during their turn
+			// (the Shining Neos Wingman a Favorite Contact made) is part of the activation that brought it when both act
+			// on the same play; on a later play it counts on its own (the RS a Remix made, negating later). One
+			// interruption stopping two plays (destroying Goblindbergh before its trigger resolves) adds 0.3, not a 2nd card.
+			std::vector<std::pair<double, uint32_t>> vals; int base = 0, made = 0;
+			for(size_t i = 0; i < acts[k].size(); i++) { uint32_t c = acts[k][i]; vals.push_back({card_value(c), c}); (actsOurs[k][i] ? base : made)++; }
+			std::sort(vals.rbegin(), vals.rend());
+			int inter = base + (base == 0 ? made : 0);
+			for(int i = 0; i < stops; i++) { R.credits.push_back(i < inter ? vals[i] : std::make_pair(0.3, 0u)); R.creditPlay.push_back(k); }
+		};
+		auto opp_default = [&](const Prompt& p) -> Bytes {
+			switch(p.type) {
+			case MSG_SELECT_CHAIN: {
+				if(d.turnPlayer == 1) for(size_t i = 0; i < p.chains.size(); i++) if(p.chains[i].first == P_GOBLIN) { gobTrig = true; return p32((int)i); }
+				return p32(p.forced && !p.chains.empty() ? 0 : -1);
+			}
+			case MSG_SELECT_EFFECTYN: if(d.turnPlayer == 1 && p.code == P_GOBLIN) gobTrig = true; return p32(d.turnPlayer == 1 ? 1 : 0);
+			case MSG_SELECT_YESNO: return p32(d.turnPlayer == 1 ? 1 : 0);
+			case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {   // their picks: Chargeman for Goblindbergh, the two for the Xyz
+				std::vector<uint32_t> idx;
+				for(uint32_t want : {P_CHARGE, P_GOBLIN, P_CELTIC, P_DFUSION}) for(size_t i = 0; i < p.cards.size() && idx.size() < std::max<uint32_t>(p.mn, 1); i++)
+					if(p.cards[i] == want && std::find(idx.begin(), idx.end(), (uint32_t)i) == idx.end()) idx.push_back((uint32_t)i);
+				for(size_t i = 0; i < p.cards.size() && idx.size() < std::max<uint32_t>(p.mn, 1); i++) if(std::find(idx.begin(), idx.end(), (uint32_t)i) == idx.end()) idx.push_back((uint32_t)i);
+				return r_cards(idx);
+			}
+			case MSG_SELECT_UNSELECT_CARD: {
+				for(uint32_t want : {P_CHARGE, P_GOBLIN}) for(size_t i = 0; i < p.cards.size(); i++) if(p.cards[i] == want) return r_unselect((int)i);
+				return r_unselect(p.finishable || p.cards.empty() ? -1 : 0);
+			}
+			default: { std::vector<Opt> c = choices(p); return c.empty() ? p32(0) : c[0].resp; }
+			}
+		};
+		// Before our turn ends, Traps and Quick-Plays in hand get Set (the text score counts them as Set too).
+		auto set_one = [&](const Prompt& p) -> int {
+			for(size_t i = 0; i < p.sset.size(); i++) { auto it = g_cards.find(p.sset[i].code); if(it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)))) return (int)i; }
+			return -1;
+		};
+		const Bytes endTurn = r_idle(7, 0);
+		auto our_default = [&](const Prompt& p) -> Bytes {
+			if(p.type == MSG_SELECT_IDLECMD) { int i = set_one(p); return i >= 0 ? r_idle(4, i) : endTurn; }   // the line is over: Set, then end the turn
+			if(p.type == MSG_SELECT_CHAIN) return p32(p.forced && !p.chains.empty() ? 0 : -1);
+			if(p.type == MSG_SELECT_EFFECTYN || p.type == MSG_SELECT_YESNO) return p32(1);
+			std::vector<Opt> c = choices(p); return c.empty() ? p32(0) : c[0].resp;
+		};
+		for(int guard = 0; guard < 20000; guard++) {
+			Bytes resp;
+			bool theirTurn = d.turnPlayer == 1 && d.turns >= 2;
+			if(theirTurn && !snapped) { snapped = true; for(uint32_t loc : {LOCATION_MZONE, LOCATION_SZONE, LOCATION_HAND, LOCATION_GRAVE, LOCATION_REMOVED}) for(auto& c : d.look(0, loc)) ours.insert(where_key(c.code, 0, loc, c.seq)); }
+			// A card of ours that left its zone is gone: a copy that later lands in the same zone came out during their turn.
+			if(snapped) for(uint64_t k : left) ours.erase(k);
+			left.clear();
+			if(theirTurn && d.phase >= PHASE_BATTLE_START) break;   // their Main Phase is over
+			if(m.player == 0 && mi < f.mine.size() && !(theirTurn && d.phase == PHASE_MAIN1 && reached)) {   // our line
+				// A prompt the line never saw (the opponent holding cards adds "look at their hand" options): answer it by
+				// default and keep the line's next response for its own prompt.
+				if(mi < f.mineType.size() && f.mineType[mi] && f.mineType[mi] != m.type) resp = our_default(m);
+				else { int si = (!theirTurn && m.type == MSG_SELECT_IDLECMD && f.mine[mi] == endTurn) ? set_one(m) : -1;
+					resp = si >= 0 ? r_idle(4, si) : f.mine[mi++]; }
+			}
+			else if(m.player == 1 && theirTurn && m.type == MSG_SELECT_IDLECMD) {
+				reached = true;
+				judge(step);
+				// their next play: the first one still to come that they can make now
+				int next = -1; Bytes r;
+				for(int k = step + 1; k < PLAYS && next < 0; k++) {
+					auto find = [&](const std::vector<IdleItem>& v, uint32_t code) { for(size_t i = 0; i < v.size(); i++) if(v[i].code == code) return (int)i; return -1; };
+					int i = -1;
+					if(k == 0 && (i = find(m.activate, P_ADUSTED)) >= 0) r = r_idle(5, i);
+					else if(k == 1 && (i = find(m.activate, P_REINFORCE)) >= 0) r = r_idle(5, i);
+					else if(k == 2 && (i = find(m.summon, P_GOBLIN)) >= 0) r = r_idle(0, i);
+					else if(k == 3 && (i = find(m.activate, P_CHARGE)) >= 0) r = r_idle(5, i);
+					else if(k == 4 && (i = find(m.spsummon, P_COWBOY)) >= 0) r = r_idle(1, i);
+					else if(k == 5 && (i = find(m.activate, P_POT)) >= 0) r = r_idle(5, i);
+					else if(k == 6 && (i = find(m.spsummon, P_THRASHER)) >= 0) r = r_idle(1, i);
+					else if(k == 7 && (i = find(m.activate, P_UPSTART)) >= 0) r = r_idle(5, i);
+					if(i >= 0) next = k;
+				}
+				if(next < 0) break;   // nothing left for them to do
+				step = next; tried[step] = true;
+				before.dfusion = count(LOCATION_HAND, P_DFUSION); before.celtic = count(LOCATION_HAND, P_CELTIC); before.charge = count(LOCATION_MZONE, P_CHARGE);
+				before.hand = (int)d.look(1, LOCATION_HAND).size();
+				resp = r;
+			}
+			else if(m.player == 1) resp = opp_default(m);
+			else if(theirTurn && d.phase == PHASE_MAIN1) {
+				// Our decision on their turn.
+				std::vector<Opt> opts; std::vector<uint32_t> actCode; std::vector<uint64_t> actAt;   // actCode: the card each option activates (0 = none); actAt: which copy
+				if(m.type == MSG_SELECT_CHAIN && !m.forced && !m.chains.empty()) {
+					for(auto& c : m.chains) offered.insert(c.first);
+					// One Quick Effect of ours per opponent play: stacking two negates on one play is never what a player wants,
+					// and it keeps the search small. Triggers (the Wingman a Favorite Contact made destroying on summon, Kewl
+					// Tune Mix destroying when used as material) are part of what's already going on: always offered. So are
+					// cards that only work "in response to" an activation (Zalen negating the first link once we respond).
+					auto chainer = [&](uint32_t c) { auto it = g_cards.find(c); return it != g_cards.end() && it->second.needsChain; };
+					for(size_t i = 0; i < m.chains.size(); i++) if(actedAt != step || m.trig || chainer(m.chains[i].first)) { Opt o; o.resp = p32((int)i); opts.push_back(o); actCode.push_back(m.chains[i].first); actAt.push_back(i < m.chainAt.size() ? m.chainAt[i] : 0); }
+					Opt pass; pass.resp = p32(-1); opts.push_back(pass); actCode.push_back(0); actAt.push_back(0);
+				} else if(m.type == MSG_SELECT_EFFECTYN) {
+					offered.insert(m.code);
+					Opt y; y.resp = p32(1); Opt n; n.resp = p32(0);
+					opts = {y, n}; actCode = {m.code, 0}; actAt = {m.codeAt, 0};
+				} else if(m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_OPTION || m.type == MSG_SELECT_SUM || m.type == MSG_SELECT_TRIBUTE) {
+					// Targets / materials / options for our effects: their cards first (what's being stopped), then what's
+					// worth most (the Fusion with the best effect); the search tries the top three.
+					opts = choices(m);
+					auto rank = [&](const Opt& o) { double v = 0; for(uint32_t c : o.picks) { size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
+						bool theirs = at < m.ccon.size() && m.ccon[at] == 1; v += theirs ? 10 : 0; if(!theirs) { auto it = g_cards.find(c); if(it != g_cards.end()) v += std::max({(double)it->second.ev.field, (double)it->second.ev.onSummon, 0.0}) * 0.1; } }
+						return o.label == "finish" ? -1.0 : v; };
+					std::stable_sort(opts.begin(), opts.end(), [&](const Opt& a, const Opt& b) { return rank(a) > rank(b); });
+					if(opts.size() > 3) opts.resize(3);
+					actCode.assign(opts.size(), 0); actAt.assign(opts.size(), 0);
+				}
+				if(opts.size() > 1) {
+					int pick = bi < forced.size() ? std::min<int>(forced[bi], (int)opts.size() - 1) : 0;
+					bi++; counts.push_back((int)opts.size()); chosen.push_back(pick);
+					int passAt = m.type == MSG_SELECT_CHAIN ? (int)opts.size() - 1 : m.type == MSG_SELECT_EFFECTYN ? 1 : -1;
+					bool quick = m.type == MSG_SELECT_CHAIN && !m.trig;
+					R.decs.push_back({step, actCode[pick] != 0, quick, passAt});
+					if(actCode[pick]) { if(step >= 0) { acts[step].push_back(actCode[pick]); actsOurs[step].push_back(ours.count(actAt[pick]) > 0); } if(quick) actedAt = step; R.used++; }
+					static const bool slog = getenv("MDC_SIMLOG") != nullptr;
+					if(slog) fprintf(stderr, "  dec#%zu play %d type %d: %d of %zu%s\n", bi - 1, step, m.type, pick, opts.size(), actCode[pick] ? (" activates " + card_name(actCode[pick])).c_str() : "");
+					resp = opts[pick].resp;
+				} else resp = opts.empty() ? our_default(m) : opts[0].resp;
+			}
+			else {
+				if(theirTurn && m.type == MSG_SELECT_CHAIN) for(auto& c : m.chains) offered.insert(c.first);
+				resp = our_default(m);
+			}
+			d.respond(resp);
+			if(!d.run(m, retry)) {
+				if(retry || !reached) { if(getenv("MDC_SIMLOG")) fprintf(stderr, "sim fail: %s at mine %zu/%zu, turn %d (player %d) phase %d, prompt type %d for player %d\n", retry ? "invalid response" : "duel ended", mi, f.mine.size(), d.turns, d.turnPlayer, d.phase, m.type, m.player);
+					if(getenv("MDC_SIMLOG")) { for(size_t q = mi >= 4 ? mi - 4 : 0; q < mi && q < f.labels.size(); q++) fprintf(stderr, "   line: %s\n", f.labels[q].c_str());
+						for(uint64_t o : m.options) fprintf(stderr, "   option now: %s\n", desc_text(o).c_str()); }
+					return false; }
+				break;
+			}
+		}
+		if(!reached) { if(getenv("MDC_SIMLOG")) fprintf(stderr, "sim fail: never reached their Main Phase (mine %zu/%zu, turn %d phase %d, last prompt type %d player %d)\n", mi, f.mine.size(), d.turns, d.phase, m.type, m.player); return false; }
+		judge(step);
+		R.ok = true;
+		return true;
+	}
+	// Re-score a finished board by playing their turn: the text score's stops are replaced by what actually stopped
+	// something (credited at the stopping card's value); cards that never got a chance to act (their trigger isn't one
+	// of the probe plays: Nibiru, battle effects) keep half their text value; cards that had the chance and stopped
+	// nothing count 0.
+	json simulate(const Found& f, double& out) const {
+		const Setup s = sim_setup();
+		static const int budget = getenv("MDC_SIMRUNS") ? atoi(getenv("MDC_SIMRUNS")) : 48;
+		std::set<uint32_t> offered;
+		// Our choices on their turn, by local search: start from "use everything as soon as it can be used", then try
+		// changing one decision at a time (pass instead, another card, another target), replaying the rest greedily, and
+		// keep a change when it stops more (or the same with fewer cards used). Sweeps repeat until nothing improves.
+		// This drops interruptions wasted on plays they can't stop, and keeps setup plays (a Remix that makes the RS
+		// that negates later): dropping those lowers the total, so that change is rejected.
+		int runs = 0;
+		auto play = [&](const std::vector<int>& forced, std::vector<int>& chosen, std::vector<int>& counts, SimRun& R) -> double {
+			chosen.clear(); counts.clear(); runs++;
+			if(!sim_once(f, s, forced, chosen, counts, offered, R)) return -1e9;   // the line didn't replay
+			std::vector<double> v; for(auto& c : R.credits) v.push_back(c.first);
+			return falloff(v) - 0.01 * R.used;   // equal stops: fewer cards used is better
+		};
+		SimRun best; std::vector<int> bestChosen, bestCounts;
+		double bestV = play({}, bestChosen, bestCounts, best);
+		if(bestV < -1e8) { out = f.score; return {{"ok", false}, {"runs", runs}}; }
+		// Waste removal first: Quick Effects used on a play beyond the number of plays stopped there (stacked on one play,
+		// or used where they stopped nothing, or before they did anything) all become passes at once, the rest replayed
+		// greedily, while that doesn't lower the total. Changing one at a time can't do this: passing one wasted card
+		// just wastes it on the next play, same total. Triggers aren't touched (a Wingman's destroy is how its Favorite
+		// Contact stops something).
+		for(int it = 0; it < 8 && runs < budget; it++) {
+			std::vector<int> forced; size_t last = 0; bool any = false; int seen[PLAYS] = {};
+			for(size_t i = 0; i < bestChosen.size() && i < best.decs.size(); i++) {
+				const SimDec& dc = best.decs[i];
+				bool wasted = dc.act && dc.quick && dc.pass >= 0 && (dc.step < 0 || seen[dc.step]++ >= best.stopsAt[dc.step]);
+				forced.push_back(wasted ? dc.pass : bestChosen[i]);
+				if(wasted) { any = true; last = i; }
+			}
+			if(!any) break;
+			forced.resize(last + 1);
+			std::vector<int> ch, cn; SimRun R;
+			double v = play(forced, ch, cn, R);
+			if(getenv("MDC_SIMLOG")) fprintf(stderr, "waste pass %d: %.2f (best %.2f)\n", it, v, bestV);
+			if(v < bestV - 1e-9) break;
+			bestV = v; best = R; bestChosen = ch; bestCounts = cn;
+		}
+		for(bool improved = true; improved && runs < budget;) {
+			improved = false;
+			for(size_t i = 0; i < bestChosen.size() && runs < budget && !improved; i++)
+				for(int alt = 0; alt < bestCounts[i] && runs < budget; alt++) {
+					if(alt == bestChosen[i]) continue;
+					std::vector<int> forced(bestChosen.begin(), bestChosen.begin() + i); forced.push_back(alt);
+					std::vector<int> ch, cn; SimRun R;
+					double v = play(forced, ch, cn, R);
+					if(v > bestV + 1e-9) { bestV = v; best = R; bestChosen = ch; bestCounts = cn; improved = true; break; }
+				}
+		}
+		json why = json::object(); double text = score_of(f.board, &why);
+		double textStops = 0; std::vector<double> sims; json untested = json::array(), credits = json::array();
+		if(why.contains("stops")) for(auto& st : why["stops"]) {
+			textStops += st["counts"].get<double>();
+			uint32_t c = st.value("code", 0u);
+			if(c && !offered.count(c)) { sims.push_back(st["value"].get<double>() * 0.5); untested.push_back({{"card", c}, {"value", st["value"].get<double>() * 0.5}}); }
+		}
+		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell"};
+		for(size_t i = 0; i < best.credits.size(); i++) { const auto& c = best.credits[i]; sims.push_back(c.first);
+			credits.push_back({{"card", c.second}, {"value", c.first}, {"play", i < best.creditPlay.size() ? PLAY[best.creditPlay[i]] : ""}}); }
+		out = text - textStops + falloff(sims);
+		json th = json::array(); for(int t = 0; t < THREATS; t++) th.push_back({{"play", THREAT[t]}, {"tried", best.att[t]}, {"stopped", best.stop[t]}});
+		return {{"ok", true}, {"text", text}, {"plays", th}, {"credits", credits}, {"untested", untested}, {"runs", runs}};
+	}
+	bool simOn = false;
+
 	json run(int id) {
 		t0 = Clock::now();
 		std::vector<std::thread> ts;
@@ -1167,9 +1490,38 @@ struct Search {
 		std::sort(all.begin(), all.end(), [](const Found& a, const Found& b) { return a.score != b.score ? a.score > b.score : a.steps.size() < b.steps.size(); });
 		json res = json::array();
 		std::set<std::string> fieldSeen;
+		std::vector<Found> picked;
 		for(const Found& f : all) {
 			std::string fk = key_of(f.board.mzone) + "|" + key_of(f.board.szone);
 			if(!fieldSeen.insert(fk).second) continue;   // same field, different hand: keep the best one only
+			picked.push_back(f);
+			if(picked.size() >= top) break;
+		}
+		// Play the opponent's turn against each picked board (in parallel) and rank them by what really stops them.
+		std::vector<json> sims(picked.size());
+		double simSecs = 0;
+		if(simOn && !interrupting() && !picked.empty()) {
+			auto ts0 = Clock::now();
+			std::atomic<size_t> nx{0}; std::vector<std::thread> st;
+			int simThreads = getenv("MDC_SIMLOG") ? 1 : std::max(1, std::min<int>(threads, (int)picked.size()));   // one at a time when logging
+			for(int i = 0; i < simThreads; i++) st.emplace_back([&] {
+				for(size_t k; (k = nx++) < picked.size();) { if(getenv("MDC_SIMLOG")) fprintf(stderr, "=== board %zu\n", k);
+					double v = picked[k].score; json j = simulate(picked[k], v); j["textScore"] = picked[k].score; picked[k].score = v; sims[k] = j; }
+			});
+			for(auto& t : st) t.join();
+			// A board whose line didn't replay keeps its text score, which runs higher than simulated ones: scale it by the
+			// typical simulated/text ratio of this search's other boards so it isn't ranked up just for failing.
+			std::vector<double> ratios; for(size_t k = 0; k < picked.size(); k++) if(sims[k].value("ok", false) && sims[k]["textScore"].get<double>() > 0) ratios.push_back(picked[k].score / sims[k]["textScore"].get<double>());
+			if(!ratios.empty()) { std::sort(ratios.begin(), ratios.end()); double r = ratios[ratios.size() / 2];
+				for(size_t k = 0; k < picked.size(); k++) if(!sims[k].value("ok", false)) { picked[k].score *= r; sims[k]["scaled"] = r; } }
+			std::vector<size_t> order(picked.size()); for(size_t i = 0; i < order.size(); i++) order[i] = i;
+			std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return picked[a].score > picked[b].score; });
+			std::vector<Found> p2; std::vector<json> s2; for(size_t i : order) { p2.push_back(picked[i]); s2.push_back(sims[i]); }
+			picked.swap(p2); sims.swap(s2);
+			simSecs = std::chrono::duration<double>(Clock::now() - ts0).count();
+		}
+		for(size_t pi = 0; pi < picked.size(); pi++) {
+			const Found& f = picked[pi];
 			// Drawn cards are unknown: leave the stand-ins out of the board, and show them as 0 ("a drawn card") in steps.
 			auto known = [](std::vector<uint32_t> v) { v.erase(std::remove(v.begin(), v.end(), BLANK), v.end()); return v; };
 			auto mask = [](std::vector<uint32_t> v) { for(auto& c : v) if(c == BLANK) c = 0; return v; };
@@ -1179,14 +1531,14 @@ struct Search {
 			json slots = json::array(); for(int z : f.board.mslot) slots.push_back(z);
 			json bj = {{"score", f.score}, {"field", f.board.mzone}, {"zones", slots}, {"backrow", f.board.szone}, {"hand", known(f.board.hand)}, {"gy", known(f.board.grave)}, {"banished", known(f.board.banished)}, {"steps", steps}};
 			if(wantLabels) bj["labels"] = f.labels;
+			if(!sims[pi].is_null()) bj["sim"] = sims[pi];
 			res.push_back(bj);
-			if(res.size() >= top) break;
 		}
 		bool complete = useBeam ? beam_complete : (!stop.load() && !stoppedStable.load() && secs <= timeLimit);
 		// "stable": every line was checked, or the best board stopped improving well before the end (the last 40% of the
 		// time, or the stable-stop share when that's on).
 		bool stable = complete || stoppedStable.load() || (secs - bestAt.load() >= std::max(stableFrac, 0.4) * secs);
-		return {{"id", id}, {"done", true}, {"complete", complete}, {"stable", stable}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"bestAt", bestAt.load()}, {"stoppedStable", stoppedStable.load()}, {"width", beam_width}, {"depth", beam_depth}}}};
+		return {{"id", id}, {"done", true}, {"complete", complete}, {"stable", stable}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"bestAt", bestAt.load()}, {"stoppedStable", stoppedStable.load()}, {"width", beam_width}, {"depth", beam_depth}, {"simSeconds", simSecs}}}};
 	}
 };
 
@@ -1254,6 +1606,7 @@ int main(int argc, char** argv) {
 			for(uint32_t t : ids(req, "targets")) s->targets.insert(t);
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
+			s->simOn = req.value("sim", false);
 			s->mode = req.value("mode", std::string());
 			{
 				// Branch on zones only if some card in the deck talks about zones or columns.

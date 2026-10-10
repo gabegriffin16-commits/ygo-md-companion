@@ -18,6 +18,7 @@
 #include <vector>
 
 struct CardEval {
+	uint32_t code = 0;   // the card this was read from (set when cards are loaded)
 	float field = 0;     // interruption value while face-up on the field (monsters, continuous Spells/Traps)
 	float set = 0;       // ...while set in the Spell & Trap Zone
 	float hand = 0;      // ...while kept in hand (handtraps)

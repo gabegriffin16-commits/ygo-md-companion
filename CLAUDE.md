@@ -96,6 +96,26 @@ Key parts of `src/main.cpp`:
   (+ what it brings back, chains included); negates: "a card or effect" +0.5, Spell/Trap-only -0.7, "would destroy" -1.5;
   attack-only locks 0.5. End hand: handtraps are stops, Traps/Quick-Plays count as set, an extender that summons itself
   from hand on their turn 0.8, a next-turn starter (searches the Deck) 0.6, anything else 0.3.
+- **Opponent's-turn simulation** (`"sim":true`; `simulate` / `sim_once` in main.cpp): re-ranks the returned boards by
+  playing the opponent's turn for real. Probe hand (each card = one kind of play, none with a Quick Effect): Evil HERO
+  Adusted Gold (hand effect that searches), Reinforcement of the Army (Spell that searches), Goblindbergh (Normal Summon
+  + trigger that Special Summons Photon Chargeman), Chargeman's field effect, Gagaga Cowboy (Extra Deck summon), then an
+  independent second wave (Pot of Greed, Photon Thrasher when their field is empty, Upstart Goblin) so a board's 3rd/4th
+  interruption still gets a target. Our line is replayed from our own responses (`Found.mine` + the prompt type each
+  answered: a prompt the line never saw, like a "look at your opponent's hand" option that only exists now that they
+  hold cards, gets a default answer); Traps/Quick-Plays in hand get Set before the turn ends (as the text score
+  assumes). A board whose line still doesn't replay keeps its text score scaled by the search's median sim/text ratio. A play counts as stopped only if tried and its result
+  didn't happen (checked on the field/hand); plays that never came because an earlier one was stopped give no credit.
+  Our choices on their turn: local search (start greedy, remove wasted Quick Effects all at once, then single-decision
+  changes with a greedy replay of the rest; budget `MDC_SIMRUNS`, default 48 play-throughs). One Quick Effect of ours per
+  opponent play; triggers (told apart by the engine's 0x7f trigger prompt) always allowed. Our own picks default to
+  their cards first, then the most valuable monster. Credit: one per interruption at its card's text value; a card
+  that came out during their turn (Favorite Contact's Wingman) merges with what brought it on the same play (copies
+  told apart by zone + MSG_MOVE); one interruption stopping two plays adds 0.3. Final score = text score − text stops
+  + simulated stops (same fall-off); interruptions that never got a chance (battle-only Sunrise, Nibiru, Stardust
+  Dragon's destruction negate) keep half their text value; ones that had the chance and stopped nothing count 0.
+  Not modeled yet: battle, opponent handtraps against our end board. `bench/sim.py` prints the per-board breakdown;
+  `MDC_SIMLOG=1` logs every decision.
 - **Zones**: only for decks whose text mentions the center zone/columns (`g_zones`); zone-aware cards go center or side
   by rule; Normal/Extra Deck summons of them branch both ways.
 - **Draws** come from 12 blank stand-ins (Spiral Serpent) on top of the Deck, hidden in output (shown as code 0).
@@ -158,6 +178,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   line (reproducible beam runs). Zone decks key positions by center/side of center-aware monsters only (keying every
   monster's zone blew up HERO, which counts as a zone deck). The best line is now kept across beam passes. Left: UI
   wording for complete vs stable (ask the owner). Elfnote stays noisy run to run (13.9-15.0 at 20s; same engine).
+- Opponent's-turn simulation (opt-in, `"sim":true`, off in the app for now): fixes real misreads (Kewl Tune Mix 1-card:
+  Remix 5.15 over RS 3.80, as the guide; HERO: Destroyer Phoenix + Favorite Contact ranks first, FC credited only when
+  its Fusion actually lands; Elfnote: Baronne/Crystal Wing/Rhapsodia/Tinia each credited on a different play). But on
+  "#1 board holds the guide's field" it's not ahead yet: 30s per hand, text 13 vs sim 11 of 59 (Dracotail 8/7, Branded
+  2/1, Kewl Tune 3/3); replays fail on ~9% of boards (Branded 14%). Main gaps before turning it on by default:
+  (1) the probe opponent never chains its own cards, so "in response to" cards with nothing of ours to respond with
+  (Zalen alone, which the Kewl Tune guides end on) stay at half; add an opponent play that builds a 2-link chain;
+  (2) no battle (Sunrise-style attack effects stay at half); (3) look at the Branded replay failures (MDC_SIMLOG=1
+  prints the reason and the prompt). Ask the owner before turning it on in the app.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
   matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones
   need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already
