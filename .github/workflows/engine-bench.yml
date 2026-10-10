@@ -51,6 +51,8 @@ jobs:
           cmake --build build >/dev/null
           echo "cores: $(nproc)"
       - name: Search
+        env:
+          DECK_JSON: combo-engine/bench/omni.json   # the Omni HERO list from deck.json
         run: |
           SECS="${{ matrix.secs || inputs.seconds }}"; ACTS="${{ matrix.acts || inputs.maxActions }}"
           [ -z "$SECS" ] && SECS=$(python3 -c "import json;print(json.load(open('combo-engine/bench/run.json'))['seconds'])")

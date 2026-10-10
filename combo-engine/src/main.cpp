@@ -575,9 +575,15 @@ struct Search {
 			if(v > 0) stops.push_back(v); else s += 0.3;
 			s += e->lock;
 		}
+		// Traps and Quick-Plays still in hand get Set at the end of the turn, while there's room.
+		size_t room = b.szone.size() >= 5 ? 0 : 5 - b.szone.size();
 		for(uint32_t c : b.hand) {
 			const CardEval* e = ev(c);
-			if(e && e->hand > 0) stops.push_back(e->hand); else s += 0.3;   // a handtrap kept, or a card for next turn
+			auto it = g_cards.find(c);
+			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { stops.push_back(e->set); room--; }
+			else if(e && e->hand > 0) stops.push_back(e->hand);
+			else s += 0.3;   // a card for next turn
 		}
 		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back(e->gy * 0.8); }
 		std::sort(stops.rbegin(), stops.rend());

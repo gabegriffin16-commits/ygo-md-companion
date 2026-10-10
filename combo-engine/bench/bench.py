@@ -2,6 +2,8 @@
 Usage: python3 bench.py <engine> <cards.cdb> <scripts.zip> <hand codes comma-separated> <seconds> <maxActions> [threads] [mode] [targets]"""
 import json, os, sqlite3, subprocess, sys, time
 sys.path.insert(0, os.path.dirname(__file__)); from deck import MAIN, EXTRA
+if os.environ.get("DECK_JSON"):   # {"main":[codes],"extra":[codes]}
+    _d = json.load(open(os.environ["DECK_JSON"])); MAIN, EXTRA = _d["main"], _d["extra"]
 exe, cdb, scripts, hand, secs, acts = sys.argv[1:7]
 threads = int(sys.argv[7]) if len(sys.argv) > 7 else os.cpu_count()
 mode = sys.argv[8] if len(sys.argv) > 8 else ""

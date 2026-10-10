@@ -26,14 +26,23 @@ struct CardEval {
 namespace evalx {
 inline std::string lower(std::string s) { for(char& c : s) c = (char)std::tolower((unsigned char)c); return s; }
 inline bool has(const std::string& s, const char* w) { return s.find(w) != std::string::npos; }
-// Split card text into effects: sentences, bullets and lines.
-inline std::vector<std::string> effects(const std::string& text) {
-	std::vector<std::string> out; std::string cur;
-	auto flush = [&] { if(cur.find_first_not_of(" \r\n\t") != std::string::npos) out.push_back(lower(cur)); cur.clear(); };
+// Split card text into effects: sentences, bullets and lines. A bullet ("●") keeps the sentence that introduces it
+// in front, so "If you control no cards (Quick Effect): discard this card; apply these effects... ● Each time..."
+// still reads as a handtrap.
+struct Fx { std::string text; int group; };   // bullets share their introducing sentence's group
+inline std::vector<Fx> effects(const std::string& text) {
+	std::vector<Fx> out; std::string cur, header; bool inBullet = false; int group = 0;
+	auto flush = [&] {
+		if(cur.find_first_not_of(" \r\n\t") != std::string::npos) {
+			std::string e = lower(cur);
+			if(inBullet) out.push_back({header + " " + e, group}); else { out.push_back({e, ++group}); header = e; }
+		}
+		cur.clear();
+	};
 	for(size_t i = 0; i < text.size(); i++) {
 		char c = text[i];
-		if(c == '\n' || c == '\r') { flush(); continue; }
-		if((unsigned char)c == 0xE2 && i + 2 < text.size() && (unsigned char)text[i + 1] == 0x97 && (unsigned char)text[i + 2] == 0x8F) { flush(); i += 2; continue; }   // ●
+		if(c == '\n' || c == '\r') { flush(); if(i + 1 < text.size() && text[i + 1] != '\n' && text[i + 1] != '\r' && !((unsigned char)text[i + 1] == 0xE2)) inBullet = false; continue; }
+		if((unsigned char)c == 0xE2 && i + 2 < text.size() && (unsigned char)text[i + 1] == 0x97 && (unsigned char)text[i + 2] == 0x8F) { flush(); inBullet = true; i += 2; continue; }   // ●
 		cur += c;
 		if(c == '.' && i + 1 < text.size() && text[i + 1] == ' ' && !(i >= 2 && text[i - 1] == 'p' && text[i - 2] == ' ')) flush();
 	}
@@ -70,14 +79,23 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 	const bool mon = type & 0x1, spell = type & 0x2, trap = type & 0x4;
 	const bool quickplay = spell && (type & 0x10000), continuous = (spell || trap) && (type & 0x20000), field = spell && (type & 0x80000);
 	std::vector<float> onField, setV, inHand, inGy;
-	for(const std::string& e : effects(text)) {
+	std::vector<Fx> fxs = effects(text);
+	for(size_t fi = 0; fi < fxs.size(); fi++) {
+		const std::string& e = fxs[fi].text;
+		// A bulleted list is one effect with options: only its best option counts.
+		bool laterBetter = false;
+		for(size_t fj = 0; fj < fxs.size(); fj++) if(fj != fi && fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) > hurt(e)) laterBetter = true;
+		for(size_t fj = 0; fj < fi; fj++) if(fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) == hurt(e)) laterBetter = true;
 		bool fromGy = has(e, "in your gy") || has(e, "from your gy") || has(e, "banish this card from your gy") || has(e, "if this card is in your graveyard");
 		bool fromHand = has(e, "discard this card") || has(e, "from your hand") || has(e, "send this card from your hand") || has(e, "reveal this card");
 		bool theirTurn = on_their_turn(e, (trap || quickplay) && !fromGy);
 		bool battleOnly = has(e, "attack is declared") || has(e, "declares an attack") || has(e, "during the battle phase");
-		float h = theirTurn ? hurt(e) * (battleOnly ? 0.5f : 1.0f) : 0;
+		float h = theirTurn && !laterBetter ? hurt(e) * (battleOnly ? 0.5f : 1.0f) : 0;
 		bool leaves = (has(e, "this card") || has(e, "this face-up card")) && (has(e, "leaves the field") || has(e, "is destroyed") || has(e, "sent from the field"));
 		if(!theirTurn && leaves && mon) { float d = hurt(e); if(d > 0) onField.push_back(d * 0.5f); }   // punishes removal (e.g. Absolute Zero)
+		// Playing on their turn: a set Trap / Quick-Play (or a Quick Effect) that summons something.
+		if(h == 0 && theirTurn && !fromGy && (has(e, "special summon") || has(e, "fusion summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "link summon"))
+			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card from your hand")) h = 2.0f;
 		if(h > 0) {
 			if(fromGy) inGy.push_back(h);
 			else if(mon && fromHand) inHand.push_back(h);
@@ -85,7 +103,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			else onField.push_back(h);
 		}
 		// Lasting locks while face-up (no "you can": it's always on).
-		if(!has(e, "you can") && !has(e, "in response") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only"))) r.lock = std::max(r.lock, 2.5f);
+		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only"))) r.lock = std::max(r.lock, 2.5f);
 		if(has(e, "cannot be destroyed by card effects") || has(e, "unaffected by") || has(e, "cannot be targeted")) r.sturdy += 0.6f;
 		if(leaves || has(e, "if this card in its owner's")) r.sturdy += 0.4f;
 	}
