@@ -32,6 +32,15 @@ struct CardEval {
 	uint8_t reviveAt = 0;
 	int reviveMaxLv = 99;
 	std::string reviveTag;
+	float onSummon = 0;      // what it does to them "if this card is Special Summoned" (counts when it lands on their turn)
+	// Fusion on the opponent's turn from the Extra Deck (Favorite Contact). Used from: an AT_ value. fusionFrom: where
+	// its materials can come from (1 hand, 2 field, 4 GY, 8 banished). fusionTag: what the Fusion must mention ("hero").
+	uint8_t fusionAt = 0, fusionFrom = 0;
+	std::string fusionTag;
+	// A Fusion Monster's materials from its first line ("Elemental HERO Neos" + 1 "Wingman" Fusion Monster).
+	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
+	struct Mat { std::string tag; bool exact = false, fusion = false; int n = 1; };
+	std::vector<Mat> mats;
 };
 
 namespace evalx {
@@ -123,8 +132,28 @@ inline bool on_their_turn(const std::string& e, bool spellTrapQuick) {
 		has(e, "opponent special summons") || has(e, "your opponent normal summons") || has(e, "during the battle phase") ||
 		has(e, "when an attack is declared") || has(e, "opponent's monster declares an attack");
 }
+// Fusion materials: split the first line on " + "; every part needs a quoted name.
+inline std::vector<CardEval::Mat> materials(const std::string& text) {
+	std::vector<CardEval::Mat> out;
+	std::string line = lower(text.substr(0, text.find_first_of("\r\n")));
+	size_t p = 0;
+	while(p <= line.size()) {
+		size_t q = line.find(" + ", p);
+		std::string part = line.substr(p, q == std::string::npos ? std::string::npos : q - p);
+		size_t a = part.find('"'), b = a == std::string::npos ? a : part.find('"', a + 1);
+		if(b == std::string::npos) return {};
+		CardEval::Mat m; m.tag = part.substr(a + 1, b - a - 1);
+		m.exact = !has(part, "monster"); m.fusion = has(part, "fusion monster");
+		if(!part.empty() && part[0] >= '1' && part[0] <= '9') m.n = part[0] - '0';
+		out.push_back(m);
+		if(q == std::string::npos) break;
+		p = q + 3;
+	}
+	return out;
+}
 inline CardEval evaluate(const std::string& text, uint32_t type) {
 	CardEval r;
+	if(type & 0x40) r.mats = materials(text);   // Fusion Monster
 	const bool mon = type & 0x1, spell = type & 0x2, trap = type & 0x4;
 	const bool quickplay = spell && (type & 0x10000), continuous = (spell || trap) && (type & 0x20000), field = spell && (type & 0x80000);
 	std::vector<float> onField, setV, inHand, inGy;
@@ -150,6 +179,15 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
 			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck") + has(e, "gy"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
+		}
+		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
+		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "special summon") || has(e, "fusion summon"))) {
+			r.fusionAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
+			r.fusionFrom = (has(e, "hand") ? 1 : 0) | (has(e, "field") || has(e, "you control") ? 2 : 0) | (has(e, " gy") ? 4 : 0) | (has(e, "banish") ? 8 : 0);
+			if(!r.fusionFrom) r.fusionFrom = 3;
+			// "...that mentions a "HERO" monster as material": the first quoted name near "Fusion Monster".
+			size_t q = e.find('"'), q2 = q == std::string::npos ? q : e.find('"', q + 1);
+			if(q2 != std::string::npos && q < e.find("fusion monster") + 60) r.fusionTag = e.substr(q + 1, q2 - q - 1);
 		}
 		if(theirTurn && !r.reviveAt) {
 			std::string tag; int lv = 99;

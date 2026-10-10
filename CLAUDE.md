@@ -76,6 +76,9 @@ Key parts of `src/main.cpp`:
   zone requirements (center Main Monster Zone, "switch into the center"), set-able Traps in hand count as set.
   Revival: cards that Special Summon from the GY on the opponent's turn (June Pride, Strelitzia, Rhapsodia, Call of the
   Haunted) let the best matching GY monster (by quoted name / Level cap) count as an extra stop.
+  Fusion on their turn (set Favorite Contact): counts only if the Extra Deck has a Fusion whose quoted materials are in
+  reach (hand/field/GY/banished, per the card); then it's worth that Fusion (Quick Effect or on-summon effect, e.g.
+  Shining Neos Wingman's destroy) and its goal +8. Nothing makeable = dead card.
   End-board goals (`targets`) add +8 each. `{"cmd":"eval","cards":[...]}` shows what it read from cards.
 - **Zones**: only for decks whose text mentions the center zone/columns (`g_zones`); zone-aware cards go center or side
   by rule; Normal/Extra Deck summons of them branch both ways.

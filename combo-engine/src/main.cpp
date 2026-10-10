@@ -542,7 +542,7 @@ static std::vector<Opt> choices0(const Prompt& m) {
 	}
 }
 
-struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
+struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished, extra; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
 struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; };
 
 struct Search {
@@ -572,6 +572,8 @@ struct Search {
 	double score_of(const Board& b) const {
 		std::vector<double> stops; double s = 0;
 		std::vector<const CardEval*> revivers;   // cards that can bring a monster back from the GY on their turn
+		std::vector<const CardEval*> fusers;     // cards that Fusion from the Extra Deck on their turn (judged below)
+		const bool knowExtra = !b.extra.empty();
 		auto ev = [](uint32_t c) -> const CardEval* { auto it = g_cards.find(c); return it == g_cards.end() ? nullptr : &it->second.ev; };
 		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
 		for(size_t i = 0; i < b.mzone.size(); i++) {
@@ -588,6 +590,7 @@ struct Search {
 		}
 		for(uint32_t c : b.szone) {
 			const CardEval* e = ev(c); if(!e) { s += 0.3; continue; }
+			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); s += e->lock; continue; }
 			double v = std::max(e->set, e->field);
 			if(v > 0) stops.push_back(v); else s += 0.3;
 			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
@@ -599,7 +602,7 @@ struct Search {
 			const CardEval* e = ev(c);
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
-			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { stops.push_back(e->set); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back(e->set); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
 			else if(e && e->hand > 0) { stops.push_back(e->hand); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
 			else s += 0.3;   // a card for next turn (or one drawn during the line)
 		}
@@ -616,7 +619,7 @@ struct Search {
 					if(used[i] || it == g_cards.end() || !(it->second.type & TYPE_MONSTER) || &it->second.ev == r) continue;
 					if(!r->reviveTag.empty() && it->second.lname.find(r->reviveTag) == std::string::npos) continue;
 					if(r->reviveMaxLv < 99 && ((it->second.type & (TYPE_XYZ | TYPE_LINK)) || (int)(it->second.level & 0xff) > r->reviveMaxLv)) continue;
-					double v = it->second.ev.field;
+					double v = std::max(it->second.ev.field, it->second.ev.onSummon);   // what it does when it lands counts too
 					if(it->second.ev.inCenter) v *= 0.5;   // comes back wherever there's room
 					if(v > best) { best = v; pick = i; }
 				}
@@ -624,6 +627,45 @@ struct Search {
 				used[pick] = 1;
 				if(best > 0) stops.push_back(best * (r->reviveTag.empty() ? 0.5 : 0.7)); else s += 0.3;
 			}
+		}
+		// Fusion on their turn (Favorite Contact): worth something only if the Extra Deck holds a Fusion it can make from
+		// the monsters in reach (Neos + a Wingman for Shining Neos Wingman). Then it's worth that monster, by its Quick
+		// Effect or what it does when summoned, and it counts for the goals. With nothing to make, it's a dead card.
+		for(const CardEval* fz : fusers) {
+			std::vector<uint32_t> pool;
+			auto addp = [&](const std::vector<uint32_t>& v) { for(uint32_t c : v) { auto it = g_cards.find(c); if(it != g_cards.end() && (it->second.type & TYPE_MONSTER)) pool.push_back(c); } };
+			if(fz->fusionFrom & 1) addp(b.hand);
+			if(fz->fusionFrom & 2) addp(b.mzone);
+			if(fz->fusionFrom & 4) addp(b.grave);
+			if(fz->fusionFrom & 8) addp(b.banished);
+			double best = -1; bool goal = false; std::set<uint32_t> tried;
+			for(uint32_t fc : b.extra) {
+				auto fi = g_cards.find(fc);
+				if(!tried.insert(fc).second || fi == g_cards.end() || !(fi->second.type & TYPE_FUSION) || fi->second.ev.mats.empty()) continue;
+				const auto& mats = fi->second.ev.mats;
+				if(!fz->fusionTag.empty()) { bool ok = false; for(const auto& m : mats) if(m.tag.find(fz->fusionTag) != std::string::npos) ok = true; if(!ok) continue; }
+				// Exact names first, then Fusion-only parts, then loose ones, so a loose part can't take what an exact one needs.
+				std::vector<const CardEval::Mat*> order; for(const auto& m : mats) order.push_back(&m);
+				std::stable_sort(order.begin(), order.end(), [](const CardEval::Mat* x, const CardEval::Mat* y) { return (x->exact ? 0 : x->fusion ? 1 : 2) < (y->exact ? 0 : y->fusion ? 1 : 2); });
+				std::vector<char> used(pool.size(), 0); bool ok = true;
+				for(const CardEval::Mat* m : order) for(int k = 0; k < m->n && ok; k++) {
+					bool got = false;
+					for(size_t i = 0; i < pool.size() && !got; i++) {
+						if(used[i]) continue;
+						const CardRow& pc = g_cards.find(pool[i])->second;
+						bool match = m->exact ? pc.lname == m->tag : pc.lname.find(m->tag) != std::string::npos && (!m->fusion || (pc.type & TYPE_FUSION));
+						if(match) { used[i] = 1; got = true; }
+					}
+					ok = got;
+				}
+				if(!ok) continue;
+				double v = std::max(1.0, (double)std::max(fi->second.ev.field, fi->second.ev.onSummon));
+				bool g = targets.count(fc) > 0;
+				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; }
+			}
+			if(best < 0) { s += 0.3; continue; }
+			stops.push_back(best);
+			if(goal) s += 8;
 		}
 		std::sort(stops.rbegin(), stops.rend());
 		double f = 1.0; for(double v : stops) { s += v * f; f = std::max(0.5, f - 0.1); }
@@ -633,7 +675,7 @@ struct Search {
 	}
 	Board read_board(Duel& d) {
 		Board b; b.mzone = d.cards(LOCATION_MZONE, false, &b.mslot); b.szone = d.cards(LOCATION_SZONE); b.hand = d.cards(LOCATION_HAND);
-		b.grave = d.cards(LOCATION_GRAVE); b.banished = d.cards(LOCATION_REMOVED); return b;
+		b.grave = d.cards(LOCATION_GRAVE); b.banished = d.cards(LOCATION_REMOVED); b.extra = d.cards(LOCATION_EXTRA); return b;
 	}
 	static std::string key_of(std::vector<uint32_t> v) { std::sort(v.begin(), v.end()); std::string s; for(uint32_t c : v) s += std::to_string(c) + ","; return s; }
 	void record(Duel& d, const St& st) {
@@ -1021,7 +1063,10 @@ int main(int argc, char** argv) {
 			json out = json::object();
 			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardEval& e = it->second.ev;
 				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}};
-				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}}; }
+				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
+				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
+				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}};
+				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; } }
 			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {
