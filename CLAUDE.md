@@ -18,6 +18,19 @@ Claude session may be working in the same repo, so keep commits small and messag
   is "They fucked me".
 - Website-only changes need no app release. App changes ship by bumping `version` in `app/package.json`.
 
+## Two sessions at once
+
+The owner may run two Claude sessions on this repo: a cloud session for UI/app work and Claude Code on their PC for
+combo-engine work. To stay out of each other's way:
+- **Lanes**: UI session owns `index.html` styling/layout, `app/` overlay/settings/reader. Engine session owns
+  `combo-engine/`, the engine/generation parts of `app/main.js`, and the combo/generate-lines logic in `index.html`.
+  Crossing lanes is fine for small, necessary edits.
+- `git pull --rebase` before starting anything and again right before pushing; small commits, push often.
+  `index.html` is one big file: keep edits local to the section you're working in so git can merge.
+- **Only one session bumps the app version at a time.** Before bumping, pull and check that the latest commit isn't
+  already a bump; if both changed `app/`, one release can carry both.
+- Leave a line in "Open items" below for anything the other session needs to know.
+
 ## What's here
 
 | Path | What it is |
