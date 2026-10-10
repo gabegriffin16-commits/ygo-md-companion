@@ -3760,7 +3760,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       hand:function(){ var a = []; Object.keys(D.hand).forEach(function(k){ var c = cfCode(k); for (var i = 0; i < (D.hand[k] || 0); i++) if (c) a.push(c); }); return a; },
       deck:function(){ return {main:cfList(DECKDATA.main), extra:cfList(DECKDATA.extra)}; },
       extraOpts:function(){ return cfList(DECKDATA.extra); },
-      goals:function(){ return PREC ? deckGoals(PREC) : []; },
+      goals:function(){ var rec = PREC || (DECKDATA.custom && MDC.get(PILOT_ID)); return rec ? deckGoals(rec) : heroGoals(); },
       save:cfSave});
     else duelCF.repaint();
     return duelCF;
@@ -3774,11 +3774,16 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var GEN_OK = !!(window.overlayApp && overlayApp.genStart);
   var GEN = {run:null, paints:[]};
   function genSig(rec){ return [rec.main || [], rec.extra || []].map(function(rows){ return rows.map(function(r){ return cfCode(r.id) + "x" + r.n; }).sort().join(","); }).join("|"); }
+  // Omni HERO ends on Sunrise, DPE and Shining Neos Wingman (Infernal Rage is a stepping stone, not a goal).
+  var HERO_GOALS = ["Elemental HERO Sunrise", "Destiny HERO - Destroyer Phoenix Enforcer", "Elemental HERO Shining Neos Wingman"];
+  function heroGoals(){ return HERO_GOALS.map(function(n){ var c = CARD_BY_NAME[n]; return c ? cfCode(c.id) : 0; }).filter(Boolean); }
   // End-board goals: the cards this deck wants to finish on. Searches score a board that has them far higher,
   // which is what steers them down the long lines. Until the player picks, they're suggested from card text:
-  // Extra Deck monsters that can interrupt on the opponent's turn.
+  // HERO decks get those three, others get Extra Deck monsters that can interrupt on the opponent's turn.
   function goalSuggest(rec){
-    var seen = {};
+    var seen = {}, ex = (rec.extra || []).map(function(r){ return cfCode(r.id); });
+    var hero = heroGoals().filter(function(c){ return ex.indexOf(c) >= 0; });
+    if (hero.length >= 2) return hero;
     return (rec.extra || []).map(function(r){ return CARD_BY_ID[r.id]; }).filter(function(c){
       if (!c || seen[c.id]) return false; seen[c.id] = 1;
       return /\(Quick Effect\)|negate|your opponent activates/i.test(c.d || "");

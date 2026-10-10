@@ -111,6 +111,5 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 ## Open items / ideas
 
 - Score revival value of monsters in GY (e.g. Elfnotes that June Pride / Rhapsodia bring back on the opponent's turn).
-- The owner's HERO goals should be Sunrise, DPE, Shining Neos Wingman (Infernal Rage is a stepping stone, not a goal).
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
 - First engine-test-button run: the owner needs to run the bench tables SQL (bottom of `supabase/schema.sql`) and update to 1.19.0.
