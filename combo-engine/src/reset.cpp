@@ -6,6 +6,17 @@
 // (duel::clear) does, plus what that leaves behind for a reuse loop: the old cards' Lua references,
 // unfinished coroutines, queued messages and the random number generator (reseeded so a replay of the
 // same moves always plays out the same way).
+// Standard headers first: the engine's headers define a yield() macro that breaks <thread> on MSVC.
+#include <cstdio>
+#include <cstdlib>
+#include <cstring>
+#include <deque>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
 #include "duel.h"
 #include "card.h"
 #include "effect.h"
@@ -17,14 +28,6 @@ extern "C++" {
 #include "lua.h"
 #include "lauxlib.h"
 }
-#include <cstring>
-#include <cstdio>
-#include <string>
-#include <cstdlib>
-#include <mutex>
-#include <unordered_map>
-#include <unordered_set>
-#include <vector>
 
 // duel keeps its message queue and RNG private. The standard "explicit instantiation may name private members"
 // rule gives this file a pointer to those two members without changing the engine.
@@ -119,8 +122,12 @@ bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o) {
 		if(lua_type(L, -2) == LUA_TSTRING && lua_type(L, -1) == LUA_TTABLE) {
 			const char* k = lua_tostring(L, -2);
 			if(k[0] == 'c' && k[1] >= '0' && k[1] <= '9') {
-				lua_pushnil(L); lua_setfield(L, -2, "global_check");
-				lua_pushnil(L); lua_setfield(L, -2, "check");
+				for(const char* f : {"global_check", "check"}) {   // only the true/false flags: Ash Blossom's s.check is a function
+					lua_getfield(L, -1, f);
+					bool flag = lua_type(L, -1) == LUA_TBOOLEAN;
+					lua_pop(L, 1);
+					if(flag) { lua_pushnil(L); lua_setfield(L, -2, f); }
+				}
 			}
 		}
 		lua_pop(L, 1);
