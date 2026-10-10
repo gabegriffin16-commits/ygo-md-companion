@@ -35,7 +35,10 @@ def fits(slot, c):
     nm, lv, typ = r[0].lower(), r[1] & 0xff, r[2]
     if race_of(slot): return bool(typ & 1 and r[3] & race_of(slot))
     for w in re.findall(r"[a-z0-9]+", slot):
-        if w in ("name", "card", "cards"): continue
+        if w in ("name", "card", "cards", "any"): continue
+        if w in ("tuner", "tuners"):
+            if not typ & 0x1000: return False
+            continue
         if w in ("monster", "monsters"):
             if not typ & 1: return False
         elif w in ("spell", "trap"):
@@ -46,7 +49,7 @@ def fits(slot, c):
     return True
 def handtrap(c):
     d = (db.execute("select desc from texts where id=?", (c,)).fetchone() or [""])[0].lower()
-    return "(quick effect)" in d and any(x in d for x in ("discard this card", "send this card from your hand", "from your hand to the gy"))
+    return "(quick effect)" in d and any(x in d for x in ("discard this card", "send this card from your hand", "from your hand to the gy", "this card in your hand"))
 def pick(slot, main, hand):
     """The deck card for a typed slot (alternatives split on "/"), or None."""
     left = list(main)

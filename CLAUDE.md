@@ -79,7 +79,9 @@ Key parts of `src/main.cpp`:
   (materials, cards to send) are capped at half the beam width per pass (4, 12, 36...): several 15-way picks in one
   action used to eat a whole search (one beam level took 81s of 120). One-at-a-time picks are tried in one order per
   set. The line to the best board so far is always kept in the beam. Debug env: `MDC_BEAMLOG=1` (per-level timing),
-  `MDC_NOPICKCAP` / `MDC_PICKMIN` / `MDC_NOPICKORDER` / `MDC_NOELITE` (A/B switches).
+  `MDC_NOPICKCAP` / `MDC_PICKMIN` / `MDC_NOPICKORDER` / `MDC_NOELITE` (A/B switches), `MDC_TRACE=<labels.json>` (rank
+  of a known line's state at each beam level, and the top line; get labels from a search with `"labels": true`).
+  A monster that banished itself "until the End Phase" (Ecclesia and the Dark Dragon) scores as on the field.
 - **Board score** (`score_of` + `src/evaluate.h`): reads each card's text for interruptions usable on the opponent's turn
   (negate > banish/control > destroy/bounce/send), where they work from (field / set / hand / GY), locks, sturdiness,
   zone requirements (center Main Monster Zone, "switch into the center"), set-able Traps in hand count as set.
@@ -161,9 +163,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already
   scores higher): Branded Fusion 1cc (14.30 vs 12.60), Walbaz (SS) + Lukias (16.70 vs 13.30), Walbaz (SS) + Mululu
   (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. More time doesn't help
-  (Walbaz (SS) + Mululu at 180s: best found at 1s, still 14.05), so the beam's ranking (`promise`) drops the guide's
-  line early. Next step: play the guide's line in with `prefix` and see at which step its states fall out of the
-  beam. Elfnote's Accel Synchro 1.5
-  checked: fair (it Tributes for Stardust Dragon on their turn), left as is. Next decks: a Synchro/Xyz deck (e.g. Kewl
-  Tune) would cover prompt types the current three don't.
-- The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
+  (best found at 1s of 180s), and beam-only / DFS-only modes don't either. Traced (`MDC_TRACE`): the beam's top line
+  IS the guide's opening (SS Walbaz, NS Mululu, Ecclesia and the Dark Dragon, Cartesia); what's missed is the long
+  tail: Mululu fuses Lukias + Faimena + 1 into Arthalion, then a 3-trigger chain (Arthalion, Lukias, Faimena) sets Flame
+  + Sting and returns cards, then the End Phase sets The Fallen & The Virtuous. With those 3 Traps as goals the engine
+  gets 2 of them (at 79s). Next: trace with a line that reaches that chain (get it from a goals run with more time, or
+  build it with `prefix`) and check whether the 3-trigger chain is being offered/ordered at all.
+  Elfnote's Accel Synchro 1.5 checked: fair (it Tributes for Stardust Dragon on their turn), left as is.
+  Kewl Tune (Synchro) imported: `kewltune.json` + `refs/kewltune.json` (26 guide combos; many are "vs <handtrap>" or
+  OTK lines, and some end boards include what's made on the opponent's turn, so guide scores there are rough).
+  Engine matches or beats the guide on 23 of 26. Real lesson from "1 Card Mix": the guide ends on Kewl Tune Remix,
+  which on their turn Tributes itself, revives a Tuner and Synchro Summons (into RS, a negate) plus adds a card; the
+  engine rates Remix as a generic summon (1.5) and picks RS (3.0) instead. Next: value opponent's-turn Synchro Summons
+  by the best Synchro they can actually make (like Favorite Contact's Fusion check), then recheck Elfnote/Kewl Tune.

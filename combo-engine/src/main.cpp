@@ -72,6 +72,7 @@ struct CardRow {
 	std::string name, lname;   // lname: lowercase, for matching what a reviver asks for
 	bool centerAware = false;  // its text cares about the center Main Monster Zone
 	bool endPhase = false;     // it does something "during the End Phase"
+	bool backAtEnd = false;    // it banishes itself "until the End Phase": still ours once the turn ends
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -102,7 +103,8 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) { r.name = (const char*)nm; r.lname = evalx::lower(r.name); }
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
-		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos; } }
+		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos;
+			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos; } }
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -611,7 +613,13 @@ struct Search {
 	static bool extra_type(uint32_t code) { auto it = g_cards.find(code); return it != g_cards.end() && (it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)); }
 	// How strong this end board is (see src/evaluate.h): every way it can stop the opponent, best first with a
 	// gentle fall-off, plus locks, sturdiness, bodies and spare cards, plus the deck's own goal cards.
-	double score_of(const Board& b, json* why = nullptr) const {
+	double score_of(const Board& b0, json* why = nullptr) const {
+		// A monster that banished itself "until the End Phase" comes back when the turn ends: count it on the field.
+		Board moved; const Board* bp = &b0;
+		for(uint32_t c : b0.banished) { auto it = g_cards.find(c); if(it == g_cards.end() || !it->second.backAtEnd) continue;
+			if(bp == &b0) { moved = b0; bp = &moved; }
+			auto at = std::find(moved.banished.begin(), moved.banished.end(), c); moved.banished.erase(at); moved.mzone.push_back(c); moved.mslot.resize(moved.mzone.size() - 1, -1); moved.mslot.push_back(-1); }
+		const Board& b = *bp;
 		// stops: (value, what) — "what" is only filled in when a breakdown is asked for.
 		std::vector<std::pair<double, std::string>> stops; double s = 0;
 		auto nm = [&](uint32_t c) { return why ? card_name(c) : std::string(); };
@@ -1077,6 +1085,16 @@ struct Search {
 				// Ties are broken by a hash of the line, not by which thread finished first: the same search keeps the same
 				// states every time (reproducible for tuning) while ties still land in a scattered order (no bias by name).
 				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h != b.h ? a.h > b.h : a.tie < b.tie; });
+				// MDC_TRACE=<file with a line's labels (JSON array)>: where that line's state ranks at each level (debugging
+				// why the beam drops a known line).
+				static const std::vector<std::string> trace = [] { std::vector<std::string> t; if(const char* f = getenv("MDC_TRACE")) { std::ifstream in(f); if(in) t = json::parse(in).get<std::vector<std::string>>(); } return t; }();
+				if(!trace.empty()) {
+					long rank = -1; size_t best = 0;
+					for(size_t q = 0; q < next.size(); q++) { const auto& lb = next[q].st.labels; if(lb.size() <= trace.size() && lb.size() >= best && std::equal(lb.begin(), lb.end(), trace.begin())) { rank = (long)q; best = lb.size(); } }
+					if(rank >= 0) fprintf(stderr, "trace w%zu d%d: rank %ld of %zu (h %.2f, top %.2f), %zu/%zu labels in, board %.2f\n", width, depth, rank, next.size(), next[rank].h, next.empty() ? 0 : next[0].h, best, trace.size(), next[rank].h);
+					else fprintf(stderr, "trace w%zu d%d: line not among %zu children\n", width, depth, next.size());
+					if(!next.empty() && depth <= 4) { std::string t; for(auto& l : next[0].st.labels) if(l.rfind("ns ", 0) == 0 || l.rfind("ss ", 0) == 0 || l.rfind("act ", 0) == 0 || l.rfind("chain ", 0) == 0) t += l + " | "; fprintf(stderr, "   top: %s\n", t.c_str()); }
+				}
 				if(next.size() > width) {
 					trimmed = true;
 					// States on the line to the best board found so far (by either search) are always kept: a wider pass

@@ -1,0 +1,549 @@
+{
+ "deck": "kewltune.json",
+ "extra": [
+  87746184,
+  42781164,
+  42781164,
+  39576656,
+  15665977,
+  88170262,
+  88170262,
+  93125329,
+  41069676,
+  98506199,
+  4891376,
+  72444406,
+  78397661,
+  65961304,
+  93039339
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a9ac41721890ab0c2e3d0d9"
+ ],
+ "author": "langhorst",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Cue 1cc's",
+   "source": "https://www.masterduelmeta.com/combo/6a093b8cf8f9ce717697ca1a",
+   "notes": "These combos don't end on much, but these are the best 1ccs I can currently think of, not to say that they're bad! Even when you have ZERO extension you can end on fairly solid boards in Kewl Tune!\n\nGenerally you should prioritize the zalen + remix line if you have zero other cards to work with as it leads to the most interruption through b2b and the summons from there.",
+   "start": [
+    "Kewl Tune Cue"
+   ],
+   "field": [
+    "Zalen the Shackled Dragon",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Zalen the Shackled Dragon",
+    "Kewl Tune Remix"
+   ]
+  },
+  {
+   "name": "Greedy Cue 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0a0709654bec6fb59d3415",
+   "notes": "Greedy ass combo but this is technically something you can choose to do turn 1.",
+   "start": [
+    "Kewl Tune Cue"
+   ],
+   "field": [
+    "Mannadium Reframing",
+    "Kewl Tune B2B",
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Baronne de Fleur",
+    "Chaos Angel",
+    "Mannadium Reframing",
+    "Visas Amritara"
+   ]
+  },
+  {
+   "name": "Cue vs Fuwalos",
+   "source": "https://www.masterduelmeta.com/combo/6a1e338b766f3eb080079d73",
+   "notes": "Fuwalos draw 2",
+   "start": [
+    "Kewl Tune Cue"
+   ],
+   "field": [
+    "Kewl Tune Reco"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [
+    "Kewl Tune Clip"
+   ],
+   "gy": [
+    "Kewl Tune Track Maker"
+   ]
+  },
+  {
+   "name": "Cue vs Purulia",
+   "source": "https://www.masterduelmeta.com/combo/6a1e358d36b56230d8de2253",
+   "notes": "Purulia draw 1",
+   "start": [
+    "Kewl Tune Cue"
+   ],
+   "field": [
+    "Kewl Tune Track Maker",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Mulcharmy Purulia"
+   ]
+  },
+  {
+   "name": "vs Superpoly",
+   "source": "https://www.masterduelmeta.com/combo/6a1f82f89bf88d03c67868a9",
+   "notes": "Cue or Reco vs Superpoly to end on Remix + KTS + Clip in hand (only if starting with Cue",
+   "start": [
+    "Kewl Tune Cue"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Kewl Tune Clip",
+    "Kewl Tune Reco"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Mix"
+   ],
+   "guessed": [
+    "Kewl Tune Clip",
+    "Kewl Tune Reco"
+   ],
+   "missing": [
+    "Super Polymerization"
+   ]
+  },
+  {
+   "name": "Cue + Synchro Overtake OTK",
+   "source": "https://www.masterduelmeta.com/combo/6a1f3210ad017d1b1cfe21e5",
+   "notes": "Max damage combo with Cue + Synchro Overtake / Duelist Genesis",
+   "start": [
+    "Kewl Tune Cue",
+    "Duelist Genesis"
+   ],
+   "field": [],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune B2B",
+    "Kewl Tune RS"
+   ],
+   "missing": [
+    "Synchro Overtake"
+   ]
+  },
+  {
+   "name": "B2B TURBO",
+   "source": "https://www.masterduelmeta.com/combo/6a24bdaeb298595cbb684878",
+   "notes": "This combo is designed to OTK , or when your opponent has few monsters on field, or if you are under Maxx C challenge.",
+   "start": [
+    "Kewl Tune Cue",
+    "Kewl Tune Rotary"
+   ],
+   "field": [
+    "Kewl Tune B2B",
+    "Kewl Tune RS"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Kewl Tune B2B",
+    "Kewl Tune RS"
+   ]
+  },
+  {
+   "name": "Reco 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0a71a3411f3946f78a7f14",
+   "notes": "",
+   "start": [
+    "Kewl Tune Reco"
+   ],
+   "field": [
+    "Zalen the Shackled Dragon",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "JJ \"Kewl Tune\""
+   ]
+  },
+  {
+   "name": "Reco anti-nib 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0a779f52677a734dab03b1",
+   "notes": "",
+   "start": [
+    "Kewl Tune Reco"
+   ],
+   "field": [
+    "Kewl Tune Clip"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Remix"
+   ],
+   "guessed": [
+    "Kewl Tune Clip",
+    "JJ \"Kewl Tune\""
+   ]
+  },
+  {
+   "name": "Reco vs Fuwalos",
+   "source": "https://www.masterduelmeta.com/combo/6a1e39fc8f08fcaa8287565e",
+   "notes": "Reco draw 2 under fuwalos",
+   "start": [
+    "Kewl Tune Reco"
+   ],
+   "field": [
+    "Kewl Tune Track Maker"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Remix"
+   ]
+  },
+  {
+   "name": "Reco vs Purulia",
+   "source": "https://www.masterduelmeta.com/combo/6a1e3e7790a64a1bf5deb3df",
+   "notes": "Reco draw 2 under Purulia",
+   "start": [
+    "Kewl Tune Reco"
+   ],
+   "field": [
+    "Kewl Tune Track Maker",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Mulcharmy Purulia"
+   ]
+  },
+  {
+   "name": "Reco OTK",
+   "source": "https://www.masterduelmeta.com/combo/6a1f057b264171eeb8099f02",
+   "notes": "8000 damage OTK for open field",
+   "start": [
+    "Kewl Tune Reco"
+   ],
+   "field": [
+    "Kewl Tune B2B"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Crackle"
+   ]
+  },
+  {
+   "name": "Reco + Rotary 2cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0e47600175b733f7fb9ee2",
+   "notes": "",
+   "start": [
+    "Kewl Tune Reco",
+    "Kewl Tune Rotary"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Zalen the Shackled Dragon",
+    "Kewl Tune Synchro"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "1 Card Kewl Tune Mix",
+   "source": "https://www.masterduelmeta.com/combo/69d42ab255e1bad7ec7a9486",
+   "notes": "",
+   "start": [
+    "Kewl Tune Mix"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Kewl Tune RS"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Clip",
+    "Kewl Tune Reco"
+   ]
+  },
+  {
+   "name": "Mix + Lv1 Tuner",
+   "source": "https://www.masterduelmeta.com/combo/6a1ef6cf9e56af75068cb389",
+   "notes": "",
+   "start": [
+    "Kewl Tune Mix",
+    "<Lv1 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Reco",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Mix + Lv2 Tuner",
+   "source": "https://www.masterduelmeta.com/combo/6a1ef9939e56af75068cbd39",
+   "notes": "",
+   "start": [
+    "Kewl Tune Mix",
+    "<Lv2 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Track Maker",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Mix + Lv3 Tuner",
+   "source": "https://www.masterduelmeta.com/combo/6a1eff599e56af75068ccba8",
+   "notes": "",
+   "start": [
+    "Kewl Tune Mix",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Rotary + Lv3 Tuner vs Fuwalos",
+   "source": "https://www.masterduelmeta.com/combo/6a1eeadc499a0783b6cf47b2",
+   "notes": "Rotary + Lv3 under Fuwalos draw 1",
+   "start": [
+    "Kewl Tune Rotary",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Mix",
+    "Kewl Tune Cue"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Track Maker"
+   ]
+  },
+  {
+   "name": "Rotary + Lv3 vs Ash",
+   "source": "https://www.masterduelmeta.com/combo/6a1ed6244419584fb53e7585",
+   "notes": "Please be sure to view \"Cards in Opponent Hand\". If opponent only has one card in hand, placing Track Maker on CL2 and Rotary CL1 will allow opponent to use Ash on Track Maker and will negate BOTH searches since opponent must have a card in hand for Rotary to search. In this case DO NOT put Rotary on CL1.",
+   "start": [
+    "Kewl Tune Rotary",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Rotary + Lv3 Tuner vs Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a1ee4f977590e36583c3e3d",
+   "notes": "",
+   "start": [
+    "Kewl Tune Rotary",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [
+    "Kewl Tune Mix"
+   ],
+   "gy": [],
+   "missing": [
+    "Droll & Lock Bird"
+   ]
+  },
+  {
+   "name": "Rotary + Lv3 Tuner vs Purulia",
+   "source": "https://www.masterduelmeta.com/combo/6a1eed8cd479aa9887748326",
+   "notes": "Rotary + Lv3 under Fuwalos draw 1",
+   "start": [
+    "Kewl Tune Rotary",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Mulcharmy Purulia"
+   ]
+  },
+  {
+   "name": "Rotary + Lv3 Tuner vs Belle",
+   "source": "https://www.masterduelmeta.com/combo/6a1edae45189118bb84913fc",
+   "notes": "",
+   "start": [
+    "Kewl Tune Rotary",
+    "<Lv3 Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\""
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Overtake 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0b858e12410df8100970e7",
+   "notes": "",
+   "start": [
+    "Synchro Overtake"
+   ],
+   "field": [
+    "Zalen the Shackled Dragon"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Kewl Tune Clip",
+    "Kewl Tune Remix",
+    "Kewl Tune B2B"
+   ],
+   "missing": [
+    "Synchro Overtake"
+   ]
+  },
+  {
+   "name": "Synchro Overtake vs Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a1ecb823098af36515db88c",
+   "notes": "",
+   "start": [
+    "Synchro Overtake"
+   ],
+   "field": [
+    "Kewl Tune Remix",
+    "Kewl Tune Rotary"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Kewl Tune Rotary"
+   ],
+   "missing": [
+    "Droll & Lock Bird",
+    "Synchro Overtake"
+   ]
+  },
+  {
+   "name": "Synchro Overtake vs Fuwalos / Purulia",
+   "source": "https://www.masterduelmeta.com/combo/6a1ece1b75c97bde298921ea",
+   "notes": "",
+   "start": [
+    "Synchro Overtake"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "missing": [
+    "Synchro Overtake"
+   ]
+  },
+  {
+   "name": "JJ + Tuner",
+   "source": "https://www.masterduelmeta.com/combo/6a1f775ec0cd4d05d84effb9",
+   "notes": "JJ + Any Tuner to get to Remix + Track Maker + 2 KTS",
+   "start": [
+    "JJ \"Kewl Tune\"",
+    "<Any Tuner>"
+   ],
+   "field": [
+    "Kewl Tune Track Maker",
+    "Kewl Tune Remix"
+   ],
+   "backrow": [
+    "JJ \"Kewl Tune\"",
+    "Kewl Tune Synchro",
+    "Kewl Tune Synchro"
+   ],
+   "hand": [],
+   "gy": []
+  }
+ ]
+}
