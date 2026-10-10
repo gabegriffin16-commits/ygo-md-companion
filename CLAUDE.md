@@ -138,5 +138,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
+- Reference suite: add 2-3 guide-rich decks next (MD tier list 2026-10-06: Tier 1 Dracotail, Elfnote Engine, Branded;
+  pick different styles), each as a decklist JSON + `bench/refs/<deck>.json` with guide boards and sources, then tune.
+  Elfnote: the guide board (Baronne) is 0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
 - First engine-test-button run: the owner needs to run the bench tables SQL (bottom of `supabase/schema.sql`) and update to 1.19.0.
