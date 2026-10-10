@@ -1487,6 +1487,9 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 @media (min-width:1220px){
   html:not(.compact) .layout{grid-template-columns:clamp(380px, 21vw, 410px) minmax(560px, 1fr) clamp(330px, 28vw, 540px) !important}
 }
+/* full view in the app: a little more room under the top bar (compact unchanged) */
+html.in-overlay:not(.compact) header.top{margin-top:14px !important}
+html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.right{padding-top:14px !important}
 </style>
 </head>
 <body>
