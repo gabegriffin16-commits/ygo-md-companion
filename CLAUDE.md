@@ -180,13 +180,17 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   wording for complete vs stable (ask the owner). Elfnote stays noisy run to run (13.9-15.0 at 20s; same engine).
 - Opponent's-turn simulation (opt-in, `"sim":true`, off in the app for now): fixes real misreads (Kewl Tune Mix 1-card:
   Remix 5.15 over RS 3.80, as the guide; HERO: Destroyer Phoenix + Favorite Contact ranks first, FC credited only when
-  its Fusion actually lands; Elfnote: Baronne/Crystal Wing/Rhapsodia/Tinia each credited on a different play). But on
-  "#1 board holds the guide's field" it's not ahead yet: 30s per hand, text 13 vs sim 11 of 59 (Dracotail 8/7, Branded
-  2/1, Kewl Tune 3/3); replays fail on ~9% of boards (Branded 14%). Main gaps before turning it on by default:
-  (1) the probe opponent never chains its own cards, so "in response to" cards with nothing of ours to respond with
-  (Zalen alone, which the Kewl Tune guides end on) stay at half; add an opponent play that builds a 2-link chain;
-  (2) no battle (Sunrise-style attack effects stay at half); (3) look at the Branded replay failures (MDC_SIMLOG=1
-  prints the reason and the prompt). Ask the owner before turning it on in the app.
+  its Fusion actually lands; Elfnote: Baronne/Crystal Wing/Rhapsodia/Tinia each credited on a different play). Since
+  then: the opponent chains Poison of the Old Man to its own Pot of Greed (Zalen now negates it), attacks once in
+  battle (Sunrise / Destroyer Phoenix get credit), and replays match our choices by label (End Phase options come in
+  another order once Traps are Set; extra chain windows are passed): replay failures 9% -> ~1%. Still not ahead on
+  "#1 board holds the guide's field" (30s per hand): text 12 vs sim 10 of 59 (Dracotail 7/8, Branded 2/0, Kewl Tune
+  3/2), so it stays OFF in the app (owner's rule: turn it on only if it wins). Where it loses: Branded "nadir" ranks a
+  lone Fallen of the White Dragon (6.79) over Fallen + Dogmatika + Quem + Cartesia (text 9.42): check with sim.py +
+  MDC_SIMLOG whether Cartesia's opponent's-turn Fusion is found and credited (the made monster may be blocked by the
+  one-Quick-Effect-per-play rule in the same play and never get a later target); Kewl Tune "Overtake 1cc" prefers
+  Track Maker + Loudness War over the guide's Zalen + Loudness War. When it goes on: line generation asks for top 1,
+  so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
   matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones
   need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already

@@ -273,6 +273,8 @@ struct Prompt {
 	std::vector<std::pair<uint32_t, uint64_t>> chains;
 	std::vector<uint64_t> chainAt; uint64_t codeAt = 0;   // CHAIN options / EFFECTYN card: which copy (see where_key)
 	bool trig = false;                   // CHAIN: these are triggers to pick from
+	bool to_bp = false, to_m2 = false;   // IDLECMD: can go to battle; BATTLECMD: can go to Main Phase 2 (to_ep: to the End Phase)
+	std::vector<std::pair<uint32_t, bool>> attackers;   // BATTLECMD: monsters that can attack (code, can attack directly)
 	uint8_t forced = 0;
 	uint8_t count = 0; uint32_t flag = 0; uint8_t positions = 0;
 	uint64_t available = 0;
@@ -300,7 +302,15 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 		lst(&m.summon, false); lst(&m.spsummon, false); lst(nullptr, true); lst(nullptr, false); lst(&m.sset, false);
 		uint32_t k = r.u32();
 		for(uint32_t i = 0; i < k; i++) { IdleItem it; it.code = r.u32(); r.u8(); r.u8(); r.u32(); it.desc = r.u64(); r.u8(); m.activate.push_back(it); }
-		r.u8(); m.to_ep = r.u8() != 0; r.u8();
+		m.to_bp = r.u8() != 0; m.to_ep = r.u8() != 0; r.u8();
+		break;
+	}
+	case MSG_SELECT_BATTLECMD: {
+		uint32_t k = r.u32();
+		for(uint32_t i = 0; i < k; i++) { r.u32(); r.u8(); r.u8(); r.u32(); r.u64(); r.u8(); }
+		k = r.u32();
+		for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); r.u8(); r.u8(); r.u8(); bool direct = r.u8() != 0; m.attackers.push_back({c, direct}); }
+		m.to_m2 = r.u8() != 0; m.to_ep = r.u8() != 0;
 		break;
 	}
 	case MSG_SELECT_EFFECTYN: { m.code = r.u32(); Loc l = rloc(r); m.codeAt = where_key(m.code, l.con, l.loc, l.seq); m.desc = r.u64(); break; }
@@ -388,6 +398,7 @@ struct Duel {
 	uint64_t lastHint[2] = {0, 0};
 	int turnPlayer = 0, turns = 0, phase = 0;   // whose turn it is (how many turns have started) and the phase
 	std::vector<uint64_t>* left = nullptr;      // if set: cards that left a Monster / Spell & Trap Zone (where_key of the zone left)
+	int lp[2] = {8000, 8000};
 	// A reused duel slowly keeps a little memory from each game, so after this many reuses it's rebuilt.
 	static constexpr int MAX_REUSE = 150;
 	explicit Duel(const Setup& s) {
@@ -449,6 +460,9 @@ struct Duel {
 					if(t == MSG_HINT && ln >= 11 && body[1] == 3 && body[2] < 2) std::memcpy(&lastHint[body[2]], body + 3, 8);   // HINT_SELECTMSG
 					if(t == MSG_NEW_TURN && ln >= 2) { turnPlayer = body[1]; turns++; phase = 0; }
 					if(t == MSG_NEW_PHASE && ln >= 3) { uint16_t ph; std::memcpy(&ph, body + 1, 2); phase = ph; }
+					if((t == MSG_DAMAGE || t == MSG_RECOVER || t == MSG_LPUPDATE || t == MSG_PAY_LPCOST) && ln >= 6 && body[1] < 2) {
+						uint32_t v; std::memcpy(&v, body + 2, 4);
+						lp[body[1]] = t == MSG_LPUPDATE ? (int)v : lp[body[1]] + (t == MSG_RECOVER ? (int)v : -(int)v); }
 					if(t == MSG_MOVE && left && ln >= 15) { uint32_t code, seq; std::memcpy(&code, body + 1, 4); std::memcpy(&seq, body + 7, 4);
 						if(body[6] & (LOCATION_MZONE | LOCATION_SZONE)) left->push_back(where_key(code, body[5], body[6], seq)); }
 					if(is_prompt(t)) { out = parse_prompt(t, body + 1, ln - 1); if(out.player < 2) { out.hint = lastHint[out.player]; lastHint[out.player] = 0; } got = true; }
@@ -1196,15 +1210,17 @@ struct Search {
 	// and a second wave that doesn't depend on the first (so a board's 3rd and 4th interruption still get a target after
 	// the Goblindbergh line is stopped):
 	//   S2 Pot of Greed, S3 Upstart Goblin: more Spells     M2 Photon Thrasher: a monster that comes when their field is empty
+	//   C  Poison of the Old Man chained to their own Pot of Greed (a 2-link chain: what "in response to" cards like Zalen need)
+	//   A  an attack with their first monster that can (battle effects: attack negates, Sunrise)
 	// None of them has a Quick Effect, so they can't act on our turn. Our side: every choice on their turn (chain or
 	// pass, targets, options) is searched (bounded local search, see simulate), keeping what stops the most; one of our
 	// own interruptions per opponent play (triggers and cards made during their turn aside). A play counts as stopped only if it was tried and its result didn't happen, checked on the field
 	// (the added card isn't in hand, the monster isn't there, the ATK didn't double). Plays that never came because an
 	// earlier one was stopped give no credit (otherwise negating the Normal Summon would score three plays).
 	static constexpr uint32_t P_ADUSTED = 13650422, P_DFUSION = 94820406, P_REINFORCE = 32807846, P_CELTIC = 91152256,
-		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484;
-	static constexpr int PLAYS = 8, THREATS = 9;   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
-	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell"};
+		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484, P_POISON = 8842266;
+	static constexpr int PLAYS = 9, THREATS = 11;   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
+	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "Quick-Play chained to their own Spell", "attack"};
 	struct SimDec { int step; bool act, quick; int pass; };   // one of our decisions: during which play, an activation (a Quick Effect, not a trigger), which option passes
 	struct SimRun { bool ok = false; bool att[THREATS] = {}, stop[THREATS] = {}; int stopsAt[PLAYS] = {}; std::vector<std::pair<double, uint32_t>> credits; std::vector<int> creditPlay; int used = 0; std::vector<SimDec> decs; };
 	static double card_value(uint32_t c) {   // what one of our cards' interruption is worth (its text value; 1 if the text missed it)
@@ -1216,7 +1232,7 @@ struct Search {
 	static double falloff(std::vector<double> v) { std::sort(v.rbegin(), v.rend()); double s = 0, f = 1.0; for(double x : v) { s += x * f; f = std::max(0.5, f - 0.1); } return s; }
 	Setup sim_setup() const {
 		Setup s = setup;
-		s.oppHand = {P_ADUSTED, P_REINFORCE, P_GOBLIN, P_CHARGE, P_POT, P_THRASHER, P_UPSTART};
+		s.oppHand = {P_ADUSTED, P_REINFORCE, P_GOBLIN, P_CHARGE, P_POT, P_THRASHER, P_UPSTART, P_POISON};
 		s.oppDeck = {P_DFUSION, P_DFUSION, P_CELTIC, P_CELTIC}; for(int i = 0; i < 8; i++) s.oppDeck.push_back(DUMMY);
 		s.oppExtra = {P_COWBOY};
 		return s;
@@ -1230,11 +1246,12 @@ struct Search {
 		if(!d.run(m, retry)) return false;
 		size_t mi = 0, bi = 0;
 		int step = -1, actedAt = -2;          // the opponent's last play (index in the order of plays below), and the play we last used a card on
-		bool tried[PLAYS] = {}, done[PLAYS] = {}, gobTrig = false, reached = false, snapped = false;
+		bool tried[PLAYS] = {}, done[PLAYS] = {}, gobTrig = false, reached = false, snapped = false, poisoned = false, battled = false, attacked = false;
+		uint32_t attacker = 0;
 		std::vector<uint32_t> acts[PLAYS];    // our activations while each play was going on
 		std::set<uint64_t> ours;              // our cards when their turn started, by copy (anything else came out during it)
 		std::vector<char> actsOurs[PLAYS];    // whether each activation was by a card we had (decided when it activated)
-		struct Before { int dfusion = 0, celtic = 0, charge = 0, hand = 0; } before;   // what each play's success check compares against
+		struct Before { int dfusion = 0, celtic = 0, charge = 0, hand = 0, oppLp = 0, ourLp = 0, ourMons = 0; } before;   // what each play's success check compares against
 		auto count = [&](uint32_t loc, uint32_t code) { int n = 0; for(auto& c : d.look(1, loc)) if(c.code == code && (loc != LOCATION_MZONE || (c.pos & POS_FACEUP))) n++; return n; };
 		auto judge = [&](int k) {
 			if(k < 0 || !tried[k] || done[k]) return; done[k] = true;
@@ -1247,9 +1264,13 @@ struct Search {
 			case 2: mark(2, count(LOCATION_MZONE, P_GOBLIN) == 0); if(gobTrig) mark(3, count(LOCATION_MZONE, P_CHARGE) <= before.charge); break;
 			case 3: { bool doubled = false; for(auto& c : d.look(1, LOCATION_MZONE)) if(c.code == P_CHARGE && (c.pos & POS_FACEUP) && c.atk >= 2000) doubled = true; mark(4, !doubled); break; }
 			case 4: mark(5, count(LOCATION_MZONE, P_COWBOY) == 0); break;
-			case 5: mark(6, hand < before.hand + 1); break;   // Pot: -1 (itself) +2
+			case 5: mark(6, hand < before.hand + 1 - (poisoned ? 1 : 0)); if(poisoned) mark(9, d.lp[1] < before.oppLp + 1200); break;   // Pot: -1 (itself) +2 (and -1 for Poison chained to it); Poison: +1200 LP
 			case 6: mark(7, count(LOCATION_MZONE, P_THRASHER) == 0); break;
 			case 7: mark(8, hand < before.hand); break;       // Upstart: -1 +1
+			case 8: {   // the attack: stopped only if we used a card on it and it did nothing (or the attacker is gone)
+				bool gone = count(LOCATION_MZONE, attacker) == 0;
+				bool nothing = d.lp[0] >= before.ourLp && (int)d.look(0, LOCATION_MZONE).size() >= before.ourMons;
+				mark(10, !acts[8].empty() && (gone || nothing)); break; }
 			}
 			// Credit: one per interruption, at its card's value, best first. A card that only came out during their turn
 			// (the Shining Neos Wingman a Favorite Contact made) is part of the activation that brought it when both act
@@ -1265,10 +1286,24 @@ struct Search {
 			switch(p.type) {
 			case MSG_SELECT_CHAIN: {
 				if(d.turnPlayer == 1) for(size_t i = 0; i < p.chains.size(); i++) if(p.chains[i].first == P_GOBLIN) { gobTrig = true; return p32((int)i); }
+				if(d.turnPlayer == 1 && step == 5 && !poisoned) for(size_t i = 0; i < p.chains.size(); i++) if(p.chains[i].first == P_POISON) { poisoned = true; return p32((int)i); }
 				return p32(p.forced && !p.chains.empty() ? 0 : -1);
 			}
 			case MSG_SELECT_EFFECTYN: if(d.turnPlayer == 1 && p.code == P_GOBLIN) gobTrig = true; return p32(d.turnPlayer == 1 ? 1 : 0);
 			case MSG_SELECT_YESNO: return p32(d.turnPlayer == 1 ? 1 : 0);
+			case MSG_SELECT_OPTION: {   // Poison of the Old Man: gain the LP
+				for(size_t i = 0; i < p.options.size(); i++) { std::string t = evalx::lower(desc_text(p.options[i])); if(t.find("gain") != std::string::npos) return p32((int)i); }
+				return p32(0);
+			}
+			case MSG_SELECT_BATTLECMD: {   // one attack with their first monster that can, then on to the End Phase
+				judge(step);
+				if(!attacked && !p.attackers.empty()) {
+					attacked = true; step = 8; tried[8] = true; attacker = p.attackers[0].first;
+					before.ourLp = d.lp[0]; before.ourMons = (int)d.look(0, LOCATION_MZONE).size();
+					return p32((0 << 16) | 1);
+				}
+				return p32(p.to_ep ? 3 : 2);
+			}
 			case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {   // their picks: Chargeman for Goblindbergh, the two for the Xyz
 				std::vector<uint32_t> idx;
 				for(uint32_t want : {P_CHARGE, P_GOBLIN, P_CELTIC, P_DFUSION}) for(size_t i = 0; i < p.cards.size() && idx.size() < std::max<uint32_t>(p.mn, 1); i++)
@@ -1302,13 +1337,24 @@ struct Search {
 			// A card of ours that left its zone is gone: a copy that later lands in the same zone came out during their turn.
 			if(snapped) for(uint64_t k : left) ours.erase(k);
 			left.clear();
-			if(theirTurn && d.phase >= PHASE_BATTLE_START) break;   // their Main Phase is over
-			if(m.player == 0 && mi < f.mine.size() && !(theirTurn && d.phase == PHASE_MAIN1 && reached)) {   // our line
+			if(theirTurn && d.phase >= PHASE_MAIN2) break;   // their Main Phase and battle are over
+			bool live = theirTurn && (d.phase == PHASE_MAIN1 || (d.phase >= PHASE_BATTLE_START && d.phase < PHASE_MAIN2));   // their turn, where we decide
+			if(m.player == 0 && mi < f.mine.size() && !(live && reached)) {   // our line
 				// A prompt the line never saw (the opponent holding cards adds "look at their hand" options): answer it by
 				// default and keep the line's next response for its own prompt.
 				if(mi < f.mineType.size() && f.mineType[mi] && f.mineType[mi] != m.type) resp = our_default(m);
 				else { int si = (!theirTurn && m.type == MSG_SELECT_IDLECMD && f.mine[mi] == endTurn) ? set_one(m) : -1;
-					resp = si >= 0 ? r_idle(4, si) : f.mine[mi++]; }
+					if(si >= 0) resp = r_idle(4, si);
+					else {
+						// By label where it's there (a card + effect, the cards picked): the options can come in another order
+						// now (more End Phase effects once Traps were Set); otherwise the recorded bytes.
+						resp = f.mine[mi]; bool found = false;
+						if(mi < f.labels.size()) for(auto& o : choices(m)) if(o.label == f.labels[mi]) { resp = o.resp; found = true; break; }
+						// A chain window that doesn't offer the line's card + effect is an extra one (a trigger from a card we Set
+						// just now): pass it, keep the line's response for its own window.
+						if(!found && m.type == MSG_SELECT_CHAIN && mi < f.labels.size() && f.labels[mi].rfind("chain ", 0) == 0) resp = our_default(m);
+						else mi++;
+					} }
 			}
 			else if(m.player == 1 && theirTurn && m.type == MSG_SELECT_IDLECMD) {
 				reached = true;
@@ -1328,14 +1374,17 @@ struct Search {
 					else if(k == 7 && (i = find(m.activate, P_UPSTART)) >= 0) r = r_idle(5, i);
 					if(i >= 0) next = k;
 				}
-				if(next < 0) break;   // nothing left for them to do
+				if(next < 0) {   // their Main Phase plays are done: on to battle (once), else stop
+					if(!battled && m.to_bp) { battled = true; resp = r_idle(6, 0); goto respond; }
+					break;
+				}
 				step = next; tried[step] = true;
 				before.dfusion = count(LOCATION_HAND, P_DFUSION); before.celtic = count(LOCATION_HAND, P_CELTIC); before.charge = count(LOCATION_MZONE, P_CHARGE);
-				before.hand = (int)d.look(1, LOCATION_HAND).size();
+				before.hand = (int)d.look(1, LOCATION_HAND).size(); before.oppLp = d.lp[1];
 				resp = r;
 			}
 			else if(m.player == 1) resp = opp_default(m);
-			else if(theirTurn && d.phase == PHASE_MAIN1) {
+			else if(live) {
 				// Our decision on their turn.
 				std::vector<Opt> opts; std::vector<uint32_t> actCode; std::vector<uint64_t> actAt;   // actCode: the card each option activates (0 = none); actAt: which copy
 				if(m.type == MSG_SELECT_CHAIN && !m.forced && !m.chains.empty()) {
@@ -1378,6 +1427,7 @@ struct Search {
 				if(theirTurn && m.type == MSG_SELECT_CHAIN) for(auto& c : m.chains) offered.insert(c.first);
 				resp = our_default(m);
 			}
+		respond:
 			d.respond(resp);
 			if(!d.run(m, retry)) {
 				if(retry || !reached) { if(getenv("MDC_SIMLOG")) fprintf(stderr, "sim fail: %s at mine %zu/%zu, turn %d (player %d) phase %d, prompt type %d for player %d\n", retry ? "invalid response" : "duel ended", mi, f.mine.size(), d.turns, d.turnPlayer, d.phase, m.type, m.player);
@@ -1454,7 +1504,7 @@ struct Search {
 			uint32_t c = st.value("code", 0u);
 			if(c && !offered.count(c)) { sims.push_back(st["value"].get<double>() * 0.5); untested.push_back({{"card", c}, {"value", st["value"].get<double>() * 0.5}}); }
 		}
-		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell"};
+		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "attack"};
 		for(size_t i = 0; i < best.credits.size(); i++) { const auto& c = best.credits[i]; sims.push_back(c.first);
 			credits.push_back({{"card", c.second}, {"value", c.first}, {"play", i < best.creditPlay.size() ? PLAY[best.creditPlay[i]] : ""}}); }
 		out = text - textStops + falloff(sims);
