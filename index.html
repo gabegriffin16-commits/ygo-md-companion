@@ -359,6 +359,7 @@ html.compact .lpcol{padding-left:8px}
 .stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
 .primary{background:var(--gold); color:#1B1640; border:0; border-radius:10px; padding:10px 24px; font:700 .95rem var(--display); cursor:pointer}
 .ghost:disabled{opacity:.4; cursor:default}
+.primary:disabled{opacity:.45; cursor:default; filter:saturate(.6)}
 .dbox{background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:12px 14px; margin-bottom:12px}
 .dbox > h3{margin-bottom:8px; font-size:1rem}
 .dbox .seg{margin-bottom:8px}
@@ -2198,7 +2199,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     } else { typeline = (d.r || "Normal") + (f.spell ? " Spell" : " Trap"); info.push(typeline); }
     return {sec:c.zone === "extra" ? "Extra Deck" : f.monster ? "Monsters" : f.spell ? "Spells" : "Traps",
       id:c.id, n:c.n, name:c.name, attr:f.attr ? f.attr.toLowerCase() : null, info:info, typeline:typeline, prop:PROPS[d.r] || "normal",
-      fx:c.summary || (d.d ? d.d.split("\n").filter(Boolean) : ["This card isn't in cards.json yet."]), notes:c.notes || [], official:d.d || ""};
+      fx:c.summary || (d.d ? d.d.split("\n").filter(Boolean).map(function(x){ return x.replace(/^\u25CF\s*/, ""); }) : ["This card isn't in cards.json yet."]), notes:c.notes || [], official:d.d || ""};
   });
 
   // once-per-turns and locks, from rules.json
@@ -2929,7 +2930,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
 
   // ---------- deck analysis (built decks): starters, odds and what each handtrap can stop ----------
-  function pctTxt(x){ return Math.round(x * 100) + "%"; }
+  function pctTxt(x){ var p = Math.round(x * 100); return (p === 100 && x < 1 ? "99.9" : p) + "%"; }
   function renderAnalysis(box, main, extra, opts){
     opts = opts || {};
     box.innerHTML = "";
@@ -2966,7 +2967,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (r.g !== last){ cp.appendChild(nodes("h3", "cphead" + (r.g === 1 ? " pri1" : r.g === 3 ? " safe" : ""), HEAD[r.g])); last = r.g; }
       var row = nodes("div", "cp");
       var t = nodes("div"); var w = nodes("div", "what", r.x.c.n + (r.f.verbs.length ? " \u2014 " + r.f.verbs.join(", ") : ""));
-      var y = nodes("div", "why", r.f.when + ". " + (r.f.body.trim().length > 140 ? r.f.body.trim().slice(0, 138) + "\u2026" : r.f.body.trim()));
+      var fb = r.f.body.trim(); fb = fb.charAt(0).toUpperCase() + fb.slice(1);
+      var y = nodes("div", "why", r.f.when + ". " + (fb.length > 140 ? fb.slice(0, 138) + "\u2026" : fb));
       t.appendChild(w); t.appendChild(y); row.appendChild(t);
       var bd = nodes("div", "badges");
       if (r.f.ash) bd.appendChild(nodes("span", "b ash", "Ash"));
@@ -3014,6 +3016,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function paintDeck(){
     deckPane.innerHTML = '<button type="button" class="deckpick" title="Switch decks, build a new one, import or export" aria-haspopup="true"><b></b><span class="caret" aria-hidden="true"></span></button><div class="sub"></div>';
     deckPane.querySelector(".deckpick b").textContent = PILOT_NAME;
+    deckPane.querySelector(".deckpick").title = PILOT_NAME + ": switch decks, build a new one, import or export";
     deckPane.querySelector(".deckpick").addEventListener("click", function(e){ e.stopPropagation(); if (deckMenu.hidden) openDeckMenu(this); else closeDeckMenu(); });
     deckPane.querySelector(".sub").textContent = MAIN_COUNT + " main, " + EXTRA_COUNT + " Extra. Select a card for details.";
     if (DECKDATA.none){
@@ -3034,6 +3037,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     ["Monsters","Spells","Traps","Extra Deck"].forEach(function(sec){
       var items = DECK.filter(function(c){ return c.sec === sec; });
       var tot = items.reduce(function(a,c){ return a + c.n; }, 0);
+      if (!items.length) return;   // no empty "Traps 0" headers
       var h = document.createElement("div"); h.className = "deckgrp";
       h.innerHTML = '<span class="g"></span><span class="t"></span>';
       h.querySelector(".g").textContent = sec; h.querySelector(".t").textContent = tot;
@@ -4944,12 +4948,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var row = pane.querySelector(h.classList.contains("deckopen") ? ".deckpick" : ".cdsearch");
     var rr = row ? row.getBoundingClientRect() : null, w = x.offsetWidth || 34;
     x.style.right = "auto"; x.style.left = Math.round(right - 12 - w / 2) + "px";
-    x.style.top = Math.round(rr ? rr.top + pane.scrollTop + rr.height / 2 - w / 2 : r.top + 18) + "px";
+    x.style.top = Math.round(rr ? rr.top + rr.height / 2 - w / 2 : r.top + 18) + "px";
     var sw = swapBtn(); sw.style.top = x.style.top; sw.style.left = (parseFloat(x.style.left) - 8 - w) + "px";
   }
   window.addEventListener("resize", function(){ requestAnimationFrame(placeClose); });
   if (window.ResizeObserver){ var paneRO = new ResizeObserver(function(){ requestAnimationFrame(placeClose); });
     ["deckPane", "cardPane"].forEach(function(id){ var el = document.getElementById(id); if (el) paneRO.observe(el); }); }
+  ["deckPane", "cardPane"].forEach(function(id){ var el = document.getElementById(id); if (el) el.addEventListener("scroll", function(){ requestAnimationFrame(placeClose); }, {passive:true}); });
   new MutationObserver(function(){ requestAnimationFrame(placeClose); }).observe(document.documentElement, {attributes:true, attributeFilter:["class"]});
   function closeBtn(){
     var x = document.getElementById("findClose");
@@ -4964,7 +4969,12 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     this.setAttribute("aria-pressed", on ? "true" : "false");
     if (on){ var lh = document.querySelector(".loghead"); if (lh) lh.scrollIntoView({block:"start", behavior:"smooth"}); }
   });
-  document.addEventListener("keydown", function(e){ if (e.key === "Escape" && /findopen|deckopen/.test(document.documentElement.className) && !(e.target && e.target.value)) closeFind(); });
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape" || !/findopen|deckopen/.test(document.documentElement.className) || (e.target && e.target.value)) return;
+    // One thing per Escape: an open menu or the builder on top closes first.
+    if (document.documentElement.classList.contains("building") || [].some.call(document.querySelectorAll(".deckmenu, .vspop"), function(m){ return !m.hidden; })) return;
+    closeFind();
+  });
   // ---------- hand reader (overlay app reads your hand from the screen) ----------
   var readerStatus = null;
   window.addEventListener("overlay-reader", function(e){
@@ -5120,11 +5130,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     menuItem("Import a .ydk file", "act", function(){ closeDeckMenu(); importYdk(); });
     if (!DECKDATA.none) menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); });
     if (DECKDATA.custom && !DECKDATA.none) menuItem("Delete this deck", "act danger", function(b){
-      if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME; return; }
+      if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME;
+        setTimeout(function(){ if (b.isConnected && b.dataset.armed){ delete b.dataset.armed; b.textContent = "Delete this deck"; } }, 3000); return; }
       MDC.remove(PILOT_ID); MDC.setPilot(MDC.heroAllowed() ? "hero" : null);
     });
 
     var r = anchor.getBoundingClientRect();
+    deckMenu.style.minWidth = Math.min(r.width, window.innerWidth - 16) + "px";
     deckMenu.hidden = false;
     deckMenu.style.left = Math.max(8, Math.min(r.left, window.innerWidth - deckMenu.offsetWidth - 8)) + "px";
     deckMenu.style.top = Math.min(r.bottom + 6, window.innerHeight - deckMenu.offsetHeight - 8) + "px";
@@ -5134,8 +5146,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   var bldReload = false;   // the piloted deck changed while building: reload when the builder closes
   function openBuilder(deck, isNew){
-    var old = document.getElementById("builder"); if (old) old.remove();
-    var dirty = false;
+    var old = document.getElementById("builder"); if (old){ if (old._off) old._off(); old.remove(); }
+    // A copy or an import arrives already full of cards and isn't saved yet: closing it should ask first.
+    var dirty = !!(isNew && ((deck.main || []).length || (deck.extra || []).length));
+    if (deck.name && deck.name.length > 40) deck.name = deck.name.slice(0, 40).trim();
     CF.bld = deck;
     var ART = window.ART_BASE || "";
     var RAR_ORDER = {UR:0, SR:1, R:2, N:3};
@@ -5195,7 +5209,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (saved && !isNew) $(".bldpicklbl").textContent = "Editing: " + (saved.name || "Untitled deck");
     function closePick(){ pickMenu.hidden = true; pickBtn.setAttribute("aria-expanded", "false"); }
     function switchTo(next, fresh, item){
-      if (dirty && !item.dataset.armed){ item.dataset.armed = "1"; item.querySelector("span").textContent = "Unsaved changes: tap again"; return; }
+      if (dirty && !item.dataset.armed){ var was = item.querySelector("span").textContent;
+        item.dataset.armed = "1"; item.querySelector("span").textContent = "Unsaved changes: tap again";
+        setTimeout(function(){ if (item.isConnected && item.dataset.armed){ delete item.dataset.armed; item.querySelector("span").textContent = was; } }, 3000); return; }
       closePick(); openBuilder(next, fresh);
     }
     function pickItem(label, sub, cls, fn){
@@ -5249,10 +5265,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     notesIn.addEventListener("input", function(){ deck.notes = notesIn.value; dirty = true; });
     // Resize from the top-right grip: drag up for a taller box.
     var nh = load("hbc-notesh", 120); notesIn.style.height = nh + "px";
+    // A height dragged in a bigger window can squeeze the deck out of a smaller one: keep room for the cards.
+    function clampNotes(){
+      var avail = list.parentNode && list.parentNode.clientHeight; if (!avail || !notesIn.offsetParent) return false;
+      var maxH = Math.max(60, avail - 260);
+      if (notesIn.offsetHeight > maxH){ notesIn.style.height = maxH + "px"; return true; }
+      return false;
+    }
     var grip = $(".bldgrip");
     grip.addEventListener("pointerdown", function(e){
       e.preventDefault(); grip.setPointerCapture(e.pointerId);
-      var y0 = e.clientY, h0 = notesIn.offsetHeight, maxH = Math.max(120, list.parentNode.clientHeight - 120);
+      var y0 = e.clientY, h0 = notesIn.offsetHeight, maxH = Math.max(60, list.parentNode.clientHeight - 260);
       grip.classList.add("drag");
       function mv(ev){ notesIn.style.height = Math.max(60, Math.min(maxH, h0 + (y0 - ev.clientY))) + "px"; }
       function up(){ grip.classList.remove("drag"); grip.removeEventListener("pointermove", mv); grip.removeEventListener("pointerup", up); grip.removeEventListener("pointercancel", up); save("hbc-notesh", notesIn.offsetHeight); fitDeck(); }
@@ -5604,8 +5627,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var b = nodes("button", null, o[1]); b.type = "button"; b.setAttribute("aria-pressed", simOrder === o[0] ? "true" : "false");
         b.addEventListener("click", function(){ simOrder = o[0]; newHand(); }); seg.appendChild(b);
       });
-      var nh = nodes("button", "primary", "New hand"); nh.type = "button"; nh.addEventListener("click", newHand);
-      var d1 = nodes("button", "ghost", "Draw 1"); d1.type = "button"; d1.disabled = !simHand.length; d1.addEventListener("click", drawOne);
+      var nh = nodes("button", "primary", "New hand"); nh.type = "button"; nh.addEventListener("click", newHand); nh.disabled = N < 5;
+      var d1 = nodes("button", "ghost", "Draw 1"); d1.type = "button"; d1.disabled = !simHand.length || !simRest.length; d1.addEventListener("click", drawOne);
+      if (N < 5) [].forEach.call(seg.children, function(b){ b.disabled = true; });
       top.appendChild(seg); top.appendChild(nh); top.appendChild(d1);
       box.appendChild(top);
       if (N < 5){ box.appendChild(nodes("p", "hint", "Add at least 5 Main Deck cards to draw hands.")); return; }
@@ -5636,7 +5660,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       else sum.textContent = "Tap cards below to mark your starters and see the odds of opening one.";
       odds.appendChild(sum);
       var tbl = nodes("div", "simtbl");
-      var hd = nodes("div", "simrow simhead"); ["Card", "Copies", "In 5", "In 6"].forEach(function(t){ hd.appendChild(nodes("span", null, t)); }); tbl.appendChild(hd);
+      var hd = nodes("div", "simrow simhead"); ["Card", "Copies", "In 5", "In 6"].forEach(function(t, i){ hd.appendChild(nodes("span", i ? null : "simnm", t)); }); tbl.appendChild(hd);
       deck.main.slice().sort(function(a, b){ return b.n - a.n || (CARD_BY_ID[a.id].n < CARD_BY_ID[b.id].n ? -1 : 1); }).forEach(function(r){
         var c = CARD_BY_ID[r.id]; if (!c) return;
         var on = st.indexOf(r.id) >= 0;
@@ -5674,16 +5698,17 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       MDC.pickFile(function(text, name){
         var r = MDC.fromYdk(text, name, CARDDB);
         if (!r.deck.main.length && !r.deck.extra.length){ toast("That file didn't have any cards this app knows."); return; }
-        deck.main = r.deck.main; deck.extra = r.deck.extra; if (!deck.name){ deck.name = r.deck.name; nameIn.value = deck.name; }
+        deck.main = r.deck.main; deck.extra = r.deck.extra; if (!deck.name){ deck.name = (r.deck.name || "").slice(0, 40).trim(); nameIn.value = deck.name; }
         changed();
         toast("Imported" + (r.unknown ? " (" + r.unknown + " unknown card" + (r.unknown > 1 ? "s" : "") + " skipped)" : ""), 2400);
       });
     });
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
-    function close(){ closePick(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey);
+    function close(){ closePick(); root._off(); root.remove(); document.documentElement.classList.remove("building"); document.removeEventListener("keydown", onKey);
       if (bldReload){ bldReload = false; location.reload(); } }
     function onKey(e){ if (e.key === "Escape"){ if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); } } }
     document.addEventListener("keydown", onKey);
+    root._off = function(){ document.removeEventListener("keydown", onKey); window.removeEventListener("resize", onResize); };
     var cancel = $(".bldcancel");
     cancel.addEventListener("click", function(){
       if (dirty && !cancel.dataset.armed){ cancel.dataset.armed = "1"; cancel.textContent = "Discard changes?"; setTimeout(function(){ delete cancel.dataset.armed; cancel.textContent = "Close"; }, 3000); return; }
@@ -5691,16 +5716,19 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     $(".bldsave").addEventListener("click", function(){
       deck.name = (nameIn.value || "").trim() || "Untitled deck";
-      if (!deck.main.length){ toast("Add some cards first"); return; }
+      if (!deck.main.length){ toast(deck.extra.length ? "Add some Main Deck cards first" : "Add some cards first"); return; }
       if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
       // Stay in the builder and keep piloting whatever you were piloting. Saving the piloted deck refreshes it when you close.
       dirty = false; isNew = false; nameIn.value = deck.name;
       $(".bldpicklbl").textContent = "Editing: " + deck.name;
       if (deck.id === PILOT_ID) bldReload = true;
+      if (view === "ana") paintAna();   // Generate unlocks once the deck is saved
       toast("Saved " + deck.name);
     });
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
-    var rsz; window.addEventListener("resize", function(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ paintGrid(); if (list.offsetParent) fitDeck(); }, 150); });
+    var rsz; function onResize(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ clampNotes(); paintGrid(); if (list.offsetParent) fitDeck(); }, 150); }
+    window.addEventListener("resize", onResize);
+    setTimeout(function(){ if (clampNotes()) fitDeck(); }, 60);
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
   }
 
