@@ -160,7 +160,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones
   need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already
   scores higher): Branded Fusion 1cc (14.30 vs 12.60), Walbaz (SS) + Lukias (16.70 vs 13.30), Walbaz (SS) + Mululu
-  (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. Elfnote's Accel Synchro 1.5
+  (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. More time doesn't help
+  (Walbaz (SS) + Mululu at 180s: best found at 1s, still 14.05), so the beam's ranking (`promise`) drops the guide's
+  line early. Next step: play the guide's line in with `prefix` and see at which step its states fall out of the
+  beam. Elfnote's Accel Synchro 1.5
   checked: fair (it Tributes for Stardust Dragon on their turn), left as is. Next decks: a Synchro/Xyz deck (e.g. Kewl
   Tune) would cover prompt types the current three don't.
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
