@@ -6248,7 +6248,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       S.push({seg:"pre", title:"Sample deck", text:["Next, the tour adds a temporary Tutorial deck so you can see the deck tools.", "It stays on this device and is deleted when the tour ends."]});
       // ---- with the Tutorial deck ----
       S.push({seg:"deck", first:true, sel:cpt ? "#cDeck" : "#deckPane .deckpick", before:closeAll, title:"The deck you're playing",
-        text:["You're now playing the Tutorial deck.", menu]});
+        text:["You're now playing the Tutorial deck.", menu].concat(cpt ? [] : ["The line under the name shows whether the deck is synced to your account."])});
       if (!cpt) S.push({seg:"deck", sel:"#deckPane .dl-item", hole:"#deckPane", before:closeAll, title:"Your decklist", text:["Every card in your deck, grouped by type.", "Tap a card to see its details."]});
       S.push({seg:"deck", sel:".bld .bldtools", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"The deck builder",
         text:["Search for any card.", "Use Filters to narrow the results.", "Click or drag a card to add it.", "Right-click a card for details."]});
@@ -6269,10 +6269,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         text:["Your opening hand and draws are read from the screen.", "The best line for your hand shows up here."]});
       S.push({seg:"deck", auto:true, sel:cpt ? "#cLog" : "#duelLog", before:duel, title:"Duel log", text:["Each finished turn is saved here.", "It shows what you opened, drew and used, plus both players' LP."]});
       // ---- other tabs ----
-      S.push({seg:"deck", sel:"#t-lines", before:function(){ closeAll(); tab("lines"); }, title:"Lines",
-        text:["Combo lines for your deck.", "They come from your deck notes, Find combos and Generate lines."]});
-      S.push({seg:"deck", sel:"#t-check", before:function(){ closeAll(); tab("check"); }, title:"Checkpoints",
-        text:["Your starters and your odds of opening one.", "Where handtraps can stop you."]});
+      S.push({seg:"deck", sel:["#tab-lines .nolines", "#t-lines"], before:function(){ closeAll(); tab("lines"); }, title:"Lines",
+        text:["Combo lines for your deck, from your notes, Find combos and generated lines.", "A new deck has none yet. " + (GEN_OK ? "Generate lines fills this tab in a few minutes." : "Generate them in the desktop app.")]});
+      S.push({seg:"deck", sel:["#tab-check .cpfilt", "#t-check"], before:function(){ closeAll(); tab("check"); }, title:"Checkpoints",
+        text:["Your starters, your odds of opening one, and where handtraps can stop you.", "Tap Ash, Imperm or Droll to see only what that handtrap stops."]});
       S.push({seg:"deck", sel:"#t-counter", before:function(){ closeAll(); tab("counter"); }, title:"Counter Guide",
         text:["Pick your opponent's deck.", "See what to hit with handtraps and what to watch out for."]});
       S.push({seg:"deck", sel:["#ovUsers", "#t-users"], before:duel, title:"Users",
