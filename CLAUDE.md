@@ -96,6 +96,10 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 
 ## Testing
 
+- **Local build on the owner's PC**: VS 2022 Build Tools + CMake are installed; deps live in
+  `%LOCALAPPDATA%/mdc-engine-build` (same versions as CI). `cmake -S combo-engine -B <that>/ce-build -A x64 -DOCGCORE_DIR=<that>/ce-src/ygopro-core
+  -DDEPS_DIR=<that>/ce-deps -DMIMALLOC_DIR=<that>/ce-src/mimalloc` then `cmake --build <that>/ce-build --config Release`.
+  Test data: the app's `%APPDATA%/Omni HERO Overlay/combo-data/` (cards.cdb, CardScripts.zip). Bench prints GY/banished.
 - **Engine bench**: `combo-engine/bench/bench.py <engine> <cards.cdb> <scripts.zip> <hand codes> <secs> <maxActions> [threads] [mode] [targets]`
   with `DECK_JSON=combo-engine/bench/omni.json` (Omni HERO) or `elfnote.json`; `ZONES=0/1` forces zone mode.
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + Favorite Contact set; Elfnote Lucina: Strelitzia

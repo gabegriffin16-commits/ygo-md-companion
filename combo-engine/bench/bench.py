@@ -39,6 +39,7 @@ for b in r["boards"]:
     z = b.get("zones") or []
     field = ", ".join(n(c) + (" [center]" if i < len(z) and z[i] == 2 else (" [EMZ]" if i < len(z) and z[i] >= 5 else "")) for i, c in enumerate(b["field"]))
     print("\nSCORE %.2f  FIELD: %s  BACKROW: %s  HAND: %s" % (b["score"], field, ", ".join(n(c) for c in b["backrow"]), ", ".join(n(c) for c in b["hand"])))
+    print("  GY: %s  BANISHED: %s" % (", ".join(n(c) for c in b.get("gy", [])), ", ".join(n(c) for c in b.get("banished", []))))
     for i, s in enumerate(b["steps"], 1):
         g = "; ".join("%s:%s" % (h, ", ".join(n(c) for c in cs)) for h, cs in s.get("groups", []))
         print("  %2d. %s %s %s %s" % (i, s["do"], n(s["card"]), ("| " + s["effect"][:50]) if s["effect"] else "", ("[" + g + "]") if g else ""))
