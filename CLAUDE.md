@@ -55,6 +55,9 @@ Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it check
   `<name>@players.mdc-app.com`. Includes `benchJob/benchPost` for engine tests.
 - Combo finder UI: `comboFinder()` (Duel tab opening hand + builder Draw simulator), `cfStepText` (step wording from pick
   "groups" / hint ids), saved lines in the Lines tab.
+- Guided tour: `window.startTour()` (spotlight + card, steps built per state: no deck vs a piloted deck, app vs website,
+  compact). Auto-starts once after sign-up (`mdc-tour-new` flag); re-run from Settings (app) or the account menu (website).
+  Add a step there when a main feature is added.
 - Generated lines: `genBox` (builder > Analysis: goals chips + Generate), `paintGen` (Lines / Checkpoints / Counter Guide
   for decks with `deck.gen`), `genEvaluate` (Duel tab best line from the read hand). `deckGoals/goalSuggest` = end-board goals.
 

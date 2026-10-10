@@ -1606,6 +1606,23 @@ button.cfmark.cf-droll[aria-expanded="true"]{color:var(--bg); background:var(--m
 #tab-check .ana{margin-top:4px}
 html.compact .anastats{grid-template-columns:repeat(2, minmax(0,1fr))}
 html.fadebg .anastat{background:color-mix(in srgb, var(--panel) 85%, transparent) !important}
+/* ---- guided tour ---- */
+#tour{position:fixed; inset:0; z-index:10050}
+#tour .tblock{position:absolute; inset:0}
+#tour.nohole .tblock{background:rgba(10,8,22,.62)}
+#tour .thole{position:absolute; border-radius:12px; pointer-events:none; box-shadow:0 0 0 2px var(--gold), 0 0 0 9999px rgba(10,8,22,.62);
+  transition:left .25s ease, top .25s ease, width .25s ease, height .25s ease}
+#tour.nohole .thole{display:none}
+#tour .tcard{position:absolute; box-sizing:border-box; width:min(380px, calc(100vw - 24px)); background:var(--panel); color:var(--ink); border:1px solid var(--line);
+  border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.4); padding:16px 18px 14px; transition:left .25s ease, top .25s ease}
+#tour .tcard h3{margin:0 0 6px; font:700 1.02rem var(--display); color:var(--ink)}
+#tour .tcard p{margin:0; font:400 .92rem/1.5 var(--body); color:var(--ink)}
+#tour .tfoot{display:flex; align-items:center; gap:8px; margin-top:14px}
+#tour .tcount{font:600 .74rem var(--display); color:var(--muted); margin-right:auto; letter-spacing:.04em}
+#tour .tskip{background:none; border:0; padding:6px 4px; font:600 .82rem var(--display); color:var(--muted); cursor:pointer}
+#tour .tskip:hover{color:var(--ink); text-decoration:underline}
+#tour .tfoot .ghost, #tour .tfoot .primary{padding:7px 14px; font-size:.86rem; border-radius:9px}
+@media (prefers-reduced-motion: reduce){ #tour .thole, #tour .tcard{transition:none} }
 </style>
 </head>
 <body>
@@ -2451,6 +2468,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       pop.appendChild(nodes("div", "dmsep"));
       var hk = nodes("button", "dmitem act", "Hotkeys…"); hk.type = "button"; hk.addEventListener("click", function(){ close(); app.openHotkeys && app.openHotkeys(); }); pop.appendChild(hk);
     }
+    if (window.CLOUD && CLOUD.user()){
+      var tu = nodes("button", "dmitem act", "Tutorial"); tu.type = "button"; tu.title = "A guided tour of the app";
+      tu.addEventListener("click", function(){ close(); if (window.startTour) window.startTour(); }); pop.appendChild(tu);
+    }
     function paint(st){
       cur = st || cur; if (!cur) return;
       if (op){ op.querySelector(".setval").textContent = Math.round(cur.opacity * 100) + "%";
@@ -2486,6 +2507,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       closeMenus(acctMenu); acctMenu.innerHTML = "";
       var who = nodes("div", "dmwho"); who.appendChild(nodes("span", null, "Signed in as ")); who.appendChild(nodes("b", null, (CLOUD.profile() || {}).username || "")); acctMenu.appendChild(who);
       acctMenu.appendChild(nodes("div", "dmsep"));
+      if (!document.getElementById("ovBar")){ var tu = nodes("button", "dmitem act", "Tutorial"); tu.type = "button"; tu.addEventListener("click", function(){ acctMenu.hidden = true; if (window.startTour) window.startTour(); }); acctMenu.appendChild(tu); }
       var so = nodes("button", "dmitem act", "Sign out"); so.type = "button"; so.addEventListener("click", function(){ CLOUD.signOut().then(function(){ location.reload(); }); }); acctMenu.appendChild(so);
       acctMenu.hidden = false;
       var r = acctEl.getBoundingClientRect();
@@ -5973,6 +5995,193 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     wrap.appendChild(bb); wrap.appendChild(pop); host.appendChild(wrap);
     paintBgs();
   })();
+  // ---------- guided tour: shows each part of the app; starts once on a new account, re-run from Settings ----------
+  // Nothing in it builds or saves anything. It opens the builder itself to show it (an empty deck, or your deck
+  // untouched) and closes it again. Two versions: before your first deck, and with a deck (the UI is different).
+  (function(){
+    var T = null;   // the running tour
+    function vis(el){ if (!el || !el.isConnected) return false; var r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0 && getComputedStyle(el).visibility !== "hidden"; }
+    function find(sel){
+      var list = [].concat(sel || []);
+      for (var i = 0; i < list.length; i++){
+        var els = document.querySelectorAll(list[i]);
+        for (var j = 0; j < els.length; j++) if (vis(els[j])) return els[j];
+      }
+      return null;
+    }
+    function compactNow(){ return document.documentElement.classList.contains("compact") || window.innerWidth < 1220; }
+    function inApp(){ return !!document.getElementById("ovBar"); }
+    function tab(id){ var b = document.getElementById("t-" + id); if (b && vis(b) && b.getAttribute("aria-selected") !== "true") b.click(); }
+    function bld(){ return document.getElementById("builder"); }
+    function bldView(v){ var r = bld(); if (!r) return; var b = r.querySelector('.bldviews [data-v="' + v + '"]'); if (b && vis(b)) b.click(); }
+    function openBld(){
+      if (bld()) return;
+      var rec = DECKDATA.custom && !DECKDATA.none ? MDC.get(PILOT_ID) : null;
+      openBuilder(rec ? JSON.parse(JSON.stringify(rec)) : {id:MDC.newId(), name:"", main:[], extra:[]}, !rec);
+      T.openedBld = true;
+      setTimeout(function(){ if (document.activeElement && bld() && bld().contains(document.activeElement)) document.activeElement.blur(); }, 60);
+    }
+    function closeBld(){ if (T && T.openedBld && bld()){ var c = bld().querySelector(".bldcancel"); if (c) c.click(); if (bld() && c) c.click(); } if (T) T.openedBld = false; }
+
+    function steps(){
+      var hasDeck = !DECKDATA.none, app = inApp(), cpt = compactNow(), cust = DECKDATA.custom && !DECKDATA.none;
+      var S = [];
+      S.push(hasDeck ? {title:"Tour: playing with a deck", text:"A walk through the app now that you have a deck. Next and Back (or the arrow keys) move through it, and Esc leaves any time. Nothing gets changed or saved."}
+                     : {title:"Welcome to Master Duel Companion", text:"A quick look around, about two minutes. You won't have to build or save anything. Next and Back (or the arrow keys) move through it, and Esc leaves any time."});
+      // ---- decks ----
+      if (!hasDeck){
+        S.push({sel:cpt ? "#cDeck" : "#deckPane .nodeck", title:"Your decks",
+          text:cpt ? "Deck opens your decks. With none yet, it offers three ways in: build one from scratch, import a .ydk file, or copy a deck another player shared."
+                   : "Your decks live here. With none yet, there are three ways in: build one from scratch, import a .ydk file, or copy a deck another player shared."});
+      } else {
+        S.push({sel:cpt ? "#cDeck" : "#deckPane .deckpick", title:"The deck you're playing",
+          text:(cpt ? "Deck opens your decklist. In it, tap" : "Tap") + " the deck's name for the deck menu: switch decks, + Build a new deck, edit this one, import or export a .ydk, or delete it."});
+        if (!cpt) S.push({sel:"#deckPane .dl-item", pad:4, hole:"#deckPane", title:"Your decklist", text:"Every card in the deck, grouped by type. Tap one to see its art, stats and what it does on the right."});
+      }
+      // ---- the builder (opened just to show it) ----
+      S.push({sel:".bld .bldtools", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:cust ? "The deck builder (your deck)" : "The deck builder",
+        text:(cust ? "Here's your deck in the builder. Nothing changes unless you press Save. " : "We opened an empty deck just to show you around. Nothing gets saved. ") +
+          "Search every Master Duel card, narrow it down with Filters and sort, then click or drag a card to add it. Right-click a card for its details."});
+      S.push(cpt ? {sel:'.bld .bldviews [data-v="deck"]', before:function(){ openBld(); }, title:"Your deck", text:"Your deck shows the Main and Extra Deck with copy counts. Use − and + to change copies. Deck notes go at the bottom and show in the Lines tab while you play the deck."}
+                 : {sel:".bld .blddeck", before:function(){ openBld(); bldView("build"); }, title:"Your deck", text:"Main and Extra Deck with copy counts. Use − and + or drag a card out to remove it. Deck notes underneath show in the Lines tab while you play the deck."});
+      if (hasDeck && cust){
+        S.push({sel:".bld .bldsim", place:"inside", before:function(){ openBld(); bldView("sim"); }, title:"Draw simulator",
+          text:"Deal test hands and draw cards. Tap cards in the odds table to mark your starters and see how often you open one." + (CF_OK ? " Find combos plays a hand out in the real rules engine and shows the end boards it can reach." : "")});
+        S.push({sel:".bld .bldana", place:"inside", before:function(){ openBld(); bldView("ana"); }, title:"Analysis",
+          text:"Reads your cards: starters, extenders, handtraps, opening odds, and what Ash, Imperm and Droll can stop. Pick end-board goals and Generate lines" + (GEN_OK ? "" : " (desktop app)") + " to fill the Lines, Checkpoints and Counter Guide tabs for this deck."});
+      } else {
+        S.push({sel:".bld .bldviews", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Draw simulator and Analysis",
+          text:"Once there are cards in the deck: Draw simulator deals test hands and shows your odds of opening a starter. Analysis reads your cards for starters, handtraps and what Ash and Imperm can stop, and" + (GEN_OK ? "" : " in the desktop app") + " generates combo lines for the deck."});
+      }
+      S.push({sel:".bld .bldbtns", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Save and share",
+        text:"Shared decks show in the Users tab for other players; Unlisted ones don't. Import or export a .ydk file, and Save. Close asks first if you have unsaved changes."});
+      // ---- Duel tab ----
+      var leave = function(){ closeBld(); tab("hand"); };
+      S.push({sel:"#stepper", before:leave, title:"Duel tab: turn and phase",
+        text:"The Duel tab follows your duel step by step. This row shows the turn and phase. Their deck? sets your opponent's deck for matchup tips, and New duel starts over."});
+      S.push({sel:"#lpBar", before:leave, title:"Life points",
+        text:"Type 500 and press Enter for 500 damage, +500 to gain, =4000 to set it. The buttons take 1000 or halve your LP."});
+      S.push({sel:"#stepBody", before:leave, place:"below", title:"One step at a time",
+        text:hasDeck ? "Each step asks one thing: who goes first, your opening hand, your draw, your plays. On Opening hand, tap the 5 cards you opened" + (app ? " (or let Read my hand pick them up from the screen)" : "") + " and the best line for that hand shows up. Next moves on, Back undoes."
+                     : "Each step asks one thing: who goes first, your opening hand, your draw, your plays. With a deck, the opening hand step shows your cards to tap and the best line for that hand. Next moves on, Back undoes."});
+      S.push({sel:cpt ? "#cLog" : "#duelLog", before:leave, title:"Duel log", text:"Finished turns land here: what you opened, drew and used, and the LP after each turn."});
+      // ---- other tabs ----
+      S.push({sel:"#t-lines", before:function(){ closeBld(); tab("lines"); }, title:"Lines",
+        text:hasDeck ? (HEROMODE ? "Combo lines for this deck, from each starter to the end board, with what to do when a handtrap hits." :
+                         PGEN ? "The lines generated for this deck: each starter's route to an end board, with a backup when a handtrap hits." :
+                         "Combo lines for the deck you're playing. Your deck notes show here, plus any lines you save from Find combos. Generate lines in the builder's Analysis view to fill it in" + (GEN_OK ? "." : " (desktop app)."))
+                     : "Combo lines for the deck you're playing: your deck notes, lines you save from Find combos, and lines the desktop app generates for the deck."});
+      S.push({sel:"#t-check", before:function(){ closeBld(); tab("check"); }, title:"Checkpoints",
+        text:"Built from your cards: your starters, the odds of opening one, and where Ash, Imperm and Droll can hit you, so you know what to bait first."});
+      S.push({sel:"#t-counter", before:function(){ closeBld(); tab("counter"); }, title:"Counter Guide",
+        text:"Pick the deck you're up against for what to Ash, what to let resolve, and what their cards can do to your board."});
+      S.push({sel:["#ovUsers", "#t-users"], before:function(){ closeBld(); tab("hand"); }, title:"Users",
+        text:"Players and the decks they share. Open a player, then a deck, to see the list and copy it to your decks."});
+      S.push({sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:function(){ closeBld(); tab("hand"); }, title:"Card lookup",
+        text:"Look up any card. Its art, stats, what it does and the official text show " + (cpt ? "in the Find panel." : "here.")});
+      // ---- display and settings ----
+      if (app){
+        S.push({sel:"#ovLeft", title:"Window controls", text:"Snap the window to the left or right side of the screen, switch between full and compact view, reload, and pick a theme."});
+        S.push({sel:"#ovK", title:"Settings", text:"Window opacity, the click-through lock (clicks go to the game), Read my hand, hotkeys, and this tour if you want it again."});
+      } else {
+        S.push({sel:"header.top .hdrside", title:"Display", text:"Pick a theme, Fade for a calmer background, and switch between full and compact view."});
+        S.push({sel:"#acctBtn", title:"Your account", text:"Your account menu. Run this tour again from here, or sign out."});
+      }
+      // ---- finish ----
+      S.push(hasDeck ? {title:"That's the tour", text:"Make more decks any time from the deck menu (tap your deck's name, then + Build a new deck or Import). This tour is in " + (app ? "Settings" : "your account menu") + " whenever you want it again."}
+        : {sel:cpt ? "#cDeck" : "#deckPane .nodeck", before:function(){ closeBld(); tab("hand"); }, title:"Your first deck",
+           text:"Start with Build a deck, Import .ydk, or Browse players' decks. After your first deck, these buttons give way to your decklist; make more decks from the deck menu (tap your deck's name, then + Build a new deck or Import). Once you have a deck, run this tour again from " + (app ? "Settings" : "your account menu") + " to see the deck tools."});
+      return S;
+    }
+
+    function place(){
+      if (!T) return;
+      var s = T.steps[T.i], el = s.sel ? find(s.sel) : null, hole = T.hole, card = T.card, vw = window.innerWidth, vh = window.innerHeight, m = 12;
+      var hl = el && s.hole ? (el.closest(s.hole) || el) : el;
+      T.root.classList.toggle("nohole", !hl);
+      var r = null;
+      if (hl){
+        r = hl.getBoundingClientRect(); var pad = s.pad != null ? s.pad : 6;
+        r = {left:Math.max(4, r.left - pad), top:Math.max(4, r.top - pad), right:Math.min(vw - 4, r.right + pad), bottom:Math.min(vh - 4, r.bottom + pad)};
+        hole.style.left = r.left + "px"; hole.style.top = r.top + "px"; hole.style.width = (r.right - r.left) + "px"; hole.style.height = (r.bottom - r.top) + "px";
+      }
+      var cw = card.offsetWidth, ch = card.offsetHeight, x, y;
+      if (!r){ x = (vw - cw) / 2; y = (vh - ch) / 2; }
+      else {
+        var below = vh - r.bottom - m, above = r.top - m, right = vw - r.right - m, left = r.left - m;
+        x = Math.min(Math.max(m, (r.left + r.right) / 2 - cw / 2), vw - cw - m);
+        if (s.place === "inside" || (below < ch + m && above < ch + m && right < cw + m && left < cw + m)){ y = Math.max(m, vh - ch - 24); }   // big target: sit over its lower part
+        else if (below >= ch + m && s.place !== "above") y = r.bottom + m;
+        else if (above >= ch + m) y = r.top - m - ch;
+        else if (right >= cw + m){ x = r.right + m; y = Math.min(Math.max(m, r.top), vh - ch - m); }
+        else if (left >= cw + m){ x = r.left - m - cw; y = Math.min(Math.max(m, r.top), vh - ch - m); }
+        else y = r.bottom + m;
+      }
+      card.style.left = Math.round(x) + "px"; card.style.top = Math.round(y) + "px";
+    }
+    function show(i){
+      if (!T) return;
+      T.i = Math.max(0, Math.min(T.steps.length - 1, i));
+      var s = T.steps[T.i];
+      if (s.before) try { s.before(); } catch (e) {} else closeBld();
+      T.card.querySelector("h3").textContent = s.title;
+      T.card.querySelector("p").textContent = s.text;
+      T.card.querySelector(".tcount").textContent = (T.i + 1) + " of " + T.steps.length;
+      T.back.disabled = T.i === 0;
+      T.next.textContent = T.i === T.steps.length - 1 ? "Done" : "Next";
+      // Let views open and lay out, bring the target into view, then measure.
+      setTimeout(function(){
+        if (!T) return;
+        var el = s.sel ? find(s.sel) : null;
+        if (el){ var r = el.getBoundingClientRect(); if (r.top < 0 || r.bottom > window.innerHeight) el.scrollIntoView({block:"center"}); }
+        requestAnimationFrame(function(){ place(); T && T.next.focus({preventScroll:true}); });
+      }, s.before ? 120 : 0);
+    }
+    function end(){
+      if (!T) return;
+      var t = T; closeBld(); T = null;
+      t.root.remove();
+      document.removeEventListener("keydown", t.onKey, true); window.removeEventListener("resize", place); document.removeEventListener("scroll", place, true);
+      var back = document.getElementById("t-" + t.tab); if (back && vis(back) && back.getAttribute("aria-selected") !== "true") back.click();
+      try { localStorage.setItem("mdc-tour-seen", "1"); } catch (e) {}
+    }
+    window.startTour = function(){
+      if (T) return;
+      var b0 = bld(); if (b0 && !b0.querySelector(".bldcancel")) return;
+      if (b0){ toast("Close the builder first, then start the tour."); return; }
+      var cur = document.querySelector(".tabs .tab[aria-selected='true']");
+      T = {i:0, steps:null, tab:cur ? cur.dataset.tab : "hand", openedBld:false};
+      T.steps = steps();
+      var root = nodes("div"); root.id = "tour"; root.setAttribute("role", "dialog"); root.setAttribute("aria-modal", "true"); root.setAttribute("aria-label", "Tour");
+      var block = nodes("div", "tblock"), hole = nodes("div", "thole"), card = nodes("div", "tcard");
+      card.appendChild(nodes("h3")); card.appendChild(nodes("p"));
+      var foot = nodes("div", "tfoot"), cnt = nodes("span", "tcount"), skip = nodes("button", "tskip", "Skip tour"), back = nodes("button", "ghost", "Back"), next = nodes("button", "primary", "Next");
+      skip.type = back.type = next.type = "button";
+      foot.appendChild(cnt); foot.appendChild(skip); foot.appendChild(back); foot.appendChild(next); card.appendChild(foot);
+      root.appendChild(block); root.appendChild(hole); root.appendChild(card); document.body.appendChild(root);
+      T.root = root; T.hole = hole; T.card = card; T.back = back; T.next = next;
+      skip.addEventListener("click", end);
+      back.addEventListener("click", function(){ show(T.i - 1); });
+      next.addEventListener("click", function(){ if (T.i >= T.steps.length - 1) end(); else show(T.i + 1); });
+      T.onKey = function(e){
+        if (!T) return;
+        if (e.key === "Escape"){ e.preventDefault(); e.stopImmediatePropagation(); end(); }
+        else if (e.key === "ArrowRight"){ e.preventDefault(); e.stopImmediatePropagation(); next.click(); }
+        else if (e.key === "ArrowLeft"){ e.preventDefault(); e.stopImmediatePropagation(); if (T.i > 0) show(T.i - 1); }
+        else if (e.key === "Tab"){   // keep focus on the tour card
+          var f = [].filter.call(card.querySelectorAll("button"), function(b){ return !b.disabled; }), k = f.indexOf(document.activeElement);
+          e.preventDefault(); f[(k + (e.shiftKey ? f.length - 1 : 1)) % f.length].focus();
+        }
+      };
+      document.addEventListener("keydown", T.onKey, true);
+      window.addEventListener("resize", place); document.addEventListener("scroll", place, true);
+      closeMenus(null);
+      show(0);
+    };
+    // A brand-new account sees it once, right after sign-up.
+    var fresh = false; try { fresh = localStorage.getItem("mdc-tour-new") === "1"; if (fresh) localStorage.removeItem("mdc-tour-new"); } catch (e) {}
+    if (fresh && window.CLOUD && CLOUD.user()) setTimeout(function(){ window.startTour(); }, 900);
+  })();
   // Show the app once it's arranged. In the desktop app, wait (briefly) for the top bar so the theme and
   // settings buttons are already in it rather than jumping there.
   (function reveal(n){
@@ -6100,7 +6309,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       go.disabled = true; go.textContent = mode === "up" ? "Creating…" : "Signing in…";
       (mode === "up" ? CLOUD.signUp(u, pw) : CLOUD.signIn(u, pw)).then(function(){
         // Remember me off: this sign-in lasts until the app (or browser tab) closes.
-        try { localStorage.setItem("mdc-remember", f.rem.checked ? "1" : "0"); sessionStorage.setItem("mdc-alive", "1"); } catch (x) {}
+        try { localStorage.setItem("mdc-remember", f.rem.checked ? "1" : "0"); sessionStorage.setItem("mdc-alive", "1"); if (mode === "up") localStorage.setItem("mdc-tour-new", "1"); } catch (x) {}
         go.textContent = "Loading your decks…"; location.reload();
       }).catch(function(x){ go.disabled = false; go.textContent = mode === "up" ? "Create account" : "Sign in"; bad(x.message); });
     });
