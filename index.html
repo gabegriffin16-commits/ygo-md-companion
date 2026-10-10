@@ -2087,7 +2087,18 @@ var CLOUD = (function(){
       return a[0].data;
     });
   }
-  return {configured:configured, start:start, signIn:signIn, signUp:signUp, signOut:signOut, loadProfile:loadProfile,
+  // Engine test runs (see supabase/schema.sql): the newest test plan, and posting what this PC found.
+  function benchJob(){
+    return client().from("bench_jobs").select("id, owner, name, spec, created_at").order("created_at", {ascending:false}).limit(1).maybeSingle().then(function(r){
+      if (r.error) throw err(r.error);
+      if (!r.data) return null;
+      return client().from("profiles").select("username").eq("id", r.data.owner).maybeSingle().then(function(p){ r.data.by = p.data ? p.data.username : "?"; return r.data; });
+    });
+  }
+  function benchPost(jobId, info, result){
+    return client().from("bench_results").insert({owner:user.id, job_id:jobId, info:info, result:result}).then(function(r){ if (r.error) throw err(r.error); });
+  }
+  return {configured:configured, start:start, signIn:signIn, signUp:signUp, signOut:signOut, loadProfile:loadProfile, benchJob:benchJob, benchPost:benchPost,
     myDecks:myDecks, pushDeck:pushDeck, deleteDeck:deleteDeck, directory:directory,
     user:function(){ return user; }, profile:function(){ return profile; }, nameOk:function(n){ return NAME_RE.test(n); }};
 })();
@@ -2390,6 +2401,32 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         app.setSetting("clickThrough", on);
       });
       lkRow.appendChild(lk); pop.appendChild(lkRow);
+      // Engine test (only on the admin's account; no label says so)
+      if (app.benchRun && CLOUD.configured() && MDC.heroAllowed()){
+        sec("Engine test");
+        var br = row("Run engine test", "Runs Claude's latest test plan on this PC"), bb = nodes("button", "mini", "Run"); bb.type = "button";
+        var running = false;
+        bb.addEventListener("click", function(){
+          if (running){ app.benchStop(); bb.textContent = "Stopping…"; return; }
+          br._sub.textContent = "Getting the test plan…";
+          CLOUD.benchJob().then(function(job){
+            if (!job){ br._sub.textContent = "No test plan posted yet"; return; }
+            var mins = Math.ceil((job.spec.cases || []).reduce(function(a, c){ return a + (c.timeMs || 20000); }, 0) / 60000);
+            running = true; bb.textContent = "Stop";
+            br._sub.textContent = "\u201C" + job.name + "\u201D by " + job.by + ", about " + mins + " min";
+            var onEv = function(e){ var d = e.detail || {}; if (d.state === "running") br._sub.textContent = (d.note ? d.note + " \u00B7 " : "") + d.done + " of " + d.total + " done"; };
+            window.addEventListener("overlay-bench", onEv);
+            return app.benchRun(job.spec).then(function(res){
+              window.removeEventListener("overlay-bench", onEv);
+              running = false; bb.textContent = "Run";
+              if (res.error){ br._sub.textContent = "Stopped: " + res.error; return; }
+              br._sub.textContent = "Uploading results…";
+              return CLOUD.benchPost(job.id, res.info, {cases:res.cases, stopped:res.stopped}).then(function(){ br._sub.textContent = "Done: " + res.cases.length + " hands uploaded"; toast("Engine test results uploaded"); });
+            });
+          }).catch(function(e){ running = false; bb.textContent = "Run"; br._sub.textContent = "Couldn't run: " + (e.message || e); });
+        });
+        br.appendChild(bb); pop.appendChild(br);
+      }
       pop.appendChild(nodes("div", "dmsep"));
       var hk = nodes("button", "dmitem act", "Hotkeys…"); hk.type = "button"; hk.addEventListener("click", function(){ close(); app.openHotkeys && app.openHotkeys(); }); pop.appendChild(hk);
     }

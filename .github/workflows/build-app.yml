@@ -81,6 +81,16 @@ jobs:
           grep -q '"ready":true' ce-out.txt
           grep '"done":true' ce-out.txt | grep -q '"steps":\[{'
 
+      # The app's "Run engine test" button can use this build before it ships: keep it on a rolling pre-release.
+      # (Pre-releases don't count as "latest", so the app's updater never offers it.)
+      - name: Publish engine test build
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view engine-test >/dev/null 2>&1 || gh release create engine-test --prerelease --title "Engine test build" --notes "Latest combo-engine built from main, for the app's engine test button. Not an app release."
+          gh release upload engine-test app/engine/combo-engine.exe --clobber
+
       - uses: actions/setup-node@v4
         if: steps.v.outputs.skip != '1'
         with:

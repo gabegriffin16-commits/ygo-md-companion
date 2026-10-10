@@ -61,3 +61,34 @@ create policy "decks delete own" on public.decks for delete to authenticated usi
 
 -- After you've created YOUR account in the app, run this one line (with your username) to make yourself admin:
 -- update public.profiles set is_admin = true where lower(username) = lower('YOUR_USERNAME');
+
+-- ===== Engine test runs (added later: run this part if you ran the file before) =====
+-- Claude posts a test plan to bench_jobs; the app's "Run engine test" button (admin only) runs it on that PC
+-- and posts what it found to bench_results. Readable by any signed-in account; each row is written by its owner.
+create table if not exists public.bench_jobs (
+  id bigint generated always as identity primary key,
+  owner uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  created_at timestamptz not null default now(),
+  name text not null default 'Engine test',
+  spec jsonb not null
+);
+create table if not exists public.bench_results (
+  id bigint generated always as identity primary key,
+  owner uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  job_id bigint references public.bench_jobs (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  info jsonb,
+  result jsonb
+);
+alter table public.bench_jobs enable row level security;
+alter table public.bench_results enable row level security;
+drop policy if exists "bench jobs readable" on public.bench_jobs;
+create policy "bench jobs readable" on public.bench_jobs for select to authenticated using (true);
+drop policy if exists "bench jobs insert own" on public.bench_jobs;
+create policy "bench jobs insert own" on public.bench_jobs for insert to authenticated with check (owner = auth.uid());
+drop policy if exists "bench jobs delete own" on public.bench_jobs;
+create policy "bench jobs delete own" on public.bench_jobs for delete to authenticated using (owner = auth.uid());
+drop policy if exists "bench results readable" on public.bench_results;
+create policy "bench results readable" on public.bench_results for select to authenticated using (true);
+drop policy if exists "bench results insert own" on public.bench_results;
+create policy "bench results insert own" on public.bench_results for insert to authenticated with check (owner = auth.uid());

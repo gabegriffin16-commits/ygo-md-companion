@@ -370,7 +370,9 @@ const COMBO_FILES = {
 };
 const COMBO_MAX_AGE = 7 * 24 * 3600 * 1000;
 let comboProc = null, comboReady = null, comboBuf = "", comboWaiters = new Map(), comboSeq = 1, comboData = null, comboActive = 0;
+let comboExeOverride = null;   // set while an engine test runs the latest test build
 function comboExe() {
+  if (comboExeOverride) return comboExeOverride;
   if (process.env.OMNI_ENGINE) return process.env.OMNI_ENGINE;
   const dir = app.isPackaged ? path.join(process.resourcesPath, "engine") : path.join(__dirname, "engine");
   return path.join(dir, process.platform === "win32" ? "combo-engine.exe" : "combo-engine");
@@ -451,6 +453,7 @@ function comboRequest(obj) {
 }
 ipcMain.handle("combo:available", () => fs.existsSync(comboExe()));
 ipcMain.handle("combo:search", async (e, q) => {
+  if (bench) return { error: "an engine test is running. Try again when it's done." };
   if (gen) return { error: "lines are being generated for " + (gen.name || "a deck") + ". Try again when that's done." };
   const id = comboSeq++;
   comboActive = id;
@@ -470,6 +473,60 @@ ipcMain.handle("combo:search", async (e, q) => {
   } finally { if (comboActive === id) comboActive = 0; }
 });
 ipcMain.on("combo:stop", () => { comboActive = 0; if (comboProc) try { comboSend({ cmd: "stop" }); } catch {} });
+
+// ---------- engine test runs ----------
+// The admin's "Run engine test" button runs a test plan Claude posted (decks, hands, time per hand) on this PC at
+// full speed and hands the results back to the page, which uploads them. Nothing from the plan runs as code:
+// it only picks hands for the combo helper. "engine: test" uses the newest test build of the helper, downloaded
+// from this repo's "engine-test" pre-release (built by GitHub Actions from combo-engine/).
+const TEST_ENGINE_URL = `https://github.com/${REPO}/releases/download/engine-test/` + (process.platform === "win32" ? "combo-engine.exe" : "combo-engine");
+let bench = null;
+function benchEvent(d) { pageEvent("overlay-bench", d); }
+async function benchRun(spec) {
+  const cases = (spec && Array.isArray(spec.cases) ? spec.cases : []).slice(0, 200);
+  const total = cases.reduce((a, c) => a + Math.min(600000, Number(c.timeMs) || 20000), 0);
+  if (!cases.length) throw new Error("the test plan has no hands");
+  if (total > 45 * 60 * 1000) throw new Error("the test plan would take over 45 minutes");
+  const threads = Math.max(1, require("os").cpus().length - 1);
+  const info = { app: app.getVersion(), cpu: (require("os").cpus()[0] || {}).model || "", cores: require("os").cpus().length, threads, engine: spec.engine === "test" ? "test build" : "app" };
+  bench = { done: 0, total: cases.length, stop: false };
+  try {
+    if (spec.engine === "test") {
+      benchEvent({ state: "running", note: "Downloading the test build of the helper…", done: 0, total: cases.length });
+      const r = await net.fetch(TEST_ENGINE_URL, { headers: { "User-Agent": "MasterDuelCompanion" } });
+      if (!r.ok) throw new Error("couldn't download the test build (" + r.status + ")");
+      const dir = path.join(app.getPath("userData"), "engine-test"); fs.mkdirSync(dir, { recursive: true });
+      const exe = path.join(dir, path.basename(new URL(TEST_ENGINE_URL).pathname));
+      fs.writeFileSync(exe, Buffer.from(await r.arrayBuffer()));
+      if (process.platform !== "win32") fs.chmodSync(exe, 0o755);
+      comboKill(); comboExeOverride = exe;
+    }
+    await comboEnsureData(0);
+    await comboStart();
+    const out = [];
+    for (const c of cases) {
+      if (bench.stop) break;
+      benchEvent({ state: "running", note: c.name || "", done: bench.done, total: cases.length });
+      const t0 = Date.now();
+      const r = await comboRequest({ cmd: "search", deck: c.deck || [], extra: c.extra || [], hand: c.hand || [], targets: c.targets || [],
+        timeMs: Math.min(600000, Number(c.timeMs) || 20000), maxActions: c.maxActions || 16, top: c.top || 5, threads,
+        mode: c.mode || "", ...(typeof c.zones === "boolean" ? { zones: c.zones } : {}), ...(c.labels ? { labels: true } : {}) });
+      out.push({ name: c.name || "", hand: c.hand, ms: Date.now() - t0, complete: r.complete, stats: r.stats, boards: r.boards, error: r.error });
+      bench.done++;
+    }
+    benchEvent({ state: "done", done: bench.done, total: cases.length });
+    return { info, cases: out, stopped: bench.stop };
+  } finally {
+    bench = null;
+    if (comboExeOverride) { comboExeOverride = null; comboKill(); }
+  }
+}
+ipcMain.handle("bench:run", async (e, spec) => {
+  if (bench) return { error: "an engine test is already running" };
+  if (gen) return { error: "lines are being generated; try again when that's done" };
+  try { return await benchRun(spec); } catch (err) { benchEvent({ state: "error", note: err.message }); return { error: err.message || String(err) }; }
+});
+ipcMain.on("bench:stop", () => { if (bench) { bench.stop = true; if (comboProc) try { comboSend({ cmd: "stop" }); } catch {} } });
 
 // ---------- generated lines ("Omni-style setup" for any deck) ----------
 // Runs in the background here so it survives page reloads: one search per starting hand, then for each line,
@@ -532,6 +589,7 @@ async function genRun(job) {
 function genInfo() { return gen ? { deckId: gen.deckId, name: gen.name, phase: gen.phase, done: gen.done, total: gen.total } : null; }
 function genReady() { try { return fs.readdirSync(GEN_DIR).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)); } catch { return []; } }
 ipcMain.handle("gen:start", (e, job) => {
+  if (bench) return { error: "An engine test is running. Try again when it's done." };
   if (gen) return { error: "Already generating lines for " + (gen.name || "a deck") + "." };
   if (!job || !job.deckId || !Array.isArray(job.hands) || !job.hands.length) return { error: "Nothing to generate." };
   gen = { deckId: job.deckId, name: job.name || "", phase: "prepare", done: 0, total: job.hands.length, cancel: false };

@@ -22,5 +22,7 @@ contextBridge.exposeInMainWorld("overlayApp", {
   genStart: (job) => ipcRenderer.invoke("gen:start", job),
   genStatus: () => ipcRenderer.invoke("gen:status"),
   genTake: (deckId) => ipcRenderer.invoke("gen:take", deckId),
-  genCancel: () => ipcRenderer.send("gen:cancel")
+  genCancel: () => ipcRenderer.send("gen:cancel"),
+  benchRun: (spec) => ipcRenderer.invoke("bench:run", spec),
+  benchStop: () => ipcRenderer.send("bench:stop")
 });
