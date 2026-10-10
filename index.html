@@ -86,7 +86,7 @@ section[hidden]{display:none}
 .chips.one-line .chip{flex:1 0 auto; padding:8px 9px; font-size:.84rem; min-height:40px}
 .chip .n{display:none; position:absolute; top:-8px; right:-8px; background:var(--gold); color:#1B1640; font:700 .75rem var(--display); border-radius:999px; min-width:22px; height:22px; align-items:center; justify-content:center; padding:0 6px}
 .chip[data-n]:not([data-n="0"]) .n{display:flex}
-#chipArea .chip{padding-right:18px}   /* room for the count badge so it doesn't sit on the name */
+#chipArea .chips:not(.one-line) .chip{padding-right:18px}   /* room for the count badge so it doesn't sit on the name */
 .actions{display:flex; gap:8px; margin:14px 0}
 .ghost{background:none; border:1px solid var(--line); color:var(--muted); border-radius:10px; padding:8px 14px; font:600 .9rem var(--display); cursor:pointer}
 
@@ -3434,8 +3434,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var hint = document.getElementById("openHint");
     if (!hint) return;
     var c = handCount(D.hand);
-    hint.textContent = "Tap the 5 cards you opened with (" + c + " of 5). Tap again for extra copies." +
-      (D.order === "second" ? " Your first draw comes next." : "");
+    hint.textContent = c > 5 ? "That's " + c + " cards. An opening hand is 5: tap a card until its count clears, or use Clear hand." :
+      "Tap the 5 cards you opened with (" + c + " of 5). Tap again for extra copies." + (D.order === "second" ? " Your first draw comes next." : "");
+    hint.classList.toggle("warnline", c > 5);
   }
 
   var lastLP = {};
@@ -4141,11 +4142,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var add = nodes("div", "addrow");
     var src = nodes("select", "addsel"); src.setAttribute("aria-label", "What added the card");
     src.appendChild(nodes("option", null, "What added a card?\u2026")).value = "";
-    ADD_SOURCES.forEach(function(s){ var o = nodes("option", null, s.t); o.value = s.k; src.appendChild(o); });
+    // The per-card search sources come from the Omni HERO play rules; other decks get the generic ones.
+    var SRC = HEROMODE ? ADD_SOURCES : [ADD_SOURCES[0], {k:"effect", t:"Searched or added by a card effect", targets:MAIN_IDS}, ADD_SOURCES[ADD_SOURCES.length - 1]];
+    SRC.forEach(function(s){ var o = nodes("option", null, s.t); o.value = s.k; src.appendChild(o); });
     var tgt = nodes("select", "addsel"); tgt.setAttribute("aria-label", "Card added to hand"); tgt.disabled = true;
     function fillTargets(){
       tgt.innerHTML = "";
-      var s = ADD_SOURCES.filter(function(x){ return x.k === src.value; })[0];
+      var s = SRC.filter(function(x){ return x.k === src.value; })[0];
       if (!s){ tgt.appendChild(nodes("option", null, "Card\u2026")).value = ""; tgt.disabled = true; return; }
       var ok = s.targets.filter(function(id){ return (D.hand[id] || 0) < (MAX[id] || 3); });
       if (!ok.length){ tgt.appendChild(nodes("option", null, "No legal cards left")).value = ""; tgt.disabled = true; return; }
@@ -4155,7 +4158,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     src.addEventListener("change", fillTargets); fillTargets();
     var ab = nodes("button", "mini", "Add to hand"); ab.type = "button";
     ab.addEventListener("click", function(){
-      var s = ADD_SOURCES.filter(function(x){ return x.k === src.value; })[0];
+      var s = SRC.filter(function(x){ return x.k === src.value; })[0];
       if (!s || !tgt.value) return;
       D.hand[tgt.value] = (D.hand[tgt.value] || 0) + 1; D.added.push(tgt.value);
       if (s.opt){ D.opt[s.opt] = true; if (s.lock) D.locks[s.lock] = true; }
@@ -4428,6 +4431,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function setMulti(title, hint, pool, need, ok, onDone, goLabel){ pending = {title:title, hint:hint, multi:true, pool:pool, need:need, ok:ok, sel:[], onDone:onDone, goLabel:goLabel}; renderBody(); }
   function snapshot(){ var a = D.acts; D.acts = []; var s = JSON.stringify(D); D.acts = a; return s; }
   function restore(s, acts){ D = JSON.parse(s); D.acts = acts; }
+  // "Stratos: Stratos" reads oddly; name what the effect did with the card ("Stratos: add Stratos").
+  var DO_VERB = {add:"add ", place:"place ", send:"send ", summon:"summon "};
+  function chose(e, t, k){ return (e && DO_VERB[e.do] && k && k.charAt(0) !== "_" ? DO_VERB[e.do] : "") + t; }
   function act(label, cost, gain, stop){
     var before = snapshot();
     if (cost) cost();
@@ -4443,7 +4449,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var costFn = function(){ payCost(e, owner, costK, how); };
       if (e.do === "fusion") return startFusion(label, owner, e, costFn);
       var finish = function(ch){
-        act(label + (ch && ch.t && ch.k !== "_done" ? ": " + ch.t : ""), costFn, function(){
+        act(label + (ch && ch.t && ch.k !== "_done" ? ": " + chose(e, ch.t, ch.k) : ""), costFn, function(){
           if (e.lock) D.locks[e.lock] = true; if (e.lockAfter) D.locks[e.lockAfter] = true;
           doEffect(e, owner, ch);
         }, e.key);
@@ -4671,7 +4677,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       choicesFor(e, q.id).forEach(function(o){
         var bt = nodes("button", "tog big" + (o.rec ? " rec" : ""), o.t); if (o.dot) dotFor(bt, o.dot); bt.type = "button";
         bt.addEventListener("click", function(){
-          act(short + ": " + o.t, null, function(){
+          act(short + ": " + chose(e, o.t, o.k), null, function(){
             D.queue = D.queue.filter(function(x){ return !(x.id === q.id && x.kind === q.kind); });
             if (e.opt) D.opt[e.opt] = true; if (e.lock) D.locks[e.lock] = true;
             doEffect(e, q.id, o);
@@ -4793,6 +4799,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["Once-per-turns", Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }).join(", ") || "none marked"],
       ["LP", "You " + D.lp.me + ", opponent " + D.lp.opp]
     ];
+    if (!HEROMODE) rows = rows.filter(function(r){ return r[0] !== "They fucked me" && r[0] !== "Once-per-turns"; });   // HERO-only trackers
     if (vsDeck()) rows.unshift(["Against", vsDeck().name]);
     rows.forEach(function(r){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, r[0] + ": ")); p.appendChild(document.createTextNode(r[1])); b.appendChild(p); });
     var rem = reminders();
@@ -4881,6 +4888,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (btn.dataset.armed){
       clearTimeout(btn._t); delete btn.dataset.armed; btn.textContent = label;
       D = freshDuel(D.order); hist = []; pending = null; persist(); renderDuel(); renderLP();
+      if (cgSel !== "any"){ cgSel = "any"; save("hbc-cg", cgSel); paintCounter(); }   // their deck is per duel
       if (typeof toast === "function") toast("New duel started");
       return;
     }
@@ -5030,7 +5038,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var q = D.queue.filter(function(q){ var x = R[q.id] && R[q.id][q.kind]; return x && x.do === "add" && choicesFor(x, q.id).some(function(o){ return o.k === k; }); })[0];
       if (q){
         var x = R[q.id][q.kind], o = choicesFor(x, q.id).filter(function(o){ return o.k === k; })[0];
-        act(x.label.split(":")[0] + ": " + o.t, null, function(){
+        act(x.label.split(":")[0] + ": " + chose(x, o.t, o.k), null, function(){
           D.queue = D.queue.filter(function(y){ return !(y.id === q.id && y.kind === q.kind); });
           if (x.opt) D.opt[x.opt] = true; if (x.lock) D.locks[x.lock] = true;
           doEffect(x, q.id, o);
