@@ -23,6 +23,9 @@ extern "C++" {
 #include "sqlite3.h"
 #include "miniz.h"
 #include "json.hpp"
+#ifdef MDC_MIMALLOC
+#include <mimalloc-new-delete.h>   // the rules engine's own (C++) allocations go through mimalloc too
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -67,6 +70,7 @@ struct CardRow {
 	std::vector<uint16_t> setcodes;
 	std::string name;
 	std::vector<std::string> strs;
+	float mon = 0, back = 0, hand = 0;   // extra value on the field / in the backrow / in hand, read from the card text
 };
 static std::unordered_map<uint32_t, CardRow> g_cards;
 
@@ -75,7 +79,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 	if(sqlite3_open_v2(path.c_str(), &db, SQLITE_OPEN_READONLY, nullptr) != SQLITE_OK) { err = "can't open card database"; if(db) sqlite3_close(db); return false; }
 	sqlite3_stmt* st = nullptr;
 	const char* q = "select d.id,d.alias,d.setcode,d.type,d.atk,d.def,d.level,d.race,d.attribute,t.name,"
-		"t.str1,t.str2,t.str3,t.str4,t.str5,t.str6,t.str7,t.str8,t.str9,t.str10,t.str11,t.str12,t.str13,t.str14,t.str15,t.str16 "
+		"t.str1,t.str2,t.str3,t.str4,t.str5,t.str6,t.str7,t.str8,t.str9,t.str10,t.str11,t.str12,t.str13,t.str14,t.str15,t.str16,t.desc "
 		"from datas d left join texts t on t.id=d.id";
 	if(sqlite3_prepare_v2(db, q, -1, &st, nullptr) != SQLITE_OK) { err = sqlite3_errmsg(db); sqlite3_close(db); return false; }
 	while(sqlite3_step(st) == SQLITE_ROW) {
@@ -94,6 +98,24 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) r.name = (const char*)nm;
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
+		{
+			// Interruptions are what make a board: Quick Effects and negates on the field, handtraps kept in hand.
+			const unsigned char* dt = sqlite3_column_text(st, 26);
+			std::string d = dt ? (const char*)dt : "";
+			auto has = [&](const char* w) { return d.find(w) != std::string::npos; };
+			bool quick = has("Quick Effect"), neg = has("negate") || has("Negate");
+			bool oppTurn = has("your opponent activates") || has("your opponent would") || has("During your opponent's turn") || has("during your opponent's turn");
+			bool floats = has("leaves the field") || has("is destroyed") || has("is sent to the GY");
+			bool fromHand = has("from your hand") || has("discard this card") || has("send this card from your hand");
+			bool mon = (r.type & TYPE_MONSTER) != 0, trap = (r.type & TYPE_TRAP) != 0, qp = (r.type & TYPE_SPELL) && (r.type & TYPE_QUICKPLAY);
+			if(mon) {
+				r.mon = (quick || oppTurn ? 3.0f : 0) + (neg ? 1.5f : 0) + (floats ? 0.5f : 0) + (float)std::min(r.atk, 4000) / 2000.0f;
+				r.hand = ((quick || oppTurn) && fromHand) ? 2.0f : 0;
+			}
+			if(trap) r.back = 1.0f + (neg ? 1.0f : 0); else if(qp) r.back = 0.5f; else r.back = 0;
+			if(qp) r.hand = 0.25f;
+			if(trap && fromHand) r.hand = 2.0f;
+		}
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -208,7 +230,7 @@ static const std::string* get_script(const std::string& name) {
 	std::string src, bc;
 	if(read_script_source(name, src)) {
 		lua_State* L = luaL_newstate();
-		if(luaL_loadbuffer(L, src.data(), src.size(), ("@" + name).c_str()) == LUA_OK) lua_dump(L, dump_writer, &bc, 0);
+		if(luaL_loadbuffer(L, src.data(), src.size(), ("@" + name).c_str()) == LUA_OK) lua_dump(L, dump_writer, &bc, 1);
 		else bc = src;   // let the engine report the error
 		lua_close(L);
 	}
@@ -252,6 +274,7 @@ struct Prompt {
 	uint8_t forced = 0;
 	uint8_t count = 0; uint32_t flag = 0; uint8_t positions = 0;
 	uint64_t available = 0;
+	uint64_t hint = 0;                   // the "Select a card to discard / add / banish..." message shown with it
 };
 static bool is_prompt(int t) {
 	switch(t) {
@@ -348,6 +371,7 @@ static const uint32_t DUMMY = 46986414;   // opponent's deck: Dark Magician x5, 
 
 struct Duel {
 	OCG_Duel h = nullptr;
+	uint64_t lastHint[2] = {0, 0};
 	explicit Duel(const Setup& s) {
 		OCG_DuelOptions o{};
 		o.seed[0] = 1; o.seed[1] = 2; o.seed[2] = 3; o.seed[3] = 4;
@@ -379,7 +403,8 @@ struct Duel {
 					int t = body[0];
 					if(t == MSG_RETRY) { retry = true; return false; }
 					if(t == MSG_WIN) return false;
-					if(is_prompt(t)) { out = parse_prompt(t, body + 1, ln - 1); got = true; }
+					if(t == MSG_HINT && ln >= 11 && body[1] == 3 && body[2] < 2) std::memcpy(&lastHint[body[2]], body + 3, 8);   // HINT_SELECTMSG
+					if(is_prompt(t)) { out = parse_prompt(t, body + 1, ln - 1); if(out.player < 2) { out.hint = lastHint[out.player]; lastHint[out.player] = 0; } got = true; }
 				}
 				o += 4 + ln;
 			}
@@ -414,15 +439,22 @@ struct Duel {
 };
 
 // ------------------------------------------------------------------ search
-struct Step { std::string kind; uint32_t card = 0; std::string effect; std::vector<uint32_t> picks; };
-struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; };
+struct Step { std::string kind; uint32_t card = 0; std::string effect; std::vector<uint32_t> picks;
+	std::vector<std::pair<uint32_t, std::vector<uint32_t>>> groups; };   // picks grouped by what they were for (hint id)
+struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; uint32_t hint = 0; };
 
 static std::vector<Opt> dedupe(std::vector<Opt> v) {
 	std::set<std::string> seen; std::vector<Opt> out;
 	for(auto& o : v) if(seen.insert(o.label).second) out.push_back(std::move(o));
 	return out;
 }
+static std::vector<Opt> choices0(const Prompt& m);
 static std::vector<Opt> choices(const Prompt& m) {
+	std::vector<Opt> v = choices0(m);
+	for(auto& o : v) if(!o.picks.empty()) o.hint = (uint32_t)m.hint;
+	return v;
+}
+static std::vector<Opt> choices0(const Prompt& m) {
 	std::vector<Opt> out;
 	auto pickset = [&](const std::vector<uint32_t>& idx, const std::vector<uint32_t>& codes) {
 		std::vector<uint32_t> cs; for(uint32_t i : idx) cs.push_back(codes[i]);
@@ -492,7 +524,7 @@ struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board b
 
 struct Search {
 	Setup setup;
-	int maxActions = 8; double timeLimit = 20; int threads = 2; size_t top = 12; bool wantLabels = false;
+	int maxActions = 8; double timeLimit = 20; int threads = 2; size_t top = 12; bool wantLabels = false; std::string mode;
 	std::set<uint32_t> targets;
 	// "What if they hit this?": follow `prefix` (our choices, by label) until our step `hitStep` is activated,
 	// let the opponent chain `hitCard` there, then search freely from whatever is left.
@@ -515,8 +547,9 @@ struct Search {
 	double score_of(const Board& b) const {
 		double s = 0;
 		// Extra Deck monsters count for more, and bigger ones (higher Level / Rank / Link Rating) more again.
-		for(uint32_t c : b.mzone) { auto it = g_cards.find(c); uint32_t lv = it != g_cards.end() ? std::min<uint32_t>(it->second.level & 0xff, 12) : 0; s += extra_type(c) ? 3 + 0.25 * lv : 2; }
-		s += 1.0 * b.szone.size();
+		for(uint32_t c : b.mzone) { auto it = g_cards.find(c); uint32_t lv = it != g_cards.end() ? std::min<uint32_t>(it->second.level & 0xff, 12) : 0; s += (extra_type(c) ? 1.5 + 0.15 * lv : 1.0) + (it != g_cards.end() ? it->second.mon : 0); }
+		for(uint32_t c : b.szone) { auto it = g_cards.find(c); s += 1.0 + (it != g_cards.end() ? it->second.back : 0); }
+		for(uint32_t c : b.hand) { auto it = g_cards.find(c); if(it != g_cards.end()) s += it->second.hand; }
 		for(uint32_t c : b.mzone) if(targets.count(c)) s += 10;
 		for(uint32_t c : b.szone) if(targets.count(c)) s += 10;
 		s += 0.25 * b.hand.size();
@@ -550,7 +583,12 @@ struct Search {
 	static void add_step(std::vector<Step>& steps, const Opt& o) {
 		if(!o.step.kind.empty() && o.step.kind != "Option") { steps.push_back(o.step); return; }
 		if(!steps.empty()) {
-			if(!o.picks.empty()) for(uint32_t c : o.picks) steps.back().picks.push_back(c);
+			if(!o.picks.empty()) {
+				Step& st = steps.back();
+				for(uint32_t c : o.picks) st.picks.push_back(c);
+				if(st.groups.empty() || st.groups.back().first != o.hint) st.groups.push_back({o.hint, {}});
+				for(uint32_t c : o.picks) st.groups.back().second.push_back(c);
+			}
 			else if(o.step.kind == "Option" && steps.back().effect.empty()) steps.back().effect = o.step.effect;
 		}
 	}
@@ -659,6 +697,112 @@ struct Search {
 			if(!moved || !d->run(m, retry)) return;
 		}
 	}
+	// ---------------- beam search (normal searches) ----------------
+	// Level by level over the moments we're back in the Main Phase with a free choice: expand every kept state
+	// by each action (and every choice inside it), keep the most promising few, repeat. The beam widens on
+	// each pass until time runs out, so early choices (what to search, what to discard) all get a fair look,
+	// which plain depth-first search with a time limit doesn't give them.
+	struct Node { St st; double h = 0; size_t parent = 0; };
+	std::mutex vmx; std::unordered_set<std::string> bvisited;
+	// How good a mid-combo state looks: the board so far, plus how much is still left to do from here
+	// (effects ready to use, cards in hand, the Normal Summon).
+	double promise(const Board& b, bool nsLeft, size_t moves) const {
+		return score_of(b) + W_MOVES * moves + W_HAND * b.hand.size() + (nsLeft ? W_NS : 0) + W_GY * b.grave.size();
+	}
+	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
+	// Play from the live duel at prompt m until the next free Main Phase choice; each one reached becomes a child.
+	void sub(std::unique_ptr<Duel> d, Prompt m, St st, bool atStart, std::vector<Node>& out, std::mutex& omx, size_t par) {
+		for(;;) {
+			if(out_of_time()) return;
+			prompts++;
+			bool retry;
+			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
+				bool hn; Opt o = opp_choice(m, st, hn);
+				d->respond(o.resp); st.path.push_back(o.resp);
+				if(!d->run(m, retry)) return;
+				continue;
+			}
+			if(m.type == MSG_SELECT_IDLECMD && !atStart) {
+				Board b = read_board(*d);
+				std::vector<Opt> opts = choices(m);
+				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + "#";
+				for(auto& o : opts) k += o.label + ";";
+				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
+				record(*d, st);
+				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
+				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par;
+				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
+				return;
+			}
+			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
+			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
+				record(*d, st);
+				if(st.actions >= maxActions) return;
+			}
+			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end) live.push_back(&o);
+			if(live.empty()) return;
+			for(size_t i = 1; i < live.size(); i++) {
+				if(out_of_time()) return;
+				St s2 = st; take(s2, *live[i]);
+				if(live[i]->main && m.type == MSG_SELECT_IDLECMD) s2.actions++;
+				Prompt mm; bool ok; auto dd = replay(s2.path, mm, ok);
+				if(ok) sub(std::move(dd), mm, std::move(s2), false, out, omx, par);
+			}
+			const Opt& o = *live[0];
+			d->respond(o.resp); take(st, o);
+			if(o.main && m.type == MSG_SELECT_IDLECMD) st.actions++;
+			atStart = false;
+			if(!d->run(m, retry)) return;
+		}
+	}
+	std::vector<Node> expand_level(const std::vector<Node>& level) {
+		std::vector<Node> out; std::mutex omx; std::atomic<size_t> next{0};
+		auto work = [&] {
+			for(;;) {
+				size_t i = next++; if(i >= level.size() || out_of_time()) return;
+				Prompt m; bool ok; auto d = replay(level[i].st.path, m, ok);
+				if(ok) sub(std::move(d), m, level[i].st, true, out, omx, i);
+			}
+		};
+		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)level.size()));
+		for(int i = 0; i < n; i++) ts.emplace_back(work);
+		for(auto& t : ts) t.join();
+		return out;
+	}
+	int beamThreads = 1; bool beam_complete = false; size_t beam_width = 0; int beam_depth = 0;
+	void beam() {
+		for(size_t width = width0; !out_of_time(); width *= 3) {
+			{ std::lock_guard<std::mutex> lk(vmx); bvisited.clear(); }
+			std::vector<Node> level(1);
+			bool trimmed = false;
+			beam_width = width;
+			for(int depth = 0; depth <= maxActions && !level.empty() && !out_of_time(); depth++) {
+				beam_depth = depth;
+				std::vector<Node> next = expand_level(level);
+				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h > b.h; });
+				if(next.size() > width) {
+					trimmed = true;
+					if(diverse) {
+						// Round-robin over parents (best child of each first) so one strong branch can't crowd out the rest.
+						std::map<size_t, std::vector<Node*>> byParent; for(auto& n : next) byParent[n.parent].push_back(&n);
+						std::vector<Node> keep;
+						for(size_t r = 0; keep.size() < width; r++) {
+							bool any = false;
+							std::vector<Node*> round; for(auto& kv : byParent) if(r < kv.second.size()) { round.push_back(kv.second[r]); any = true; }
+							if(!any) break;
+							std::sort(round.begin(), round.end(), [](Node* a, Node* b) { return a->h > b->h; });
+							for(Node* n : round) { if(keep.size() >= width) break; keep.push_back(std::move(*n)); }
+						}
+						next.swap(keep);
+					} else next.resize(width);
+				}
+				level.swap(next);
+			}
+			if(!trimmed && !out_of_time()) { beam_complete = true; return; }   // nothing was cut: every line was checked
+			if(width > 100000) return;
+		}
+	}
 	void worker() {
 		for(;;) {
 			Task t;
@@ -677,9 +821,14 @@ struct Search {
 	}
 	json run(int id) {
 		t0 = Clock::now();
-		queue.push_back(St{});
 		std::vector<std::thread> ts;
-		for(int i = 0; i < std::max(1, threads); i++) ts.emplace_back([this] { worker(); });
+		bool useBeam = !interrupting() && mode != "dfs";
+		// Normal searches run both: a widening beam (fair to every early choice) and depth-first workers
+		// (quick to find long lines). They share what they find.
+		int dfsThreads = !useBeam ? std::max(1, threads) : mode == "beam" ? 0 : std::max(1, threads / 2);
+		beamThreads = std::max(1, threads - dfsThreads);
+		if(useBeam) ts.emplace_back([this] { beam(); });
+		if(dfsThreads) { queue.push_back(St{}); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this] { worker(); }); }
 		std::atomic<bool> finished{false};
 		std::mutex pmx; std::condition_variable pcv;
 		std::thread prog([&] {
@@ -701,14 +850,15 @@ struct Search {
 			std::string fk = key_of(f.board.mzone) + "|" + key_of(f.board.szone);
 			if(!fieldSeen.insert(fk).second) continue;   // same field, different hand: keep the best one only
 			json steps = json::array();
-			for(const Step& s : f.steps) steps.push_back({{"do", s.kind}, {"card", s.card}, {"effect", s.effect}, {"picks", s.picks}});
+			for(const Step& s : f.steps) { json g = json::array(); for(auto& gr : s.groups) g.push_back({gr.first, gr.second});
+				steps.push_back({{"do", s.kind}, {"card", s.card}, {"effect", s.effect}, {"picks", s.picks}, {"groups", g}}); }
 			json bj = {{"score", f.score}, {"field", f.board.mzone}, {"backrow", f.board.szone}, {"hand", f.board.hand}, {"gy", f.board.grave}, {"banished", f.board.banished}, {"steps", steps}};
 			if(wantLabels) bj["labels"] = f.labels;
 			res.push_back(bj);
 			if(res.size() >= top) break;
 		}
-		bool complete = !stop.load() && secs <= timeLimit;
-		return {{"id", id}, {"done", true}, {"complete", complete}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}}}};
+		bool complete = useBeam ? beam_complete : (!stop.load() && secs <= timeLimit);
+		return {{"id", id}, {"done", true}, {"complete", complete}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"width", beam_width}, {"depth", beam_depth}}}};
 	}
 };
 
@@ -756,6 +906,10 @@ int main(int argc, char** argv) {
 			for(uint32_t t : ids(req, "targets")) s->targets.insert(t);
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
+			s->mode = req.value("mode", std::string());
+			s->diverse = req.value("diverse", true);
+			s->width0 = (size_t)std::max(2, req.value("width", 8));
+			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->hitCard = req.value("hitCard", 0u);
 			s->hitStep = req.value("hitStep", -1);
 			if(req.contains("prefix") && req["prefix"].is_array()) for(auto& x : req["prefix"]) s->prefix.push_back(x.get<std::string>());

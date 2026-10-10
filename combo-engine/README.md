@@ -11,7 +11,7 @@ real Yu-Gi-Oh! rules engine and reports the end boards it can reach, with the st
   downloads them from GitHub on first use.
 - Card database: `cards.cdb` from [ProjectIgnis/BabelCDB](https://github.com/ProjectIgnis/BabelCDB). Not bundled;
   downloaded on first use.
-- Also built in: SQLite (public domain), miniz (MIT), nlohmann/json (MIT).
+- Also built in: SQLite (public domain), miniz (MIT), nlohmann/json (MIT), mimalloc (MIT, optional: `-DMIMALLOC_DIR=...`).
 
 ## Build
 
@@ -33,6 +33,15 @@ One JSON object per line in each direction.
    -> {"id":2,"progress":{...}} every half second, {"id":2,"warning":...,"cards":[...]} for unscripted cards,
       then {"id":2,"done":true,"complete":bool,"boards":[{score,field,backrow,hand,gy,banished,steps:[{do,card,effect,picks}]}],"stats":{...}}
 {"cmd":"stop"}   ends the running search early; results so far are still sent
+```
+
+Search options: `"mode"` (`""` = beam + depth-first together, `"beam"`, `"dfs"`), `"labels":true` returns each board's
+choice labels, and a "what if they hit this" search adds `"oppHand":[handtrap]`, `"prefix":[labels of a found line]`,
+`"hitCard"` and `"hitStep"`: the line is replayed until that step is activated, the opponent chains the handtrap there,
+and the search continues from what's left. Each step's `"groups"` lists picks by what they were for, as
+`[hint id, [cards]]` (EDOPro's HINTMSG ids: 501 discard, 503 banish, 504 send to GY, 506 add to hand, 509 Special Summon...).
+
+```
 {"cmd":"quit"}
 ```
 

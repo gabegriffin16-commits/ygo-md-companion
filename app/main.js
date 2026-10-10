@@ -464,7 +464,7 @@ ipcMain.handle("combo:search", async (e, q) => {
     comboEvent({ id, stage: "search" });
     const threads = Math.max(1, Math.min(8, require("os").cpus().length - 1));
     return await comboRequest({ id, cmd: "search", deck: q.deck || [], extra: q.extra || [], hand: q.hand || [],
-      targets: q.targets || [], maxActions: q.maxActions || 10, timeMs: q.timeMs || 20000, top: q.top || 12, threads });
+      targets: q.targets || [], maxActions: q.maxActions || 16, timeMs: q.timeMs || 20000, top: q.top || 12, threads });
   } catch (err) {
     return { id, error: err.message || String(err) };
   } finally { if (comboActive === id) comboActive = 0; }
@@ -491,7 +491,9 @@ async function genRun(job) {
     const best = {};
     for (const hand of job.hands) {
       if (g.cancel) break;
-      const r = await send({ hand, timeMs: hand.length > 1 ? 8000 : 6000, maxActions: 10, labels: true });
+      // Same amount of searching per hand on any PC: more cores, less waiting.
+      const per = Math.max(4000, Math.min(10000, 40000 / genThreads()));
+      const r = await send({ hand, timeMs: Math.round(hand.length > 1 ? per : per * 0.8), maxActions: 16, labels: true });
       const b = r.boards && r.boards[0];
       const key = hand.slice().sort().join(",");
       // Skip "lines" that are just a Normal Summon.
@@ -499,7 +501,7 @@ async function genRun(job) {
         const parts = hand.length > 1 ? hand.map(c => best[c] || 0) : [];
         // A two-card hand only earns its own line when it beats what either card does alone.
         if (!parts.length || b.score > Math.max.apply(null, parts) + 0.5) {
-          lines.push({ h: hand, s: b.score, f: b.field, b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.picks || []]), lab: b.labels, fb: [] });
+          lines.push({ h: hand, s: b.score, f: b.field, b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]), lab: b.labels, fb: [] });
         }
         if (hand.length === 1) best[hand[0]] = b.score;
       }
@@ -513,7 +515,7 @@ async function genRun(job) {
       if (g.cancel) break;
       const r = await send({ hand: L.h, oppHand: [ht], prefix: L.lab, hitCard: ht, hitStep: i, timeMs: 2500, maxActions: 6 });
       const b = r.boards && r.boards[0];
-      if (b) L.fb.push({ i, by: ht, s: b.score, f: b.field, b: b.backrow, st: b.steps.slice(i + 2).map(x => [x.do, x.card, x.effect || "", x.picks || []]) });
+      if (b) L.fb.push({ i, by: ht, s: b.score, f: b.field, b: b.backrow, st: b.steps.slice(i + 2).map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]) });
       g.done++;
       if (g.done % 4 === 0 || g.done === g.total) genEvent(Object.assign({ state: "running" }, genInfo()));
     }

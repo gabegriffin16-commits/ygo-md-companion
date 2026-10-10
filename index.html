@@ -3546,11 +3546,41 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var m = []; if (hit.ash) m.push("Ash"); if (hit.imp) m.push("Imperm"); if (hit.droll) m.push("Droll");
     return m;
   }
+  // What each "Select a card to ..." prompt was for (the engine's hint ids), as a verb for the step text.
+  var CF_HINT = {500:"Tribute", 501:"discard", 502:"destroy", 503:"banish", 504:"send to the GY", 505:"return to the hand", 506:"add", 507:"shuffle into the Deck",
+    508:"Normal Summon", 509:"Special Summon", 510:"Set", 514:"flip", 518:"equip", 519:"detach", 527:"place", 531:"Tribute", 532:"detach", 578:"attach", 579:"return to the GY"};
+  var CF_MAT = {511:1, 512:1, 513:1, 533:1};
+  function cfList2(a){ return a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]; }
+  // "Faris: discard Stratos, Special Summon Faris" from the grouped picks; falls back to the card's own effect text.
+  function cfClauses(groups){
+    var out = [];
+    (groups || []).forEach(function(g){
+      var h = g[0], names = (g[1] || []).map(cfName);
+      if (!names.length) return;
+      if (CF_MAT[h]){
+        var last = out[out.length - 1];
+        if (last && /^Special Summon /.test(last) && last.indexOf(" using ") < 0){ out[out.length - 1] = last + " using " + cfList2(names); return; }
+        out.push("use " + cfList2(names) + " as material"); return;
+      }
+      if (CF_HINT[h]) out.push(CF_HINT[h] + " " + cfList2(names));
+      else out.push("choose " + cfList2(names));
+    });
+    return out;
+  }
   function cfStepText(st){
     var n = cfName(st.card), picks = (st.picks || []).map(cfName);
     if (st.do === "Normal Summon") return "Normal Summon " + n;
-    if (st.do === "Special Summon") return "Special Summon " + n + (picks.length ? " using " + picks.join(", ") : "");
+    if (st.do === "Opp") return "They activate " + n;
+    if (st.do === "Special Summon") return "Special Summon " + n + (picks.length ? " using " + cfList2(picks) : "");
     var fx = (st.effect || "").replace(/\s+/g, " ").trim().replace(/\.$/, "");
+    var cl = st.groups ? cfClauses(st.groups) : [];
+    if (cl.length){
+      var t = cl.join(", ");
+      // A short effect name reads well up front ("Faris: Special Summon (discard Stratos)"); long card text doesn't.
+      if (fx && fx.length <= 40 && t.toLowerCase().indexOf(fx.toLowerCase()) !== 0) return n + ": " + fx + " (" + t + ")";
+      return n + ": " + t.charAt(0).toUpperCase() + t.slice(1);
+    }
+    if (st.groups && !picks.length) return n + ": " + (fx || (st.do === "Use" ? "use its effect" : "activate"));
     return n + ": " + (fx || (st.do === "Use" ? "use its effect" : "activate")) + (picks.length ? " (choosing " + picks.join(", ") + ")" : "");
   }
   // A found board, written out as plain steps plus the backrow cards left in hand to Set.
@@ -3697,7 +3727,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var GEN = {run:null, paints:[]};
   function genSig(rec){ return [rec.main || [], rec.extra || []].map(function(rows){ return rows.map(function(r){ return cfCode(r.id) + "x" + r.n; }).sort().join(","); }).join("|"); }
   function genOf(rec){ return rec && rec.gen && rec.gen.lines ? rec.gen : null; }
-  function genStep(x){ return {do:x[0], card:x[1], effect:x[2], picks:x[3] || []}; }
+  function genStep(x){
+    var picks = x[3] || [];
+    if (!picks.length && x[4]) x[4].forEach(function(g){ picks = picks.concat(g[1] || []); });   // saved without the flat list to keep decks small
+    return {do:x[0], card:x[1], effect:x[2], picks:picks, groups:x[4]};
+  }
   function genNames(codes){ return (codes || []).map(cfName).join(" · "); }
   function genEnds(L){ return (L.f && L.f.length ? "Ends on " + genNames(L.f) : "No monsters left on the field") + (L.b && L.b.length ? "  ·  Backrow: " + genNames(L.b) : ""); }
   function genTitle(L){ return L.h.map(cfName).join(" + "); }

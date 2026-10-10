@@ -46,6 +46,7 @@ jobs:
           git clone --quiet https://github.com/edo9300/ygopro-core ce-src/ygopro-core
           git -C ce-src/ygopro-core checkout --quiet 38d04c9feb1a26617407091380634c87262fe3f8
           git -C ce-src/ygopro-core submodule update --init --quiet
+          git clone --quiet --depth 1 --branch v2.1.7 https://github.com/microsoft/mimalloc ce-src/mimalloc
           curl -fsSL -o ce-deps/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
           curl -fsSL -o miniz.zip https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip
           unzip -q -o miniz.zip -d ce-deps/miniz
@@ -56,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -e
-          cmake -S combo-engine -B ce-build -A x64 -DOCGCORE_DIR="$(cygpath -m "$PWD/ce-src/ygopro-core")" -DDEPS_DIR="$(cygpath -m "$PWD/ce-deps")"
+          cmake -S combo-engine -B ce-build -A x64 -DOCGCORE_DIR="$(cygpath -m "$PWD/ce-src/ygopro-core")" -DDEPS_DIR="$(cygpath -m "$PWD/ce-deps")" -DMIMALLOC_DIR="$(cygpath -m "$PWD/ce-src/mimalloc")"
           cmake --build ce-build --config Release --parallel
           mkdir -p app/engine
           cp ce-build/Release/combo-engine.exe app/engine/

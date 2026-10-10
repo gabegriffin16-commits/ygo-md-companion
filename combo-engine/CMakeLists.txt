@@ -11,6 +11,12 @@ endif()
 
 set(OCGCORE_DIR "" CACHE PATH "ygopro-core source (edo9300/ygopro-core)")
 set(DEPS_DIR "" CACHE PATH "json.hpp, miniz/, sqlite/")
+set(MIMALLOC_DIR "" CACHE PATH "microsoft/mimalloc source (optional, faster duel setup)")
+if(MIMALLOC_DIR)
+  add_library(mimalloc_static STATIC ${MIMALLOC_DIR}/src/static.c)
+  target_include_directories(mimalloc_static PUBLIC ${MIMALLOC_DIR}/include)
+  target_compile_definitions(mimalloc_static PRIVATE MI_STATIC_LIB)
+endif()
 
 # Lua 5.4 compiled as C++ with the engine's customization header in front, same as ygopro-core's meson build.
 set(LUA_NAMES lapi lauxlib lbaselib lcode lctype ldebug ldo ldump lfunc lgc liolib llex lmathlib lmem lobject
@@ -18,12 +24,19 @@ set(LUA_NAMES lapi lauxlib lbaselib lcode lctype ldebug ldo ldump lfunc lgc liol
 set(LUA_SRC)
 foreach(n ${LUA_NAMES})
   set(w ${CMAKE_BINARY_DIR}/luawrap/${n}.cpp)
-  file(WRITE ${w}.tmp "#include \"${OCGCORE_DIR}/lua/luaconf-customize.h\"\n#include \"${OCGCORE_DIR}/lua/src/${n}.c\"\n")
+  set(pre "")
+  if(MIMALLOC_DIR AND n STREQUAL "lauxlib")
+    set(pre "#include \"${CMAKE_CURRENT_SOURCE_DIR}/src/mi_lua.h\"\n")
+  endif()
+  file(WRITE ${w}.tmp "${pre}#include \"${OCGCORE_DIR}/lua/luaconf-customize.h\"\n#include \"${OCGCORE_DIR}/lua/src/${n}.c\"\n")
   configure_file(${w}.tmp ${w} COPYONLY)
   list(APPEND LUA_SRC ${w})
 endforeach()
 add_library(lua STATIC ${LUA_SRC})
 target_include_directories(lua PUBLIC ${OCGCORE_DIR}/lua/src)
+if(MIMALLOC_DIR)
+  target_link_libraries(lua PUBLIC mimalloc_static)
+endif()
 
 set(OCG_NAMES card duel effect field interpreter libcard libdebug libduel libeffect libgroup ocgapi operations
     playerop processor processor_visit scriptlib)
@@ -42,6 +55,9 @@ target_compile_definitions(deps PUBLIC SQLITE_OMIT_LOAD_EXTENSION SQLITE_THREADS
 find_package(Threads REQUIRED)
 add_executable(combo-engine src/main.cpp)
 target_link_libraries(combo-engine PRIVATE ocgcore deps Threads::Threads)
+if(MIMALLOC_DIR)
+  target_compile_definitions(combo-engine PRIVATE MDC_MIMALLOC)
+endif()
 if(MSVC)
   set_property(TARGET combo-engine lua ocgcore deps PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
   target_compile_options(combo-engine PRIVATE /bigobj /utf-8)
