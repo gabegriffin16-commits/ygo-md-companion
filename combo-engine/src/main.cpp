@@ -71,6 +71,7 @@ struct CardRow {
 	std::vector<uint16_t> setcodes;
 	std::string name, lname;   // lname: lowercase, for matching what a reviver asks for
 	bool centerAware = false;  // its text cares about the center Main Monster Zone
+	bool endPhase = false;     // it does something "during the End Phase"
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -101,7 +102,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		const unsigned char* nm = sqlite3_column_text(st, 9);
 		if(nm) { r.name = (const char*)nm; r.lname = evalx::lower(r.name); }
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
-		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); r.centerAware = evalx::lower(r.desc).find("center main monster zone") != std::string::npos; }
+		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos; } }
 		g_cards[id] = std::move(r);
 	}
 	sqlite3_finalize(st);
@@ -560,7 +561,21 @@ struct Search {
 	std::mutex mx;
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
-	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false; };
+	// ending: the turn was ended and the End Phase is being played out (see ep_worth).
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; };
+	// Is the End Phase worth playing out? Only when a card we have mentions it (Ecclesia / Cartesia adding themselves
+	// back, Branded searches): otherwise the board at "end turn" is already final and searches stay as fast as before.
+	static bool ep_worth(const Board& b) {
+		for(const auto* v : {&b.mzone, &b.szone, &b.hand, &b.grave, &b.banished}) for(uint32_t c : *v) { auto it = g_cards.find(c); if(it != g_cards.end() && it->second.endPhase) return true; }
+		return false;
+	}
+	// In the End Phase only End Phase effects are offered, so Quick Effects aren't spent in the opponent's Draw Phase.
+	static void ep_filter(const Prompt& m, std::vector<Opt>& opts) {
+		if(m.type != MSG_SELECT_CHAIN || m.forced) return;
+		std::vector<Opt> keep;
+		for(auto& o : opts) { auto it = g_cards.find(o.step.card); if(!o.main || (it != g_cards.end() && it->second.endPhase)) keep.push_back(o); }
+		opts.swap(keep);
+	}
 	using Task = St;
 	std::deque<Task> queue;
 	std::condition_variable cv;
@@ -610,7 +625,11 @@ struct Search {
 			// Zone-dependent cards: "switch with the center monster" only works from a side zone with the center filled;
 			// "while in the center Main Monster Zone" only works in the center.
 			bool works = !(e->fromSide && (slot == 2 || !centerTaken)) && !(e->inCenter && slot != 2);
-			if(e->field > 0 && works) stops.push_back({e->field, nm(c)});
+			// A monster that Fusion Summons on their turn (Blazing Cartesia) is worth the Fusion it can make, judged below
+			// with Favorite Contact; its own generic "summons something" share is dropped.
+			bool fuses = works && knowExtra && e->fusionAt == CardEval::AT_FIELD;
+			if(fuses) fusers.push_back(e);
+			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field, nm(c)});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
@@ -675,6 +694,20 @@ struct Search {
 				if(row(pick)->ev.reviveAt == CardEval::AT_FIELD) revivers.push_back(&row(pick)->ev);   // and it revives in turn
 			}
 		}
+		// Does a card fit one Fusion material? Names also match through "always treated as" (its alias).
+		auto mat_ok = [](const CardEval::Mat& m, const CardRow& pc) {
+			if(!m.tag.empty()) {
+				auto al = pc.alias ? g_cards.find(pc.alias) : g_cards.end();
+				const std::string* an = al != g_cards.end() ? &al->second.lname : nullptr;
+				bool ok = m.exact ? (pc.lname == m.tag || (an && *an == m.tag)) : (pc.lname.find(m.tag) != std::string::npos || (an && an->find(m.tag) != std::string::npos));
+				if(!ok) return false;
+			}
+			if(m.attr && !(pc.attribute & m.attr)) return false;
+			if(m.race && !(pc.race & m.race)) return false;
+			if(m.kinds && !(pc.type & m.kinds)) return false;
+			if(m.effect && !(pc.type & TYPE_EFFECT)) return false;
+			return pc.atk >= m.minAtk;
+		};
 		// Fusion on their turn (Favorite Contact): worth something only if the Extra Deck holds a Fusion it can make from
 		// the monsters in reach (Neos + a Wingman for Shining Neos Wingman). Then it's worth that monster, by its Quick
 		// Effect or what it does when summoned, and it counts for the goals. With nothing to make, it's a dead card.
@@ -693,14 +726,15 @@ struct Search {
 				if(!fz->fusionTag.empty()) { bool ok = false; for(const auto& m : mats) if(m.tag.find(fz->fusionTag) != std::string::npos) ok = true; if(!ok) continue; }
 				// Exact names first, then Fusion-only parts, then loose ones, so a loose part can't take what an exact one needs.
 				std::vector<const CardEval::Mat*> order; for(const auto& m : mats) order.push_back(&m);
-				std::stable_sort(order.begin(), order.end(), [](const CardEval::Mat* x, const CardEval::Mat* y) { return (x->exact ? 0 : x->fusion ? 1 : 2) < (y->exact ? 0 : y->fusion ? 1 : 2); });
+				auto rank = [](const CardEval::Mat* x) { return x->exact ? 0 : (!x->tag.empty() || x->attr || x->race || x->kinds || x->effect || x->minAtk) ? 1 : 2; };
+				std::stable_sort(order.begin(), order.end(), [&](const CardEval::Mat* x, const CardEval::Mat* y) { return rank(x) < rank(y); });
 				std::vector<char> used(pool.size(), 0); bool ok = true;
 				for(const CardEval::Mat* m : order) for(int k = 0; k < m->n && ok; k++) {
 					bool got = false;
 					for(size_t i = 0; i < pool.size() && !got; i++) {
 						if(used[i]) continue;
 						const CardRow& pc = g_cards.find(pool[i])->second;
-						bool match = m->exact ? pc.lname == m->tag : pc.lname.find(m->tag) != std::string::npos && (!m->fusion || (pc.type & TYPE_FUSION));
+						bool match = mat_ok(*m, pc);
 						if(match) { used[i] = 1; got = true; }
 					}
 					ok = got;
@@ -828,13 +862,14 @@ struct Search {
 		}
 		}
 	}
-	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); }
+	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; }
 	// Explore from a live duel `d` sitting at prompt m. Hands extra branches to idle workers.
 	void dfs(std::unique_ptr<Duel> d, Prompt m, St st) {
 		for(;;) {
 			if(out_of_time()) return;
 			prompts++;
 			bool retry;
+			if(st.ending && m.type == MSG_SELECT_IDLECMD) { record(*d, st); return; }   // the opponent's turn has started
 			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
 				// A targeting handtrap (Imperm, Veiler) only counts when it can target the card from the planned step.
 				if(st.aim && (m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_TRIBUTE)) {
@@ -852,6 +887,7 @@ struct Search {
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
 			zone_opts(m, st, opts);
+			if(st.ending) ep_filter(m, opts);
 			if(interrupting() && !st.hit) {
 				// Still replaying the planned line: only its next choice is allowed.
 				size_t pi = st.labels.size();
@@ -863,24 +899,29 @@ struct Search {
 			bool counts = !interrupting() || st.hit;
 			if(opts.size() == 1) {
 				const Opt& o = opts[0];
-				if(o.end) { record(*d, st); return; }
+				if(o.end) { record(*d, st); if(!ep_worth(read_board(*d))) return; }
 				d->respond(o.resp); take(st, o);
 				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) st.actions++;
 				if(!d->run(m, retry)) return;
 				continue;
 			}
+			bool epOK = false;
 			if(m.type == MSG_SELECT_IDLECMD) {
 				Board b = read_board(*d);
+				epOK = ep_worth(b);
 				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				{ std::lock_guard<std::mutex> lk(mx); if(!visited.insert(k).second) return; }
 				record(*d, st);
-				if(st.actions >= maxActions) return;
+				if(st.actions >= maxActions) {   // out of actions: only ending the turn (and its End Phase) is left
+					if(!epOK) return;
+					std::vector<Opt> e; for(auto& o : opts) if(o.end) e.push_back(o); opts.swap(e);
+				}
 			}
 			// first branch continues on this duel; the rest are replayed (or handed to idle threads)
 			bool first = true;
 			for(const Opt& o : opts) {
-				if(o.end) continue;
+				if(o.end && !epOK) continue;
 				if(first) { first = false; continue; }   // handled last, below
 				St s2 = st; take(s2, o);
 				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) s2.actions++;
@@ -895,7 +936,7 @@ struct Search {
 			// the first non-end option, on the live duel
 			bool moved = false;
 			for(const Opt& o : opts) {
-				if(o.end) continue;
+				if(o.end && !epOK) continue;
 				d->respond(o.resp); take(st, o);
 				if(o.main && m.type == MSG_SELECT_IDLECMD && counts) st.actions++;
 				moved = true;
@@ -923,6 +964,7 @@ struct Search {
 			if(out_of_time()) return;
 			prompts++;
 			bool retry;
+			if(st.ending && m.type == MSG_SELECT_IDLECMD) { record(*d, st); return; }   // the opponent's turn has started
 			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
 				bool hn; Opt o = opp_choice(m, st, hn);
 				d->respond(o.resp); st.path.push_back(o.resp);
@@ -931,7 +973,7 @@ struct Search {
 			}
 			// A new decision point ends this expansion: back in the Main Phase with a free choice, or a chain window
 			// where we could respond (decks full of Quick Effects play whole combos inside chain windows).
-			bool window = m.type == MSG_SELECT_CHAIN && !m.chains.empty() && !m.forced;
+			bool window = !st.ending && m.type == MSG_SELECT_CHAIN && !m.chains.empty() && !m.forced;   // End Phase choices stay inside this expansion
 			if((m.type == MSG_SELECT_IDLECMD || window) && !atStart) {
 				Board b = read_board(*d);
 				std::vector<Opt> opts = choices(m);
@@ -949,11 +991,15 @@ struct Search {
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
 			zone_opts(m, st, opts);
+			if(st.ending) ep_filter(m, opts);
+			bool epOK = false;
 			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
 				record(*d, st);
-				if(st.actions >= maxActions) return;
+				epOK = ep_worth(read_board(*d));       // ...and playing out its End Phase may be a better one
+				if(st.actions >= maxActions && !epOK) return;
 			}
-			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end) live.push_back(&o);
+			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end || epOK) live.push_back(&o);
+			if(m.type == MSG_SELECT_IDLECMD && st.actions >= maxActions) { live.clear(); for(auto& o : opts) if(o.end) live.push_back(&o); }
 			if(live.empty()) return;
 			for(size_t i = 1; i < live.size(); i++) {
 				if(out_of_time()) return;

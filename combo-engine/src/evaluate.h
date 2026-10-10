@@ -42,7 +42,9 @@ struct CardEval {
 	std::string fusionTag;
 	// A Fusion Monster's materials from its first line ("Elemental HERO Neos" + 1 "Wingman" Fusion Monster).
 	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
-	struct Mat { std::string tag; bool exact = false, fusion = false; int n = 1; };
+	// tag: a quoted name ("" = none); exact: the card itself rather than an archetype. Generic parts ("1 LIGHT
+	// Spellcaster monster", "1 Fusion, Synchro, Xyz, or Link Monster") set attr / race / kinds / effect / minAtk.
+	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false; int n = 1; uint32_t attr = 0, kinds = 0; uint64_t race = 0; int minAtk = 0; };
 	std::vector<Mat> mats;
 };
 
@@ -150,9 +152,23 @@ inline std::vector<CardEval::Mat> materials(const std::string& text) {
 		size_t q = line.find(" + ", p);
 		std::string part = line.substr(p, q == std::string::npos ? std::string::npos : q - p);
 		size_t a = part.find('"'), b = a == std::string::npos ? a : part.find('"', a + 1);
-		if(b == std::string::npos) return {};
-		CardEval::Mat m; m.tag = part.substr(a + 1, b - a - 1);
-		m.exact = !has(part, "monster"); m.fusion = has(part, "fusion monster");
+		CardEval::Mat m;
+		std::string rest = part;
+		if(b != std::string::npos) { m.tag = part.substr(a + 1, b - a - 1); m.exact = !has(part, "monster"); rest = part.substr(0, a) + part.substr(b + 1); }
+		else if(!has(part, "monster")) return {};   // not a material we can read
+		// What a generic part asks for. Longer Type names first, so "beast-warrior" isn't read as "beast".
+		static const std::pair<const char*, uint64_t> races[] = {{"beast-warrior", 0x8000}, {"winged beast", 0x200}, {"sea serpent", 0x40000}, {"creator god", 0x400000},
+			{"warrior", 0x1}, {"spellcaster", 0x2}, {"fairy", 0x4}, {"fiend", 0x8}, {"zombie", 0x10}, {"machine", 0x20}, {"aqua", 0x40}, {"pyro", 0x80}, {"rock", 0x100},
+			{"plant", 0x400}, {"insect", 0x800}, {"thunder", 0x1000}, {"dragon", 0x2000}, {"beast", 0x4000}, {"dinosaur", 0x10000}, {"fish", 0x20000}, {"reptile", 0x80000},
+			{"psychic", 0x100000}, {"divine-beast", 0x200000}, {"wyrm", 0x800000}, {"cyberse", 0x1000000}, {"illusion", 0x2000000}};
+		for(const auto& rc : races) { size_t at = rest.find(rc.first); if(at != std::string::npos) { m.race |= rc.second; rest.erase(at, std::string(rc.first).size()); } }
+		static const std::pair<const char*, uint32_t> attrs[] = {{"light", 0x10}, {"dark", 0x20}, {"earth", 0x1}, {"water", 0x2}, {"fire", 0x4}, {"wind", 0x8}};
+		for(const auto& at : attrs) if(has(rest, at.first)) m.attr |= at.second;
+		static const std::pair<const char*, uint32_t> kinds[] = {{"fusion", 0x40}, {"synchro", 0x2000}, {"xyz", 0x800000}, {"link", 0x4000000}};
+		for(const auto& k : kinds) if(has(rest, k.first)) m.kinds |= k.second;
+		m.fusion = m.kinds == 0x40;
+		m.effect = has(rest, "effect monster");
+		size_t atk = rest.find(" atk"); if(atk != std::string::npos && has(rest, "or more")) { size_t w = rest.rfind("with ", atk); if(w != std::string::npos) m.minAtk = std::atoi(rest.c_str() + w + 5); }
 		if(!part.empty() && part[0] >= '1' && part[0] <= '9') m.n = part[0] - '0';
 		out.push_back(m);
 		if(q == std::string::npos) break;

@@ -1,0 +1,443 @@
+{
+ "deck": "dracotail.json",
+ "extra": [
+  79755671,
+  41373230,
+  87746184,
+  87746184,
+  3410461,
+  70534340,
+  44146295,
+  24915933,
+  51409648,
+  38811586,
+  33760966,
+  33760966,
+  89851827,
+  76666602,
+  78397661
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a2678bc6d36490346e7c8cc"
+ ],
+ "author": "jeewon",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Lukias / Ketu + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a1d651624dc50404f6daa08",
+   "notes": "(All combos that set Sting as the 2nd trap can also set Horn, depending on meta calls.)\n\nLow to the ground, but play safe under Fuwa. Look for any higher ceiling lines that goes into Verte if possible.\n\nif Ketu is your only play, in theory you should search Mululu to play around Droll. But Mululu 1cc has a much lower ceiling than your other starters, so you can take a risk and search Lukias (or Faimena in better hands) instead.",
+   "start": [
+    "Dracotail Lukias",
+    "Ketu Dracotail",
+    "<Any>"
+   ],
+   "field": [
+    "Dracotail Faimena",
+    "Dracotail Gulamel"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Mululu + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a1d8ca145536314394b1892",
+   "notes": "Ketu for Mululu plays around Droll, but is very low ceiling if you have no other Dtail in hand.",
+   "start": [
+    "Dracotail Mululu",
+    "<Any>"
+   ],
+   "field": [
+    "Dracotail Gulamel",
+    "Dracotail Pan",
+    "Dracotail Mululu"
+   ],
+   "backrow": [
+    "Dracotail Flame"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Rahu + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a27b2bbf6f46a155ba0ff32",
+   "notes": "",
+   "start": [
+    "Rahu Dracotail",
+    "<Any>"
+   ],
+   "field": [
+    "Dracotail Faimena",
+    "Dracotail Gulamel"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Branded Fusion",
+   "source": "https://www.masterduelmeta.com/combo/6a2d1609f43107878bb44ec7",
+   "notes": "Branded Fusion is our only 1cc, but it's one of the few combos that Droll will stop dead in its track. You can play around Droll by having 1 Dtail name in hand.\n\nWhen you Lenatus away your Walbaz to play around Spoly into Dogma Dragon, you can optionally also Spoly away your Ecclesia (tag out into Albaz) for more cards in hand, and/or Secreterion (so a mirror can't use him to make their own Secreterion) if you value Spoly safety over the floodgate.",
+   "start": [
+    "Branded Fusion"
+   ],
+   "field": [
+    "Secreterion Dragon",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "The Fallen & The Virtuous",
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Branded Fusion 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a23d945d2f71c86dedc19c5",
+   "notes": "",
+   "start": [
+    "Branded Fusion"
+   ],
+   "field": [
+    "Secreterion Dragon",
+    "Dracotail Arthalion",
+    "Fallen of the White Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "Fallen of Albaz",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Fallen of the White Dragon",
+   "source": "https://www.masterduelmeta.com/combo/6a20d3eecd1e689ce1fcc488",
+   "notes": "This does not involve any Dracotail cards but is part of a Branded Dracotail Spreadsheet which is why it is categorized as Dracotail.",
+   "start": [
+    "Fallen of the White Dragon"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Fallen of the White Dragon"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Blazing Cartesia, the Virtuous",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Fallen of the White Dragon vs Handtrap",
+   "source": "https://www.masterduelmeta.com/combo/6a23335ba58b78bc9570772a",
+   "notes": "",
+   "start": [
+    "Fallen of the White Dragon",
+    "<Any Card>"
+   ],
+   "field": [
+    "Fallen of the White Dragon",
+    "The Dragon that Devours the Dogma",
+    "Rindbrumm the Striking Dragon",
+    "Mirrorjade the Iceblade Dragon"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Walbaz (NS) + Dtail + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a0ca26e18d847feba7ef544",
+   "notes": "(For all Walbaz combos: All lines should play around Lenatus'd in the mirror and Spoly. Standard endboard - Gulamel + ED Ecclesia + Mirrorjade/Sanctifire - plays around these cards, any other monsters you put onto the field risks exposing your boards to Spoly)\n\nNS Walbaz starter is the most high risk - high reward line: High ceiling, but  run head first into handtraps, especially Fuwa.\n\nGenerally, only NS Walbaz if it is your only play. Safer lines into Fuwa (like Faimena start) should be prioritized if possible.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "<Dtail name>",
+    "<Any>"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Dracotail Faimena",
+    "Dracotail Gulamel"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [
+    "Albion the Sanctifire Dragon"
+   ],
+   "gy": [
+    "The Fallen & The Virtuous",
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Walbaz (NS) + Dtail + 1 (2 Albion push)",
+   "source": "https://www.masterduelmeta.com/combo/6a115fa859663d525ec78a69",
+   "notes": "If you run 2 Albion you can push even further into the Branded direction by sacrificing Dtail plays to get both Mirrorjade and Rindbrumm out on Turn 1.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "<Dtail name>",
+    "<Any>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Ecclesia and the Dark Dragon"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Rindbrumm the Striking Dragon",
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "Walbaz + Cartesia",
+   "source": "https://www.masterduelmeta.com/combo/6a185cd78f080dde88831fde",
+   "notes": "Walbaz + Cartesia can still end on a halfboard with no Dtail Name in hand.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon"
+   ],
+   "backrow": [
+    "Dracotail Flame"
+   ],
+   "hand": [],
+   "gy": [
+    "Albion the Sanctifire Dragon",
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "Walbaz (SS) + Lukias / Ketu",
+   "source": "https://www.masterduelmeta.com/combo/6a185f896922d81e66b6f54a",
+   "notes": "Special Summoning Walbaz will lock you out of Verte, but it's a much safer play against Fuwa.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Dracotail Lukias",
+    "Ketu Dracotail"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Secreterion Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "Dracotail Mululu",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "The Fallen & The Virtuous",
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Fallen of the White Dragon + Lv4",
+   "source": "https://www.masterduelmeta.com/combo/6a232d6e81bc6f37868a3e84",
+   "notes": "",
+   "start": [
+    "Fallen of the White Dragon",
+    "<Lv4 Monster>"
+   ],
+   "field": [
+    "Albion the Sanctifire Dragon",
+    "Ecclesia and the Dark Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Walbaz (SS) + Mululu",
+   "source": "https://www.masterduelmeta.com/combo/6a227de8a3c859cb654da6a1",
+   "notes": "",
+   "start": [
+    "Fallen of the White Dragon",
+    "Dracotail Mululu",
+    "<Any>"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Secreterion Dragon",
+    "Dracotail Mululu",
+    "Blazing Cartesia, the Virtuous",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "The Fallen & The Virtuous",
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Walbaz (SS) + Urgula/Pan + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a23ff80e7637dd5e8fe34f8",
+   "notes": "This combo uses both of your Arthalion, and is not very good.\n\nIf Walbaz is your only play and you want to still have an FnV in the case he is disrupted, you *can* consider SS Walbaz.\n\nI recommend taking the gamble and just NS  him instead.",
+   "start": [
+    "Fallen of the White Dragon",
+    "<Urgula / Pan>",
+    "<Any>"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Secreterion Dragon",
+    "Dracotail Mululu",
+    "Blazing Cartesia, the Virtuous",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "The Fallen & The Virtuous",
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Walbaz + live Faimena",
+   "source": "https://www.masterduelmeta.com/combo/6a25b64da0b23f0f5e1e34d9",
+   "notes": "A common hand you'll likely see very often. With multiple starter options comes MANY branching paths. I cannot possibly go through every one of them, so this combo specifically will only go through the main line.\n\nNote: If you started with Ketu searching for Faimena you can't do this line,  you should refer to the **anti droll** variant of this combo instead.\n\nMain differences between the NS  choice:\n\nNS Lukias:\n\n- Access to FnV\n\n- Doesn't go through the Rahu chokepoint to set traps.\n\nNS Walbaz:\n\n- Ends on Gulamel\n\n- Endboard isn't affected if Arthalion is negated\n\n- Play through  droll\n\n- Endboard doesn't play into Spoly, even when extending for 3 traps",
+   "start": [
+    "Fallen of the White Dragon",
+    "Dracotail Faimena",
+    "<Dtail name>",
+    "<Any>"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Dracotail Faimena",
+    "Blazing Cartesia, the Virtuous",
+    "Dracotail Gulamel"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting",
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "Lukias + Faimena / Urgula / Ketu",
+   "source": "https://www.masterduelmeta.com/combo/6a20cebb39a5d92345ca2b1e",
+   "notes": "Lukias + Faimena or Urgula into Little Knight or Mirrorjade",
+   "start": [
+    "Dracotail Lukias",
+    "Dracotail Faimena",
+    "Dracotail Urgula",
+    "Ketu Dracotail"
+   ],
+   "field": [
+    "Dracotail Arthalion",
+    "S:P Little Knight",
+    "Mirrorjade the Iceblade Dragon"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn",
+    "Dracotail Sting"
+   ],
+   "hand": [
+    "Dracotail Faimena",
+    "Dracotail Pan"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Lukias  + Dtail + 1",
+   "source": "https://www.masterduelmeta.com/combo/6a2d2dddadcb020500224805",
+   "notes": "This is the basic shape of a hand that can access Verte: A NS plus a fusion that doesn't use up your NS-ed monster as material.\n\nVerte is our strongest card, we **almost always** go for Verte if our hand has the option to.\n\nIf you are not playing Branded (or any variant that makes use of Verte) you can instead link Lukias into the Blue-Eyes link 1 and it + Arthalion into Hieratic Seal.",
+   "start": [
+    "Dracotail Lukias",
+    "<Dtail Name>",
+    "<Any>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Rindbrumm the Striking Dragon",
+    "Fallen of the White Dragon",
+    "Dracotail Faimena",
+    "Dracotail Gulamel"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting"
+   ]
+  },
+  {
+   "name": "Ecclesia + Faimena",
+   "source": "https://www.masterduelmeta.com/combo/6a23e41ddfd662e568528134",
+   "notes": "",
+   "start": [
+    "Incredible Ecclesia, the Virtuous",
+    "Dracotail Faimena"
+   ],
+   "field": [
+    "Dracotail Gulamel",
+    "Ecclesia and the Dark Dragon",
+    "Fallen of Albaz",
+    "Albion the Sanctifire Dragon",
+    "Dracotail Faimena"
+   ],
+   "backrow": [
+    "Dracotail Flame",
+    "Dracotail Horn"
+   ],
+   "hand": [],
+   "gy": [
+    "Dracotail Sting"
+   ]
+  }
+ ]
+}

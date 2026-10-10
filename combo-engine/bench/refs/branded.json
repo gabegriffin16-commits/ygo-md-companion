@@ -1,0 +1,392 @@
+{
+ "deck": "branded.json",
+ "extra": [
+  92892239,
+  41373230,
+  87746184,
+  72272462,
+  3410461,
+  70534340,
+  44146295,
+  24915933,
+  51409648,
+  72578374,
+  76666602,
+  76666602,
+  87758525,
+  78397661,
+  74405783
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a7f88728d01c8dc47a40baa"
+ ],
+ "author": "langhorst",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "White Albaz (Anti Maxx C)",
+   "source": "https://www.masterduelmeta.com/combo/6a2c5f50286cc7c2c0604bf3",
+   "notes": "",
+   "start": [
+    "Fallen of the White Dragon"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Ecclesia and the Dark Dragon",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "1 card walbaz under fuwa",
+   "source": "https://www.masterduelmeta.com/combo/6a28669c5c83e716315686c4",
+   "notes": "plays around fuwa opponent draws 1 card 2 under maxx c",
+   "start": [
+    "Fallen of the White Dragon"
+   ],
+   "field": [
+    "Blazing Cartesia, the Virtuous",
+    "Fallen of the White Dragon",
+    "Rindbrumm the Striking Dragon"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": [
+    "Guiding Quem, the Virtuous"
+   ]
+  },
+  {
+   "name": "Only Walbaz through Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a20a6ee6afb227e26a6e927",
+   "notes": "The endboard is if you are under Droll with no Light/Dark normal summon. The non-droll line includes other optional cards and requires a discard.",
+   "start": [
+    "Fallen of the White Dragon"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous",
+    "Granguignol the Dusk Dragon"
+   ],
+   "backrow": [
+    "Branded Retribution",
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Dark Dragon negated + Nadir",
+   "source": "https://www.masterduelmeta.com/combo/6a20f2d02c73f7933492e648",
+   "notes": "Plays through having your Dark Dragon negated. Under droll you only lose mercourier in the hand.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Nadir Servant"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Branded Retribution"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "White Albaz +  Cart + Discard",
+   "source": "https://www.masterduelmeta.com/combo/6a1e121ed47520f0e402af75",
+   "notes": "You summon Cartesia in this line to play better into hand traps. Cartesia makes it much harder for your opponent to effectively hand trap you.\n\nFor more Combos like this that you cant find anywhere else, This is the guide I made for both Branded and Branded Dracotail https://metafy.gg/guides/view/the-correct-way-to-play-branded-slash-drac-edSeOc8GhzB",
+   "start": [
+    "Fallen of the White Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "<Any Card>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "Granguignol the Dusk Dragon",
+    "Ecclesia and the Dark Dragon"
+   ],
+   "backrow": [
+    "Branded Retribution",
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Branded in High Spirits"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Aluber + BIHS-type (modified from FuSiioN)",
+   "source": "https://www.masterduelmeta.com/combo/6a330ada9026d5cfa564d08e",
+   "notes": "",
+   "start": [
+    "Aluber the Jester of Despia",
+    "<Beast, Winged, Spellcast, Dragon>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Ecclesia and the Dark Dragon",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "PSY-Framelord Omega"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Branded Retribution"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "aluber + 4 types (no golden swordsoul)",
+   "source": "https://www.masterduelmeta.com/combo/6a0c28960fd880b0ed0ffa0a",
+   "notes": "",
+   "start": [
+    "Aluber the Jester of Despia",
+    "<any card>",
+    "<winged beast>",
+    "<any card>"
+   ],
+   "field": [
+    "Guiding Quem, the Virtuous",
+    "Ecclesia and the Dark Dragon",
+    "Tri-Brigade Mercourier",
+    "Blazing Cartesia, the Virtuous",
+    "Incredible Ecclesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "backrow": [
+    "Branded Retribution"
+   ],
+   "hand": [],
+   "gy": [
+    "Rindbrumm the Striking Dragon",
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "Branded Opening + discard (or) Aluber with no BIHS target (or) Branded Fusion",
+   "source": "https://www.masterduelmeta.com/combo/6a0bef878b2d717cfdac0963",
+   "notes": "",
+   "start": [
+    "Branded Opening",
+    "<Discard>",
+    "<No BIHS target>"
+   ],
+   "field": [
+    "Alba-Lenatus the Abyss Dragon",
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous",
+    "Fallen of Albaz",
+    "Fallen of the White Dragon",
+    "Granguignol the Dusk Dragon"
+   ],
+   "backrow": [
+    "Branded Retribution",
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Branded in Red"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Aluber + Cartesia + Shrouded",
+   "source": "https://www.masterduelmeta.com/combo/6a25e73a0e155c831ca7783a",
+   "notes": "Hi brandys, I'm a casual player, just found this line while testing random 5 cards hand. This isn't meant to be the best possible line, i think its a solid pick if u want maybe extra ideas. This combo starts like that because u want to play around targeting negates like Imperm. !This combo loses to Droll!",
+   "start": [
+    "Aluber the Jester of Despia",
+    "Blazing Cartesia, the Virtuous",
+    "Albion the Shrouded Dragon"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Fallen of the White Dragon",
+    "Granguignol the Dusk Dragon",
+    "Dogmatika Ecclesia, the Virtuous",
+    "Guiding Quem, the Virtuous"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Branded Retribution"
+   ],
+   "hand": [
+    "Blazing Cartesia, the Virtuous",
+    "Branded in High Spirits"
+   ],
+   "gy": []
+  },
+  {
+   "name": "nadir",
+   "source": "https://www.masterduelmeta.com/combo/6a1c1468b39696da94caab22",
+   "notes": "",
+   "start": [
+    "Nadir Servant"
+   ],
+   "field": [
+    "Fallen of the White Dragon",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "backrow": [
+    "Branded in Red",
+    "Branded Retribution"
+   ],
+   "hand": [],
+   "gy": [
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "High spirits + Spellcaster + Any discard",
+   "source": "https://www.masterduelmeta.com/combo/6a1cccd2eb8a437549c5a6db",
+   "notes": "Use High Spirits in the Main phase if your target in hand isn't a dragon to know if you need to play around Droll or not .\n\n\nFor more Combos like this that you cant find anywhere else, This is the guide I made for both Branded and Branded Dracotail\nhttps://metafy.gg/guides/view/the-correct-way-to-play-branded-slash-drac-edSeOc8GhzB",
+   "start": [
+    "Branded in High Spirits",
+    "<Spellcaster>",
+    "<Any Card>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Guiding Quem, the Virtuous",
+    "Ecclesia and the Dark Dragon"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Branded Retribution"
+   ],
+   "hand": [
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Quem And F&V",
+   "source": "https://www.masterduelmeta.com/combo/6a2413921da2afd3b8dea572",
+   "notes": "can also set branded retribution with albion effect in end phase but you miss out on rindbrumm  in gy",
+   "start": [
+    "Guiding Quem, the Virtuous",
+    "The Fallen & The Virtuous"
+   ],
+   "field": [
+    "Alba-Lenatus the Abyss Dragon",
+    "Granguignol the Dusk Dragon",
+    "Ecclesia and the Dark Dragon",
+    "Rindbrumm the Striking Dragon",
+    "Tri-Brigade Mercourier",
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Guiding Quem, the Virtuous",
+    "The Fallen & The Virtuous"
+   ]
+  },
+  {
+   "name": "ecclesia + cart",
+   "source": "https://www.masterduelmeta.com/combo/6a1bd1e2bd3d34288dcf03c8",
+   "notes": "",
+   "start": [
+    "Incredible Ecclesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous"
+   ],
+   "field": [
+    "Granguignol the Dusk Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "Rindbrumm the Striking Dragon"
+   ],
+   "backrow": [
+    "Branded in High Spirits"
+   ],
+   "hand": [
+    "PSY-Framelord Omega"
+   ],
+   "gy": [
+    "Ecclesia and the Dark Dragon"
+   ]
+  },
+  {
+   "name": "White Albaz +  Cart + Discard",
+   "source": "https://www.masterduelmeta.com/combo/6a2335f5a0b3f2bf953a49a2",
+   "notes": "You summon Cartesia in this line to play better into hand traps. Cartesia makes it much harder for your opponent to effectively hand trap you.\n\nFor more Combos like this that you cant find anywhere else, This is the guide I made for both Branded and Branded Dracotail https://metafy.gg/guides/view/the-correct-way-to-play-branded-slash-drac-edSeOc8GhzB",
+   "start": [
+    "Fallen of the White Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "<Any Card>"
+   ],
+   "field": [
+    "Mirrorjade the Iceblade Dragon",
+    "Guiding Quem, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "Granguignol the Dusk Dragon",
+    "Ecclesia and the Dark Dragon"
+   ],
+   "backrow": [
+    "Branded Retribution",
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Branded in High Spirits"
+   ],
+   "gy": []
+  },
+  {
+   "name": "1 Ecclesia",
+   "source": "https://www.masterduelmeta.com/combo/6a3252f81c9d2794dc1996bc",
+   "notes": "",
+   "start": [
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "field": [
+    "Ecclesia and the Dark Dragon",
+    "Granguignol the Dusk Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "Blazing Cartesia, the Virtuous",
+    "Fallen of the White Dragon",
+    "Guiding Quem, the Virtuous"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "gold sarc (no golden swordsoul)",
+   "source": "https://www.masterduelmeta.com/combo/6a0d96f302b04933a7d3effb",
+   "notes": "",
+   "start": [
+    "Gold Sarcophagus"
+   ],
+   "field": [
+    "Guiding Quem, the Virtuous",
+    "Tri-Brigade Mercourier",
+    "Mirrorjade the Iceblade Dragon",
+    "Incredible Ecclesia, the Virtuous",
+    "Granguignol the Dusk Dragon"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Ecclesia and the Dark Dragon",
+    "The Fallen & The Virtuous"
+   ]
+  }
+ ]
+}

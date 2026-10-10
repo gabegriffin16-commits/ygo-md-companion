@@ -7,7 +7,7 @@ import json, sqlite3, subprocess, sys
 exe, cdb, scripts, spec = sys.argv[1:5]
 db = sqlite3.connect(cdb)
 names = {}
-for code, name in db.execute("select d.id, t.name from datas d join texts t on t.id = d.id where d.alias = 0"):
+for code, name in db.execute("select d.id, t.name from datas d join texts t on t.id = d.id order by (d.alias != 0), d.id"):
     names.setdefault(name.lower(), code)
 def code(x):
     if isinstance(x, int) or str(x).isdigit(): return int(x)
