@@ -1,8 +1,12 @@
 # Manual deep-search test for the combo finder helper: several hands in parallel, each on its own runner,
 # with a big time and depth budget. Results are in each job's log.
+# Runs when combo-engine/bench/run.json changes (its seconds / maxActions are used), or by hand.
 name: Combo engine deep search test
 
 on:
+  push:
+    branches: [main]
+    paths: ["combo-engine/bench/run.json"]
   workflow_dispatch:
     inputs:
       seconds: { description: "Seconds per hand", default: "600" }
@@ -45,4 +49,8 @@ jobs:
           cmake --build build >/dev/null
           echo "cores: $(nproc)"
       - name: Search
-        run: python3 -u combo-engine/bench/bench.py build/combo-engine cards.cdb scripts.zip "${{ matrix.hand }}" "${{ matrix.secs || inputs.seconds }}" "${{ matrix.acts || inputs.maxActions }}" "$(nproc)" "" "${{ matrix.targets }}"
+        run: |
+          SECS="${{ matrix.secs || inputs.seconds }}"; ACTS="${{ matrix.acts || inputs.maxActions }}"
+          [ -z "$SECS" ] && SECS=$(python3 -c "import json;print(json.load(open('combo-engine/bench/run.json'))['seconds'])")
+          [ -z "$ACTS" ] && ACTS=$(python3 -c "import json;print(json.load(open('combo-engine/bench/run.json'))['maxActions'])")
+          python3 -u combo-engine/bench/bench.py build/combo-engine cards.cdb scripts.zip "${{ matrix.hand }}" "$SECS" "$ACTS" "$(nproc)" "" "${{ matrix.targets }}"
