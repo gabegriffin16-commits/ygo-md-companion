@@ -14,6 +14,7 @@
 #include <cctype>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -45,7 +46,10 @@ struct CardEval {
 	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
 	// tag: a quoted name ("" = none); exact: the card itself rather than an archetype. Generic parts ("1 LIGHT
 	// Spellcaster monster", "1 Fusion, Synchro, Xyz, or Link Monster") set attr / race / kinds / effect / minAtk.
-	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false; int n = 1; uint32_t attr = 0, kinds = 0; uint64_t race = 0; int minAtk = 0; };
+	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false, mentions = false; int n = 1; uint32_t attr = 0, kinds = 0; uint64_t race = 0; int minAtk = 0; };
+	// Its interruption needs us to control a certain monster ("while you control a Fusion Monster that mentions "Fallen
+	// of Albaz" as material": Tri-Brigade Mercourier). Checked against the board in score_of.
+	std::vector<Mat> needs;
 	std::vector<Mat> mats;
 };
 
@@ -171,6 +175,7 @@ inline std::vector<CardEval::Mat> materials(const std::string& text) {
 		m.effect = has(rest, "effect monster");
 		size_t atk = rest.find(" atk"); if(atk != std::string::npos && has(rest, "or more")) { size_t w = rest.rfind("with ", atk); if(w != std::string::npos) m.minAtk = std::atoi(rest.c_str() + w + 5); }
 		if(!part.empty() && part[0] >= '1' && part[0] <= '9') m.n = part[0] - '0';
+		m.mentions = has(part, "mention");
 		out.push_back(m);
 		if(q == std::string::npos) break;
 		p = q + 3;
@@ -211,6 +216,14 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
 		}
 		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) r.handExtender = true;
+		// "While / if you control a ... monster" on an interruption: what it needs on our field.
+		if(h > 0 && r.needs.empty()) for(const char* lead : {"while you control ", "if you control "}) {
+			size_t at = e.find(lead); if(at == std::string::npos) continue;
+			size_t st = at + std::strlen(lead), en = e.find_first_of(":;(", st);
+			std::string phrase = e.substr(st, en == std::string::npos ? std::string::npos : en - st);
+			if(has(phrase, "monster") && !has(phrase, "no ") && !has(phrase, "or more") && phrase.find(" + ") == std::string::npos) r.needs = materials(phrase);
+			break;
+		}
 		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
 		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
 		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "special summon") || has(e, "fusion summon"))) {

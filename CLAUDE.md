@@ -189,7 +189,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   lone Fallen of the White Dragon (6.79) over Fallen + Dogmatika + Quem + Cartesia (text 9.42): check with sim.py +
   MDC_SIMLOG whether Cartesia's opponent's-turn Fusion is found and credited (the made monster may be blocked by the
   one-Quick-Effect-per-play rule in the same play and never get a later target); Kewl Tune "Overtake 1cc" prefers
-  Track Maker + Loudness War over the guide's Zalen + Loudness War. When it goes on: line generation asks for top 1,
+  Track Maker + Loudness War over the guide's Zalen + Loudness War. Traced "nadir": the sim was right by the rules
+  (Cartesia can only make Lubellion / Dogma / Quaeritis from that board, none stops a play; Mercourier's condition,
+  a Fusion that mentions Albaz, isn't met), the guide field just isn't the stronger board, so "holds the guide's field"
+  undercounts the sim. Since then: Gagaga Cowboy's effect is a probe play (Extra Deck monster effects, what
+  Rindbrumm-style negates answer; stops read from the engine's chain-negated messages), and never-offered
+  interruptions count 0 unless their interruption waits for something the probes never do (destruction, targeting,
+  banishing, GY revival, 5+ summons, Standby/Draw Phase, damage step). Latest A/B: text 13 vs sim 8. The text model
+  also checks "while / if you control a ... monster" conditions on interruptions now (CardEval.needs: Mercourier,
+  Rhapsodia), 30% when unmet. A better yardstick than the guide's field is needed before deciding (owner's call).
+  When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
   matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones

@@ -399,6 +399,8 @@ struct Duel {
 	int turnPlayer = 0, turns = 0, phase = 0;   // whose turn it is (how many turns have started) and the phase
 	std::vector<uint64_t>* left = nullptr;      // if set: cards that left a Monster / Spell & Trap Zone (where_key of the zone left)
 	int lp[2] = {8000, 8000};
+	std::vector<std::pair<uint32_t, uint8_t>> chainLinks;          // the chain being built: (card, controller) per link
+	std::vector<std::pair<uint32_t, uint8_t>> negated;             // activations negated or whose effect was negated
 	// A reused duel slowly keeps a little memory from each game, so after this many reuses it's rebuilt.
 	static constexpr int MAX_REUSE = 150;
 	explicit Duel(const Setup& s) {
@@ -460,6 +462,9 @@ struct Duel {
 					if(t == MSG_HINT && ln >= 11 && body[1] == 3 && body[2] < 2) std::memcpy(&lastHint[body[2]], body + 3, 8);   // HINT_SELECTMSG
 					if(t == MSG_NEW_TURN && ln >= 2) { turnPlayer = body[1]; turns++; phase = 0; }
 					if(t == MSG_NEW_PHASE && ln >= 3) { uint16_t ph; std::memcpy(&ph, body + 1, 2); phase = ph; }
+					if(t == MSG_CHAINING && ln >= 33) { uint32_t code, n; std::memcpy(&code, body + 1, 4); std::memcpy(&n, body + 29, 4);
+						if(n >= 1 && n < 64) { if(chainLinks.size() < n) chainLinks.resize(n); chainLinks[n - 1] = {code, body[15]}; } }
+					if((t == MSG_CHAIN_NEGATED || t == MSG_CHAIN_DISABLED) && ln >= 2 && body[1] >= 1 && body[1] <= chainLinks.size()) negated.push_back(chainLinks[body[1] - 1]);
 					if((t == MSG_DAMAGE || t == MSG_RECOVER || t == MSG_LPUPDATE || t == MSG_PAY_LPCOST) && ln >= 6 && body[1] < 2) {
 						uint32_t v; std::memcpy(&v, body + 2, 4);
 						lp[body[1]] = t == MSG_LPUPDATE ? (int)v : lp[body[1]] + (t == MSG_RECOVER ? (int)v : -(int)v); }
@@ -687,6 +692,25 @@ struct Search {
 		std::vector<const CardEval*> fusers;     // cards that Fusion from the Extra Deck on their turn (judged below)
 		const bool knowExtra = !b.extra.empty();
 		auto ev = [](uint32_t c) -> const CardEval* { auto it = g_cards.find(c); return it == g_cards.end() ? nullptr : &it->second.ev; };
+		// An interruption that needs a certain monster on our field (Mercourier: a Fusion that mentions "Fallen of Albaz")
+		// counts 30% without one: the condition might still be met on their turn (the simulation checks for real).
+		auto need = [&](const CardEval* e) -> double {
+			if(!e || e->needs.empty()) return 1.0;
+			for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardRow& pc = it->second;
+				for(const auto& m : e->needs) {
+					if(m.kinds && !(pc.type & m.kinds)) continue;
+					if(m.attr && !(pc.attribute & m.attr)) continue;
+					if(m.race && !(pc.race & m.race)) continue;
+					if(!m.tag.empty()) {
+						bool ok = false;
+						if(m.mentions) { for(const auto& pm : pc.ev.mats) if(pm.tag.find(m.tag) != std::string::npos) ok = true; if(!ok && evalx::lower(pc.desc).find("\"" + m.tag + "\"") != std::string::npos) ok = true; }
+						else ok = pc.lname.find(m.tag) != std::string::npos;
+						if(!ok) continue;
+					}
+					return 1.0;
+				} }
+			return 0.3;
+		};
 		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
 		for(size_t i = 0; i < b.mzone.size(); i++) {
 			uint32_t c = b.mzone[i]; int slot = i < b.mslot.size() ? b.mslot[i] : -1;
@@ -700,7 +724,7 @@ struct Search {
 			// with Favorite Contact; its own generic "summons something" share is dropped.
 			bool fuses = works && knowExtra && e->fusionAt == CardEval::AT_FIELD;
 			if(fuses) fusers.push_back(e);
-			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field, nm(c), c});
+			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field * need(e), nm(c), c});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
@@ -708,7 +732,7 @@ struct Search {
 			const CardEval* e = ev(c); if(!e) { add(0.3, "backrow card"); continue; }
 			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); add(e->lock, why ? "lock: " + nm(c) : ""); continue; }
 			double v = std::max(e->set, e->field);
-			if(v > 0) stops.push_back({v, nm(c) + " (set)", c}); else add(0.3, why ? "backrow: " + nm(c) : "");
+			if(v > 0) stops.push_back({v * need(e), nm(c) + " (set)", c}); else add(0.3, why ? "backrow: " + nm(c) : "");
 			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(e->lock, why ? "lock: " + nm(c) : "");
 		}
@@ -718,8 +742,8 @@ struct Search {
 			const CardEval* e = ev(c);
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
-			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set, nm(c) + " (set from hand)", c}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
-			else if(e && e->hand > 0) { stops.push_back({e->hand, nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
+			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set * need(e), nm(c) + " (set from hand)", c}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
+			else if(e && e->hand > 0) { stops.push_back({e->hand * need(e), nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
 			// Anything else is for later: an extender for their turn, a starter for our next turn, or just a card.
 			else if(e && e->handExtender) add(0.8, why ? "hand (extender on their turn): " + nm(c) : "");
 			else if(e && e->starter) add(0.6, why ? "hand (starter next turn): " + nm(c) : "");
@@ -1212,6 +1236,8 @@ struct Search {
 	//   S2 Pot of Greed, S3 Upstart Goblin: more Spells     M2 Photon Thrasher: a monster that comes when their field is empty
 	//   C  Poison of the Old Man chained to their own Pot of Greed (a 2-link chain: what "in response to" cards like Zalen need)
 	//   A  an attack with their first monster that can (battle effects: attack negates, Sunrise)
+	//   XE Gagaga Cowboy's effect, right after it's summoned: an Extra Deck monster's effect (what Rindbrumm-style negates
+	//      answer); stopped if the engine reports it negated / disabled, or Cowboy is gone before it resolves
 	// None of them has a Quick Effect, so they can't act on our turn. Our side: every choice on their turn (chain or
 	// pass, targets, options) is searched (bounded local search, see simulate), keeping what stops the most; one of our
 	// own interruptions per opponent play (triggers and cards made during their turn aside). A play counts as stopped only if it was tried and its result didn't happen, checked on the field
@@ -1219,8 +1245,9 @@ struct Search {
 	// earlier one was stopped give no credit (otherwise negating the Normal Summon would score three plays).
 	static constexpr uint32_t P_ADUSTED = 13650422, P_DFUSION = 94820406, P_REINFORCE = 32807846, P_CELTIC = 91152256,
 		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484, P_POISON = 8842266;
-	static constexpr int PLAYS = 9, THREATS = 11;   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
-	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "Quick-Play chained to their own Spell", "attack"};
+	static constexpr int PLAYS = 10, THREATS = 12;
+	static constexpr int ORDER[PLAYS - 1] = {0, 1, 2, 3, 4, 9, 5, 6, 7};   // the order they make their Main Phase plays (8, the attack, comes in battle)   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
+	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "Quick-Play chained to their own Spell", "attack", "Extra Deck monster effect"};
 	struct SimDec { int step; bool act, quick; int pass; };   // one of our decisions: during which play, an activation (a Quick Effect, not a trigger), which option passes
 	struct SimRun { bool ok = false; bool att[THREATS] = {}, stop[THREATS] = {}; int stopsAt[PLAYS] = {}; std::vector<std::pair<double, uint32_t>> credits; std::vector<int> creditPlay; int used = 0; std::vector<SimDec> decs; };
 	static double card_value(uint32_t c) {   // what one of our cards' interruption is worth (its text value; 1 if the text missed it)
@@ -1228,6 +1255,23 @@ struct Search {
 		const CardEval& e = it->second.ev;
 		double v = std::max({(double)e.field, (double)e.set, (double)e.hand, e.gy * 0.8, (double)e.onSummon});
 		return v > 0 ? v : 1.0;
+	}
+	// An interruption that was never offered during their turn: was that because the probe never does what it waits for
+	// (it stays at half), or because its own condition wasn't met (Tri-Brigade Mercourier needs a Fusion that mentions
+	// "Fallen of Albaz"; Branded Retribution needs one to return)? The probe hand covers hand / Spell / field / Extra
+	// Deck effects, Normal / Special / Extra Deck summons, searches, a 2-link chain and an attack, so a card waiting for
+	// one of those that never got offered is dead (0). Only these aren't covered:
+	static bool uncovered(uint32_t c) {
+		auto it = g_cards.find(c); if(it == g_cards.end()) return true;
+		const bool st = it->second.type & (TYPE_TRAP | TYPE_QUICKPLAY);
+		// Only the card's interruptions count (Mercourier's "if this card is banished: search" isn't what stops them).
+		for(const auto& fx : evalx::effects(evalx::lower(it->second.desc))) {
+			const std::string& e = fx.text;
+			if(evalx::hurt(e) <= 0 || !evalx::on_their_turn(e, st)) continue;
+			for(const char* w : {"would destroy", "would be destroyed", "is destroyed", "targeted", "targets a", "targets 1", "5 or more", "summoned 5", "from the gy", "from their gy", "is banished", "are banished", "draw phase", "standby phase", "damage step", "battle damage"})
+				if(e.find(w) != std::string::npos) return true;
+		}
+		return false;
 	}
 	static double falloff(std::vector<double> v) { std::sort(v.rbegin(), v.rend()); double s = 0, f = 1.0; for(double x : v) { s += x * f; f = std::max(0.5, f - 0.1); } return s; }
 	Setup sim_setup() const {
@@ -1245,7 +1289,7 @@ struct Search {
 		Prompt m; bool retry;
 		if(!d.run(m, retry)) return false;
 		size_t mi = 0, bi = 0;
-		int step = -1, actedAt = -2;          // the opponent's last play (index in the order of plays below), and the play we last used a card on
+		int step = -1, actedAt = -2, orderAt = -1;          // the opponent's last play (index in the order of plays below), and the play we last used a card on
 		bool tried[PLAYS] = {}, done[PLAYS] = {}, gobTrig = false, reached = false, snapped = false, poisoned = false, battled = false, attacked = false;
 		uint32_t attacker = 0;
 		std::vector<uint32_t> acts[PLAYS];    // our activations while each play was going on
@@ -1271,6 +1315,8 @@ struct Search {
 				bool gone = count(LOCATION_MZONE, attacker) == 0;
 				bool nothing = d.lp[0] >= before.ourLp && (int)d.look(0, LOCATION_MZONE).size() >= before.ourMons;
 				mark(10, !acts[8].empty() && (gone || nothing)); break; }
+			case 9: { bool neg = false; for(auto& x : d.negated) if(x.first == P_COWBOY && x.second == 1) neg = true;
+				mark(11, neg || count(LOCATION_MZONE, P_COWBOY) == 0); break; }
 			}
 			// Credit: one per interruption, at its card's value, best first. A card that only came out during their turn
 			// (the Shining Neos Wingman a Favorite Contact made) is part of the activation that brought it when both act
@@ -1361,7 +1407,8 @@ struct Search {
 				judge(step);
 				// their next play: the first one still to come that they can make now
 				int next = -1; Bytes r;
-				for(int k = step + 1; k < PLAYS && next < 0; k++) {
+				for(int oi = orderAt + 1; oi < PLAYS - 1 && next < 0; oi++) {
+					int k = ORDER[oi];
 					auto find = [&](const std::vector<IdleItem>& v, uint32_t code) { for(size_t i = 0; i < v.size(); i++) if(v[i].code == code) return (int)i; return -1; };
 					int i = -1;
 					if(k == 0 && (i = find(m.activate, P_ADUSTED)) >= 0) r = r_idle(5, i);
@@ -1372,7 +1419,8 @@ struct Search {
 					else if(k == 5 && (i = find(m.activate, P_POT)) >= 0) r = r_idle(5, i);
 					else if(k == 6 && (i = find(m.spsummon, P_THRASHER)) >= 0) r = r_idle(1, i);
 					else if(k == 7 && (i = find(m.activate, P_UPSTART)) >= 0) r = r_idle(5, i);
-					if(i >= 0) next = k;
+					else if(k == 9 && (i = find(m.activate, P_COWBOY)) >= 0) r = r_idle(5, i);
+					if(i >= 0) { next = k; orderAt = oi; }
 				}
 				if(next < 0) {   // their Main Phase plays are done: on to battle (once), else stop
 					if(!battled && m.to_bp) { battled = true; resp = r_idle(6, 0); goto respond; }
@@ -1408,6 +1456,7 @@ struct Search {
 						bool theirs = at < m.ccon.size() && m.ccon[at] == 1; v += theirs ? 10 : 0; if(!theirs) { auto it = g_cards.find(c); if(it != g_cards.end()) v += std::max({(double)it->second.ev.field, (double)it->second.ev.onSummon, 0.0}) * 0.1; } }
 						return o.label == "finish" ? -1.0 : v; };
 					std::stable_sort(opts.begin(), opts.end(), [&](const Opt& a, const Opt& b) { return rank(a) > rank(b); });
+					if(getenv("MDC_SIMLOG") && opts.size() > 3) { std::string all; for(auto& o : opts) all += " [" + o.label + "]"; fprintf(stderr, "  (all %zu picks:%s)\n", opts.size(), all.substr(0, 400).c_str()); }
 					if(opts.size() > 3) opts.resize(3);
 					actCode.assign(opts.size(), 0); actAt.assign(opts.size(), 0);
 				}
@@ -1419,7 +1468,8 @@ struct Search {
 					R.decs.push_back({step, actCode[pick] != 0, quick, passAt});
 					if(actCode[pick]) { if(step >= 0) { acts[step].push_back(actCode[pick]); actsOurs[step].push_back(ours.count(actAt[pick]) > 0); } if(quick) actedAt = step; R.used++; }
 					static const bool slog = getenv("MDC_SIMLOG") != nullptr;
-					if(slog) fprintf(stderr, "  dec#%zu play %d type %d: %d of %zu%s\n", bi - 1, step, m.type, pick, opts.size(), actCode[pick] ? (" activates " + card_name(actCode[pick])).c_str() : "");
+					if(slog) { std::string ol; if(!actCode[pick]) for(auto& o : opts) ol += " [" + o.label + "]";
+						fprintf(stderr, "  dec#%zu play %d type %d: %d of %zu%s%s\n", bi - 1, step, m.type, pick, opts.size(), actCode[pick] ? (" activates " + card_name(actCode[pick])).c_str() : "", ol.substr(0, 160).c_str()); }
 					resp = opts[pick].resp;
 				} else resp = opts.empty() ? our_default(m) : opts[0].resp;
 			}
@@ -1502,9 +1552,9 @@ struct Search {
 		if(why.contains("stops")) for(auto& st : why["stops"]) {
 			textStops += st["counts"].get<double>();
 			uint32_t c = st.value("code", 0u);
-			if(c && !offered.count(c)) { sims.push_back(st["value"].get<double>() * 0.5); untested.push_back({{"card", c}, {"value", st["value"].get<double>() * 0.5}}); }
+			if(c && !offered.count(c)) { double v = uncovered(c) ? st["value"].get<double>() * 0.5 : 0; sims.push_back(v); untested.push_back({{"card", c}, {"value", v}}); }
 		}
-		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "attack"};
+		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "attack", "Extra Deck monster effect"};
 		for(size_t i = 0; i < best.credits.size(); i++) { const auto& c = best.credits[i]; sims.push_back(c.first);
 			credits.push_back({{"card", c.second}, {"value", c.first}, {"play", i < best.creditPlay.size() ? PLAY[best.creditPlay[i]] : ""}}); }
 		out = text - textStops + falloff(sims);
@@ -1635,7 +1685,8 @@ int main(int argc, char** argv) {
 				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
 				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}};
-				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; } }
+				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; }
+				if(!e.needs.empty()) { json ms = json::array(); for(const auto& m : e.needs) ms.push_back({{"tag", m.tag}, {"mentions", m.mentions}, {"kinds", m.kinds}, {"attr", m.attr}, {"race", m.race}}); out[std::to_string(c)]["needs"] = ms; } }
 			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {
