@@ -149,8 +149,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   line (reproducible beam runs). Zone decks key positions by center/side of center-aware monsters only (keying every
   monster's zone blew up HERO, which counts as a zone deck). Left: UI wording for complete vs stable (ask the owner),
   and reducing run-to-run variance (e.g. seed later beam passes with the best lines found so far).
-- Reference suite: add 2-3 guide-rich decks next (MD tier list 2026-10-06: Tier 1 Dracotail, Elfnote Engine, Branded;
-  pick different styles), each as a decklist JSON + `bench/refs/<deck>.json` with guide boards and sources, then tune.
-  Elfnote: the guide board (Baronne) is 0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
+- Reference suite: Dracotail + Branded imported (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`). Dracotail
+  guide vs engine (45s each): engine matches or beats most hands since the End Phase + generic-material fixes. Left:
+  (a) guides can use cards the top decklist lacks (Ecclesia + Faimena runs Predaplant Verte Anaconda): check a guide's
+  required cards against the deck before trusting a miss; (b) MDM end boards don't say where each card is, so the
+  importer guesses (monsters -> field), which can inflate a guide board (Mululu + 1); (c) generic hand slots like
+  "<Dtail name>" are skipped; (d) run compare.py on Branded (not done yet); (e) Elfnote: the guide board (Baronne) is
+  0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
 - First engine-test-button run: the owner needs to run the bench tables SQL (bottom of `supabase/schema.sql`) and update to 1.19.0.
