@@ -1307,16 +1307,16 @@ html[data-bg]:not([data-bg="bubble"]):not([data-bg="none"]) .ambient{background:
 /* Smoke: soft grey-tinted wisps drifting sideways */
 html[data-bg="smoke"] .ambient::before{inset:-10%;
   background:
-    radial-gradient(38% 16% at 22% 30%, color-mix(in srgb, var(--muted) 34%, transparent), transparent 70%),
-    radial-gradient(30% 14% at 70% 22%, color-mix(in srgb, var(--ink) 16%, transparent), transparent 70%),
-    radial-gradient(44% 18% at 55% 68%, color-mix(in srgb, var(--muted) 30%, transparent), transparent 72%),
-    radial-gradient(26% 12% at 12% 78%, color-mix(in srgb, var(--ink) 14%, transparent), transparent 70%);
+    radial-gradient(38% 16% at 22% 30%, color-mix(in srgb, var(--muted) 46%, transparent), transparent 70%),
+    radial-gradient(30% 14% at 70% 22%, color-mix(in srgb, var(--ink) 22%, transparent), transparent 70%),
+    radial-gradient(44% 18% at 55% 68%, color-mix(in srgb, var(--muted) 42%, transparent), transparent 72%),
+    radial-gradient(26% 12% at 12% 78%, color-mix(in srgb, var(--ink) 20%, transparent), transparent 70%);
   filter:blur(26px); animation:smokeA 46s ease-in-out infinite alternate}
 html[data-bg="smoke"] .ambient::after{inset:-10%;
   background:
-    radial-gradient(34% 15% at 80% 55%, color-mix(in srgb, var(--muted) 28%, transparent), transparent 70%),
+    radial-gradient(34% 15% at 80% 55%, color-mix(in srgb, var(--muted) 40%, transparent), transparent 70%),
     radial-gradient(28% 12% at 35% 48%, color-mix(in srgb, var(--gold) 10%, transparent), transparent 70%),
-    radial-gradient(40% 16% at 60% 88%, color-mix(in srgb, var(--ink) 12%, transparent), transparent 70%);
+    radial-gradient(40% 16% at 60% 88%, color-mix(in srgb, var(--ink) 18%, transparent), transparent 70%);
   filter:blur(32px); animation:smokeB 58s ease-in-out infinite alternate}
 @keyframes smokeA{ from{transform:translate3d(-8%,0,0) scale(1)} to{transform:translate3d(9%,-3%,0) scale(1.12)} }
 @keyframes smokeB{ from{transform:translate3d(7%,2%,0) scale(1.08)} to{transform:translate3d(-9%,-2%,0) scale(1)} }
@@ -1437,6 +1437,42 @@ html header.top, html.compact header.top, html.fadebg header.top{background:none
 header.top nav.tabs .wrap{background:var(--panel) !important; border:1px solid var(--line) !important; box-shadow:0 6px 18px rgba(0,0,0,.14)}
 html.fadebg header.top nav.tabs .wrap{background:color-mix(in srgb, var(--panel) 70%, transparent) !important}
 html.cloud:not(.in-overlay) header.top .hdrside{padding:0 2px}
+/* ---- backgrounds v2: bigger, livelier movement (Embers unchanged) ---- */
+/* Bubble: the base glow drifts wider, plus two extra orbs that wander across the screen */
+html[data-bg="bubble"] .ambient, html:not([data-bg]) .ambient{animation:bubbleBase 16s ease-in-out infinite alternate}
+@keyframes bubbleBase{ 0%{transform:translate3d(-14%,-10%,0) rotate(-6deg) scale(1)} 50%{transform:translate3d(12%,8%,0) rotate(8deg) scale(1.08)} 100%{transform:translate3d(-6%,14%,0) rotate(-3deg) scale(.96)} }
+html[data-bg="bubble"] .ambient::before{inset:auto; width:46%; height:46%; left:10%; top:40%; border-radius:50%;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--sky) 30%, transparent), transparent); animation:orbA 21s ease-in-out infinite alternate}
+html[data-bg="bubble"] .ambient::after{inset:auto; width:40%; height:40%; left:50%; top:20%; border-radius:50%;
+  background:radial-gradient(closest-side, color-mix(in srgb, var(--gold) 26%, transparent), transparent); animation:orbB 17s ease-in-out infinite alternate}
+@keyframes orbA{ 0%{transform:translate3d(0,0,0) scale(.9)} 33%{transform:translate3d(55%,-45%,0) scale(1.15)} 66%{transform:translate3d(95%,10%,0) scale(1)} 100%{transform:translate3d(30%,30%,0) scale(1.2)} }
+@keyframes orbB{ 0%{transform:translate3d(0,0,0) scale(1.1)} 40%{transform:translate3d(-70%,50%,0) scale(.9)} 75%{transform:translate3d(-20%,85%,0) scale(1.2)} 100%{transform:translate3d(-85%,15%,0) scale(1)} }
+/* Smoke: wisps sweep across the whole screen in opposite directions */
+html[data-bg="smoke"] .ambient::before{animation:smokeA2 24s ease-in-out infinite alternate}
+html[data-bg="smoke"] .ambient::after{animation:smokeB2 31s ease-in-out infinite alternate}
+@keyframes smokeA2{ 0%{transform:translate3d(-32%,4%,0) scale(1) rotate(-2deg)} 50%{transform:translate3d(6%,-6%,0) scale(1.25) rotate(2deg)} 100%{transform:translate3d(34%,3%,0) scale(1.05) rotate(-1deg)} }
+@keyframes smokeB2{ 0%{transform:translate3d(30%,-4%,0) scale(1.2)} 50%{transform:translate3d(-4%,6%,0) scale(1)} 100%{transform:translate3d(-34%,-2%,0) scale(1.25)} }
+/* Aurora: curtains sweep side to side and ripple */
+html[data-bg="aurora"] .ambient::before{animation:auroraSway2 13s ease-in-out infinite alternate}
+html[data-bg="aurora"] .ambient::after{inset:-5% -40%;
+  background:linear-gradient(80deg, transparent 15%, color-mix(in srgb, var(--amb, var(--dark)) 26%, transparent) 30%, transparent 45%, color-mix(in srgb, var(--sky) 24%, transparent) 62%, transparent 78%);
+  filter:blur(34px); transform-origin:50% 0; animation:auroraSway3 19s ease-in-out infinite alternate;
+  -webkit-mask:linear-gradient(transparent 5%, #000 25%, #000 50%, transparent 85%); mask:linear-gradient(transparent 5%, #000 25%, #000 50%, transparent 85%)}
+@keyframes auroraSway2{ 0%{transform:translate3d(-28%,0,0) skewX(-16deg) scaleY(.9)} 50%{transform:translate3d(4%,4%,0) skewX(10deg) scaleY(1.12)} 100%{transform:translate3d(26%,-2%,0) skewX(-6deg) scaleY(.95)} }
+@keyframes auroraSway3{ 0%{transform:translate3d(24%,2%,0) skewX(14deg) scaleY(1.1)} 100%{transform:translate3d(-26%,-3%,0) skewX(-12deg) scaleY(.9)} }
+/* Nebula: a visibly turning swirl that breathes, with a counter-rotating outer ring */
+html[data-bg="nebula"] .ambient::before{animation:nebulaSpin2 36s linear infinite}
+html[data-bg="nebula"] .ambient::after{inset:-10%; border-radius:50%;
+  background:conic-gradient(from 90deg, transparent, color-mix(in srgb, var(--sky) 22%, transparent) 12%, transparent 30%, color-mix(in srgb, var(--gold) 20%, transparent) 55%, transparent 72%, color-mix(in srgb, var(--amb, var(--dark)) 24%, transparent) 88%, transparent);
+  filter:blur(60px); animation:nebulaSpin3 52s linear infinite}
+@keyframes nebulaSpin2{ 0%{transform:rotate(0deg) scale(.9)} 50%{transform:rotate(180deg) scale(1.2)} 100%{transform:rotate(360deg) scale(.9)} }
+@keyframes nebulaSpin3{ 0%{transform:rotate(360deg) scale(1.1)} 50%{transform:rotate(180deg) scale(.92)} 100%{transform:rotate(0deg) scale(1.1)} }
+/* Tide: big swells that roll in and out */
+html[data-bg="tide"] .ambient::before{animation:tideA2 9s ease-in-out infinite alternate}
+html[data-bg="tide"] .ambient::after{animation:tideB2 13s ease-in-out infinite alternate}
+@keyframes tideA2{ 0%{transform:translate3d(-14%,16%,0) scale(1,.85)} 50%{transform:translate3d(4%,-6%,0) scale(1.1,1.15)} 100%{transform:translate3d(14%,8%,0) scale(1,.95)} }
+@keyframes tideB2{ 0%{transform:translate3d(12%,-10%,0) scale(1.05)} 100%{transform:translate3d(-14%,12%,0) scale(.9)} }
+@media (prefers-reduced-motion: reduce){ .ambient, .ambient::before, .ambient::after{animation:none !important} }
 </style>
 </head>
 <body>

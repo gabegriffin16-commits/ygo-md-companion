@@ -145,6 +145,11 @@ function createWindow() {
   win.once("ready-to-show", () => { win.showInactive(); applyClickThrough(); setTimeout(syncHotkeysToVisibility, 50); });
   win.webContents.on("did-start-loading", () => { if (passthrough) { passthrough = false; applyMouse(); } });   // a reload never leaves clicks passing through
   win.webContents.on("did-finish-load", overlayChrome);
+  // Every page load (including the ↻ button): show a known update again, and look for a new one if it's been a couple of minutes.
+  win.webContents.on("did-finish-load", () => setTimeout(() => {
+    if (update && !updating) updateEvent({ state: "available", version: update.version, notes: update.notes });
+    if (Date.now() - lastCheck > 2 * 60 * 1000) checkUpdate(false);
+  }, 1500));
   if (process.env.OMNI_TEST_SHOT) win.webContents.on("did-finish-load", () => setTimeout(() => {
     win.webContents.capturePage().then(img => fs.writeFileSync(process.env.OMNI_TEST_SHOT, img.toPNG()));
   }, Number(process.env.OMNI_TEST_SHOT_MS) || 5000));
@@ -286,7 +291,9 @@ function updateEvent(d) {
   if (process.env.OMNI_DEBUG) console.log("[update]", JSON.stringify(d));
   pageEvent("overlay-update", Object.assign({ current: app.getVersion() }, d));
 }
+let lastCheck = 0;
 async function checkUpdate(manual) {
+  lastCheck = Date.now();
   try {
     const r = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`,
       { headers: { "User-Agent": "MasterDuelCompanion", "Accept": "application/vnd.github+json" }, cache: "no-store" });
