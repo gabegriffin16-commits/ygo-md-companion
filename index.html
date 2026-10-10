@@ -338,7 +338,6 @@ body{
 /* ---- duel flow ---- */
 .lpbar{position:sticky; top:0; z-index:5; display:flex; flex-wrap:wrap; align-items:center; gap:6px 8px; padding:6px 0 8px; margin-bottom:4px; background:none}
 .lpin.bad{border-color:var(--red) !important; color:var(--red)}
-.lpbar.stuck{background:color-mix(in srgb, var(--bg) 88%, transparent); -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px)}
 
 .lpcol{display:flex; align-items:center; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:2px 4px 2px 10px}
 .lpcol .lab{font:600 .72rem var(--display); color:var(--muted); text-transform:uppercase; letter-spacing:.05em}
@@ -3652,13 +3651,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       bar.appendChild(col);
     });
-    // While it sticks to the top over scrolled content, give it a backing so text underneath doesn't show through.
-    if (!bar._stick){
-      bar._stick = true;
-      var check = function(){ var prev = bar.previousElementSibling; if (!prev || !bar.offsetParent) return;
-        bar.classList.toggle("stuck", bar.getBoundingClientRect().top > prev.getBoundingClientRect().bottom + 2); };
-      document.addEventListener("scroll", check, true); window.addEventListener("resize", check);
-    }
   }
 
   function renderStepper(){
