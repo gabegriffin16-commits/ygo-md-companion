@@ -255,6 +255,7 @@ struct Prompt {
 	std::vector<uint64_t> options;
 	uint8_t cancelable = 0, finishable = 0; uint32_t mn = 0, mx = 0;
 	std::vector<uint32_t> cards;         // SELECT_CARD / TRIBUTE / UNSELECT (select list) / SUM cards
+	std::vector<uint64_t> ckeys;         // UNSELECT: where each card is (for picking in a fixed order, see pick_order)
 	std::vector<uint32_t> cardParam;     // SUM: per-card value
 	std::vector<uint32_t> mustParam; uint32_t acc = 0;
 	std::vector<std::pair<uint32_t, uint64_t>> chains;
@@ -302,7 +303,8 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 	}
 	case MSG_SELECT_UNSELECT_CARD: {
 		m.finishable = r.u8(); m.cancelable = r.u8(); m.mn = r.u32(); m.mx = r.u32();
-		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { m.cards.push_back(r.u32()); rloc(r); }
+		auto key = [](uint32_t c, const Loc& l) { return ((uint64_t)l.con << 56) | ((uint64_t)l.loc << 48) | ((uint64_t)(l.seq & 0xffff) << 32) | c; };
+		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); m.cards.push_back(c); m.ckeys.push_back(key(c, l)); }
 		k = r.u32(); for(uint32_t i = 0; i < k; i++) { r.u32(); rloc(r); }
 		break;
 	}
@@ -466,7 +468,7 @@ struct Duel {
 // ------------------------------------------------------------------ search
 struct Step { std::string kind; uint32_t card = 0; std::string effect; std::vector<uint32_t> picks;
 	std::vector<std::pair<uint32_t, std::vector<uint32_t>>> groups; };   // picks grouped by what they were for (hint id)
-struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; uint32_t hint = 0; };
+struct Opt { std::string label; Bytes resp; bool main = false; Step step; std::vector<uint32_t> picks; bool end = false; uint32_t hint = 0; uint64_t pkey = 0; std::shared_ptr<const std::vector<uint64_t>> avail; };   // avail: every card pickable alongside it
 
 static std::vector<Opt> dedupe(std::vector<Opt> v) {
 	std::set<std::string> seen; std::vector<Opt> out;
@@ -519,7 +521,8 @@ static std::vector<Opt> choices0(const Prompt& m) {
 		return dedupe(out);
 	}
 	case MSG_SELECT_UNSELECT_CARD:
-		for(size_t i = 0; i < m.cards.size(); i++) { Opt o; o.label = "pick " + std::to_string(m.cards[i]); o.resp = r_unselect((int)i); o.picks = {m.cards[i]}; out.push_back(o); }
+		{ auto av = std::make_shared<const std::vector<uint64_t>>(m.ckeys);
+		  for(size_t i = 0; i < m.cards.size(); i++) { Opt o; o.label = "pick " + std::to_string(m.cards[i]); o.resp = r_unselect((int)i); o.picks = {m.cards[i]}; if(i < m.ckeys.size()) { o.pkey = m.ckeys[i]; o.avail = av; } out.push_back(o); } }
 		if(m.finishable || (m.cancelable && out.empty())) { Opt o; o.label = "finish"; o.resp = r_unselect(-1); out.push_back(o); }
 		return dedupe(out);
 	case MSG_SELECT_SUM: {
@@ -562,7 +565,7 @@ struct Search {
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
 	// ending: the turn was ended and the End Phase is being played out (see ep_worth).
-	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; };
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; uint64_t lastPick = 0; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; };
 	// Is the End Phase worth playing out? Only when a card we have mentions it (Ecclesia / Cartesia adding themselves
 	// back, Branded searches): otherwise the board at "end turn" is already final and searches stay as fast as before.
 	static bool ep_worth(const Board& b) {
@@ -585,6 +588,7 @@ struct Search {
 	// have passed), more searching is unlikely to find better, so stop early. 0 = off: run the full time.
 	double stableFrac = 0, stableMin = 5;
 	std::atomic<double> bestAt{0}; double bestScore = -1e18;   // when the best board so far was found (seconds)
+	std::vector<Bytes> bestPath;   // the line to the best board so far (the beam keeps the states along it)
 	mutable std::atomic<bool> stoppedStable{false};
 	double elapsed() const { return std::chrono::duration<double>(Clock::now() - t0).count(); }
 	bool out_of_time() const {
@@ -770,7 +774,7 @@ struct Search {
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
 		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; boards[k] = f; }
-		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); }
+		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); bestPath = st.path; }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
 		auto d = std::make_unique<Duel>(setup);
@@ -862,7 +866,18 @@ struct Search {
 		}
 		}
 	}
-	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; }
+	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; st.lastPick = o.pkey; st.pickedFrom = o.avail; }
+	// Cards picked one at a time: picking A then B ends where B then A does, so after one of our picks only cards that
+	// come later (by where they are) are offered, and each set is tried once instead of once per order. Only our own
+	// picks count (not a material the game selected for us), and only cards that were pickable then are skipped: some
+	// prompts change what's pickable after each pick (a Tuner first, then the rest), and those sets have only one order.
+	static void pick_order(const Prompt& m, const St& st, std::vector<Opt>& opts) {
+		static const bool off = getenv("MDC_NOPICKORDER") != nullptr;
+		if(off || m.type != MSG_SELECT_UNSELECT_CARD || !st.lastPick) return;
+		auto before = [&](uint64_t k) { return st.pickedFrom && std::find(st.pickedFrom->begin(), st.pickedFrom->end(), k) != st.pickedFrom->end(); };
+		std::vector<Opt> keep; for(auto& o : opts) if(!o.pkey || o.pkey > st.lastPick || !before(o.pkey)) keep.push_back(std::move(o));
+		opts.swap(keep);
+	}
 	// Explore from a live duel `d` sitting at prompt m. Hands extra branches to idle workers.
 	void dfs(std::unique_ptr<Duel> d, Prompt m, St st) {
 		for(;;) {
@@ -886,7 +901,7 @@ struct Search {
 			st.aim = false;   // back to us: any target was already chosen
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts);
+			zone_opts(m, st, opts); pick_order(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			if(interrupting() && !st.hit) {
 				// Still replaying the planned line: only its next choice is allowed.
@@ -990,7 +1005,7 @@ struct Search {
 			}
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts);
+			zone_opts(m, st, opts); pick_order(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			bool epOK = false;
 			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
@@ -999,6 +1014,21 @@ struct Search {
 				if(st.actions >= maxActions && !epOK) return;
 			}
 			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end || epOK) live.push_back(&o);
+			// Card picks inside one action (which materials, which cards to send) multiply: several 15-way picks in one
+			// action can cost a whole search. Like the beam itself, they widen with each pass: half the beam width
+			// (4, 12, 36...), in a fixed scattered order, so early passes stay cheap and later ones see every pick.
+			bool pickPrompt = m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_SUM || m.type == MSG_SELECT_TRIBUTE;
+			static const bool noCap = getenv("MDC_NOPICKCAP") != nullptr;
+			static const size_t capMin = getenv("MDC_PICKMIN") ? (size_t)atoi(getenv("MDC_PICKMIN")) : 4;
+			size_t pickCap = noCap ? (size_t)-1 : std::max<size_t>(capMin, beam_width / 2);
+			if(pickPrompt && live.size() > pickCap) {
+				auto h = [](const std::string& s) { uint64_t t = 1469598103934665603ull; for(char ch : s) t = (t ^ (unsigned char)ch) * 1099511628211ull; return t; };
+				std::vector<const Opt*> keep, rest;
+				for(auto* o : live) (o->label == "finish" ? keep : rest).push_back(o);
+				std::stable_sort(rest.begin(), rest.end(), [&](const Opt* a, const Opt* b) { return h(a->label) < h(b->label); });
+				for(auto* o : rest) { if(keep.size() >= pickCap) break; keep.push_back(o); }
+				live.swap(keep); capped = true;
+			}
 			if(m.type == MSG_SELECT_IDLECMD && st.actions >= maxActions) { live.clear(); for(auto& o : opts) if(o.end) live.push_back(&o); }
 			if(live.empty()) return;
 			for(size_t i = 1; i < live.size(); i++) {
@@ -1029,10 +1059,12 @@ struct Search {
 		for(auto& t : ts) t.join();
 		return out;
 	}
+	std::atomic<bool> capped{false};   // this pass skipped some card picks (so it didn't check every line)
 	int beamThreads = 1; bool beam_complete = false; size_t beam_width = 0; int beam_depth = 0;
 	void beam() {
 		for(size_t width = width0; !out_of_time(); width *= 3) {
 			{ std::lock_guard<std::mutex> lk(vmx); bvisited.clear(); }
+			capped = false;
 			std::vector<Node> level(1);
 			bool trimmed = false;
 			beam_width = width;
@@ -1047,6 +1079,12 @@ struct Search {
 				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h != b.h ? a.h > b.h : a.tie < b.tie; });
 				if(next.size() > width) {
 					trimmed = true;
+					// States on the line to the best board found so far (by either search) are always kept: a wider pass
+					// can't lose a line an earlier pass or a depth-first worker found, and it explores around it.
+					std::vector<Node> elite;
+					static const bool noElite = getenv("MDC_NOELITE") != nullptr;
+					if(!noElite) { std::vector<Bytes> bp; { std::lock_guard<std::mutex> lk(mx); bp = bestPath; }
+					  for(auto& n : next) if(!n.st.path.empty() && n.st.path.size() <= bp.size() && std::equal(n.st.path.begin(), n.st.path.end(), bp.begin())) elite.push_back(n); }
 					if(diverse) {
 						// Round-robin over parents (best child of each first) so one strong branch can't crowd out the rest.
 						std::map<size_t, std::vector<Node*>> byParent; for(auto& n : next) byParent[n.parent].push_back(&n);
@@ -1060,10 +1098,11 @@ struct Search {
 						}
 						next.swap(keep);
 					} else next.resize(width);
+					for(auto& e : elite) { bool have = false; for(auto& n : next) if(n.st.path == e.st.path) { have = true; break; } if(!have) next.push_back(std::move(e)); }
 				}
 				level.swap(next);
 			}
-			if(!trimmed && !out_of_time()) { beam_complete = true; return; }   // nothing was cut: every line was checked
+			if(!trimmed && !capped && !out_of_time()) { beam_complete = true; return; }   // nothing was cut: every line was checked
 			if(width > 100000) return;
 		}
 	}

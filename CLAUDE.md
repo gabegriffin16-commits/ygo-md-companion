@@ -75,7 +75,11 @@ Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it check
 Runs turn one in the real rules engine (edo9300/ygopro-core pinned at `38d04c9f`, Lua 5.4) with ProjectIgnis scripts.
 Key parts of `src/main.cpp`:
 - **Search**: beam search (widening, parent-diverse) + depth-first workers sharing results. Chain windows with
-  optional activations are decision points (Quick-Effect decks combo inside chains).
+  optional activations are decision points (Quick-Effect decks combo inside chains). Card picks inside one action
+  (materials, cards to send) are capped at half the beam width per pass (4, 12, 36...): several 15-way picks in one
+  action used to eat a whole search (one beam level took 81s of 120). One-at-a-time picks are tried in one order per
+  set. The line to the best board so far is always kept in the beam. Debug env: `MDC_BEAMLOG=1` (per-level timing),
+  `MDC_NOPICKCAP` / `MDC_PICKMIN` / `MDC_NOPICKORDER` / `MDC_NOELITE` (A/B switches).
 - **Board score** (`score_of` + `src/evaluate.h`): reads each card's text for interruptions usable on the opponent's turn
   (negate > banish/control > destroy/bounce/send), where they work from (field / set / hand / GY), locks, sturdiness,
   zone requirements (center Main Monster Zone, "switch into the center"), set-able Traps in hand count as set.
@@ -112,7 +116,10 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 - **Reference boards** (tuning the generator toward guide-quality plays): `combo-engine/bench/refs/<deck>.json` holds
   boards from guides plus the engine's picks, with sources. `bench/score.py <engine> <cdb> <zip> refs/<deck>.json`
   prints each board's score and why; the guide board should rank at or near the top, and bench.py runs show what the
-  search actually reaches.
+  search actually reaches. Master Duel Meta guides: `bench/mdm.py deck|refs` imports a top decklist and a guide's
+  combos (end-board locations read from the guide's steps; missing cards and guessed placements flagged; set
+  `MDM_CACHE=<folder>` to reuse fetched combos), `bench/compare.py <engine> <cdb> <zip> refs/<deck>.json <secs>` runs
+  the search from each guide hand and prints guide vs engine (env THREADS, ACTS, WHY).
 - **Local build on the owner's PC**: VS 2022 Build Tools + CMake are installed; deps live in
   `%LOCALAPPDATA%/mdc-engine-build` (same versions as CI). `cmake -S combo-engine -B <that>/ce-build -A x64 -DOCGCORE_DIR=<that>/ce-src/ygopro-core
   -DDEPS_DIR=<that>/ce-deps -DMIMALLOC_DIR=<that>/ce-src/mimalloc` then `cmake --build <that>/ce-build --config Release`.
@@ -120,8 +127,8 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 - **Engine bench**: `combo-engine/bench/bench.py <engine> <cards.cdb> <scripts.zip> <hand codes> <secs> <maxActions> [threads] [mode] [targets]`
   with `DECK_JSON=combo-engine/bench/omni.json` (Omni HERO) or `elfnote.json`; `ZONES=0/1` forces zone mode.
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + DPE + Favorite Contact set (FC -> Shining Neos
-  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (120s, after guide tuning): Crystal Wing + Dawn
-  Dragster + Accel Synchro Stardust (center), Welcome Home + Rhapsodia set, Strelitzia in GY (15.04). The guide board
+  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (120s, after the pick cap): Crystal Wing + Junora +
+  Dawn Dragster (center), Welcome Home + Rhapsodia set (15.24; before: Accel Synchro Stardust board, 15.04). The guide board
   (Baronne + Crystal Wing, Rhapsodia set, Strelitzia in GY) scores 14.47 and is reached when Baronne is a goal; see
   `bench/refs/elfnote.json`.
 - **GitHub deep test**: edit `combo-engine/bench/run.json` and push (this session's GitHub access can't start runs by API).
@@ -147,13 +154,13 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   once the best hasn't improved for that share of the time (off by default: runs vary, e.g. HERO's best came at 155s of
   180 once, and a 180s Elfnote run settled on a worse board than a 120s one). Beam ties are now broken by a hash of the
   line (reproducible beam runs). Zone decks key positions by center/side of center-aware monsters only (keying every
-  monster's zone blew up HERO, which counts as a zone deck). Left: UI wording for complete vs stable (ask the owner),
-  and reducing run-to-run variance (e.g. seed later beam passes with the best lines found so far).
-- Reference suite: Dracotail + Branded imported (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`). Dracotail
-  guide vs engine (45s each): engine matches or beats most hands since the End Phase + generic-material fixes. Left:
-  (a) guides can use cards the top decklist lacks (Ecclesia + Faimena runs Predaplant Verte Anaconda): check a guide's
-  required cards against the deck before trusting a miss; (b) MDM end boards don't say where each card is, so the
-  importer guesses (monsters -> field), which can inflate a guide board (Mululu + 1); (c) generic hand slots like
-  "<Dtail name>" are skipped; (d) run compare.py on Branded (not done yet); (e) Elfnote: the guide board (Baronne) is
-  0.07 below the engine pick; check whether Accel Synchro's 1.5 is fair.
+  monster's zone blew up HERO, which counts as a zone deck). The best line is now kept across beam passes. Left: UI
+  wording for complete vs stable (ask the owner). Elfnote stays noisy run to run (13.9-15.0 at 20s; same engine).
+- Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
+  matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones
+  need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already
+  scores higher): Branded Fusion 1cc (14.30 vs 12.60), Walbaz (SS) + Lukias (16.70 vs 13.30), Walbaz (SS) + Mululu
+  (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. Elfnote's Accel Synchro 1.5
+  checked: fair (it Tributes for Stardust Dragon on their turn), left as is. Next decks: a Synchro/Xyz deck (e.g. Kewl
+  Tune) would cover prompt types the current three don't.
 - The Elfnote deck's generated lines (shared deck "ydk-decklist") predate v1.18.0 and should be regenerated.
