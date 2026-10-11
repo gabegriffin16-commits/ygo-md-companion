@@ -217,7 +217,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   pull monster-negate guide boards (Kewl Tune) down, and Dracotail's Quick-Fusion boards still under-credit. Conclusion
   so far: the sim doesn't agree with guide boards better than the text model, so it stays an opt-in diagnostic
   (sim.py / compare.py SIM=1) rather than the app's ranking. Differences are a few hands of 59, and some guide boards
-  are imported with what's made on the opponent's turn, so treat the tallies as rough.
+  are imported with what's made on the opponent's turn, so treat the tallies as rough. Owner agreed: not in the app;
+  use it to find text-model misreads. `bench/diag.py <engine> <cdb> <zip> <secs> refs/*.json` tallies per card
+  "overrated" (text counts it, it never stopped anything in play) and "underrated". First pass fixed (1.22.0): GY costs
+  and "you control, or N in your GY" alternatives (Kewl Tune RS, Branded Retribution), GY-only banishing isn't a stop
+  (Dracotail Sting), Extra-Deck-monster-only negates count like Spell/Trap-only (Rindbrumm), "opponent's turn" isn't
+  "their card" (Rindbrumm's GY revival had scored as removal). Note: the judge tally swings 15-20 between runs with the
+  same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
+  Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), generic opponent's-turn summons (Incredible
+  Ecclesia, Albion the Sanctifire: 1.5 but rarely stop anything), Kewl Tune Loudness War (copies a GY effect: text 0).
   When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
