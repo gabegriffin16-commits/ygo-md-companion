@@ -303,7 +303,11 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   Traps with two effects, Re-qliate). Test decks: only Favorite Contact's set value 2.4 -> 1.5 (its real value is the
   Fusion-on-their-turn rule; HERO boards unchanged). Whole-database check (`eval` on every card): 19 places dropped by
   the script check, all real.
-  Next: conditions an effect needs (script `cond`), Quick Effect vs ignition where the text doesn't say.
+  Also: "(this is a Quick Effect)" (older wording) counts as a Quick Effect; "Special Summon it, but its effects are
+  negated" is a drawback on our summon, not a negate (`negates()` in evaluate.h; 36 cards of 14121, e.g. Elder Entity
+  Norden, Synchro Call; Forbidden Chalice keeps its negate). Whole-database before/after diffs of `eval` are the check for
+  every text rule now (scratchpad alldiff-style: eval all 14121 cards with two builds, read every changed card).
+  Next: conditions an effect needs (script `cond`).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are

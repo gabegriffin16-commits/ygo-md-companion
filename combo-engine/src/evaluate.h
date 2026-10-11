@@ -108,6 +108,16 @@ inline bool theirs(const std::string& e) {
 	}
 	return false;
 }
+// A real negate: "negate" the verb, or "negated" that isn't a drawback on our own summon ("Special Summon it, but it has its
+// effects negated" / "with its effects negated": Crystron Quan, Speedroid Wheel).
+inline bool negates(const std::string& e) {
+	for(size_t i = e.find("negate"); i != std::string::npos; i = e.find("negate", i + 1)) {
+		if(i + 6 >= e.size() || e[i + 6] != 'd') return true;
+		const std::string before = e.substr(i > 40 ? i - 40 : 0, i > 40 ? 40 : i);
+		if((before.find("but ") == std::string::npos && before.find("with ") == std::string::npos) || e.find("summon") == std::string::npos) return true;   // Forbidden Chalice: "but its effects are negated" on their monster
+	}
+	return false;
+}
 inline float hurt(const std::string& e) {
 	float v = 0;
 	// What it does comes after the condition: "If a Fusion Monster you control is destroyed by an opponent's card effect,
@@ -118,7 +128,7 @@ inline float hurt(const std::string& e) {
 	{ const std::string& e = x;
 	if((has(e, "negate the attack") || has(e, "negate the next attack") || has(e, "negate an attack")) && !has(e, "activation")) v = 0.5f;   // battle only (Necro Gardna): no play stopped
 	else if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
-	else if(has(e, "negate")) v = 3.0f;
+	else if(negates(e)) v = 3.0f;
 	// "Opponent's" means their cards, not "during your opponent's turn" (Rindbrumm reviving itself from the GY on their
 	// turn isn't removal). Banishing cards from their GY stops no play (Dracotail Sting).
 	// "banish" the verb, not "banished cards" (a place: Lubellion shuffles materials from "face-up banished cards").
@@ -189,7 +199,7 @@ inline bool revive_of(const std::string& e, std::string& tag, int& maxLv) {
 	return false;
 }
 inline bool on_their_turn(const std::string& e, bool spellTrapQuick) {
-	return spellTrapQuick || has(e, "(quick effect)") || has(e, "your opponent activates") || has(e, "opponent's turn") ||
+	return spellTrapQuick || has(e, "(quick effect)") || has(e, "this is a quick effect") || has(e, "your opponent activates") || has(e, "opponent's turn") ||
 		has(e, "either player's turn") || has(e, "your opponent would") || has(e, "opponent normal or special summons") ||
 		has(e, "opponent special summons") || has(e, "your opponent normal summons") || has(e, "during the battle phase") ||
 		has(e, "when an attack is declared") || has(e, "opponent's monster declares an attack");
