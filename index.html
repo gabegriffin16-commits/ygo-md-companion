@@ -5544,7 +5544,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       export:'<path d="M12 15V5M8 8.5l4-4 4 4"/><path d="M5 15.5V19h14v-3.5"/>',
       del:'<path d="M5 7.5h14M10 7.5V5h4v2.5M7 7.5l.8 11.5h8.4L17 7.5"/>',
       deck:'<rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/>',
-      builder:'<rect x="4" y="4" width="6.5" height="8.5" rx="1.3"/><rect x="13.5" y="4" width="6.5" height="8.5" rx="1.3"/><rect x="4" y="15.5" width="6.5" height="4.5" rx="1.3"/><rect x="13.5" y="15.5" width="6.5" height="4.5" rx="1.3"/>'};
+      builder:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v4"/><rect x="5.5" y="5.5" width="6" height="5" rx="1"/><path d="M5.5 13.5h3"/><path d="M18.5 11.5l2.5 2.5-6.5 6.5H12V18z"/>'};
     var o = {}; Object.keys(p).forEach(function(k){ o[k] = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p[k] + '</svg>'; });
     return o;
   })();
@@ -5567,7 +5567,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     deckMenu.appendChild(nodes("div", "dmsep"));
     menuItem("Build a new deck", "act", function(){ closeDeckMenu(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); }, "add");
-    if (DECKDATA.custom && !DECKDATA.none) menuItem("View in Deck Builder", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); }, "builder");
+    if (DECKDATA.custom && !DECKDATA.none) menuItem("View in deck builder", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); }, "builder");
     else if (!DECKDATA.none) menuItem("Copy this deck to edit", "act", function(){ closeDeckMenu(); var c = currentAsBuilt(); c.id = MDC.newId(); c.name = PILOT_NAME + " (copy)"; openBuilder(c, true); }, "copy");
     menuItem("Import a .ydk file", "act", function(){ closeDeckMenu(); importYdk(); }, "import");
     if (!DECKDATA.none) menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); }, "export");
@@ -6359,7 +6359,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         pil.addEventListener("click", function(){ pilotFromUsers(d.id); }); acts.appendChild(pil);
       }
       if (mine){
-        var ed = nodes("button", "ghost", "Edit"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
+        var ed = nodes("button", "ghost", "View in deck builder"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
         var sh = nodes("button", "fadeitem fadetog ushare"); sh.type = "button"; sh.setAttribute("role", "switch");
         sh.innerHTML = '<span></span><span class="sw" aria-hidden="true"></span>';
         var paintSh = function(){ sh.setAttribute("aria-checked", d.shared !== false ? "true" : "false"); sh.querySelector("span").textContent = d.shared !== false ? "Shared" : "Unlisted"; };
@@ -6374,7 +6374,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           acts.innerHTML = "";
           var pc = nodes("button", "primary", PILOT_ID === c.id ? "Piloting the copy" : "Pilot the copy"); pc.type = "button"; pc.disabled = PILOT_ID === c.id;
           pc.addEventListener("click", function(){ pilotFromUsers(c.id); }); acts.appendChild(pc);
-          var op = nodes("button", "ghost", "Edit the copy"); op.type = "button"; op.addEventListener("click", function(){ var x = MDC.get(c.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(op);
+          var op = nodes("button", "ghost", "View copy in deck builder"); op.type = "button"; op.addEventListener("click", function(){ var x = MDC.get(c.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(op);
           acts.appendChild(nodes("span", "hint ucopied", "In your decks as \u201C" + c.name + "\u201D"));
         };
         var cp = nodes("button", "primary", "Copy to my decks"); cp.type = "button";
