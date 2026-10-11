@@ -129,7 +129,10 @@ Key parts of `src/main.cpp`:
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
   isn't used: on 6 physical cores it slows HERO's beam. `maxReplays` = work budget instead of the clock and `growth`
-  = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible).
+  = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible; GitHub runs it per
+  configuration in parallel via `engine-tune.yml` when `bench/tune.json` changes; runner and PC totals match, e.g.
+  118.74 vs 118.70). Sweep at 30000 replays/hand over 11 hands / 5 decks: start width 8/16/24, growth 2/3/4 and each
+  ranking weight halved/doubled all land at 117.1-119.0 vs the default 118.7 (noise ~1): defaults kept.
 - Known limits: opponent never acts except the tested handtrap; Spell/Trap zones always first free; revival reads
   only the quoted name and Level cap (not Type/Attribute) and ignores once-per-turn names; scoring is generic, so goals
   matter for long combos.
