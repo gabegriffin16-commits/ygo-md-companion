@@ -648,6 +648,9 @@ static std::vector<Opt> choices0(const Prompt& m) {
 	}
 }
 
+// MDC_BRANCHLOG=1: where beam expansions branch (prompt type + a card, with End Phase marked): how many branch points and
+// how many extra replays each kind costs. Printed to stderr when the search ends.
+static const bool g_branchLog = getenv("MDC_BRANCHLOG") != nullptr; static std::mutex g_branchMx; static std::map<std::string, std::pair<uint64_t, uint64_t>> g_branch;
 struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished, extra; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
 struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; std::vector<Bytes> mine; std::vector<int> mineType; };   // mine: our own responses (replays the line even when the opponent gets extra prompts)
 
@@ -1217,6 +1220,18 @@ struct Search {
 				if(st.actions >= maxActions && !epOK) return;
 			}
 			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end || epOK) live.push_back(&o);
+			// The same choices in another order often reach the same spot mid-action (two triggers that each Set a Trap,
+			// resolved Flame-then-Horn or Horn-then-Flame): same board, same prompt, same choices made so far (in any
+			// order) is a duplicate, cut here instead of after every branch below it has been replayed.
+			static const bool noMid = getenv("MDC_NOMIDDEDUP") != nullptr;
+			if(!noMid && live.size() > 1 && m.type != MSG_SELECT_IDLECMD) {
+				Board b = read_board(*d);
+				std::vector<std::string> ls = st.labels; std::sort(ls.begin(), ls.end());
+				std::string k = "M" + std::to_string(m.type) + "|" + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
+				for(auto* o : live) k += o->label + ";";
+				k += "#"; for(auto& l : ls) k += l + ";";
+				std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return;
+			}
 			// Card picks inside one action (which materials, which cards to send) multiply: several 15-way picks in one
 			// action can cost a whole search. Like the beam itself, they widen with each pass: half the beam width
 			// (4, 12, 36...), in a fixed scattered order, so early passes stay cheap and later ones see every pick.
@@ -1232,8 +1247,33 @@ struct Search {
 				for(auto* o : rest) { if(keep.size() >= pickCap) break; keep.push_back(o); }
 				live.swap(keep); capped = true; t_capped = true;
 			}
+			// The End Phase: its optional triggers (add Ecclesia back, return the Dark Dragon, Set a Trap) are almost always
+			// worth using, and trying every yes/no and order from every state took nearly all of a search's replays on decks
+			// with several End Phase effects (Dracotail / Branded: 97%). The first pass plays them out (yes, activate); wider
+			// passes try more (other activation orders from width 72, "no" from 216).
+			static const bool noEpCap = getenv("MDC_NOEPCAP") != nullptr;
+			static const bool noEpChain = getenv("MDC_NOEPCHAIN") != nullptr, noEpPick = getenv("MDC_NOEPPICK") != nullptr;
+			if(!noEpCap && !noEpChain && st.ending && live.size() > 1 && (m.type == MSG_SELECT_EFFECTYN || m.type == MSG_SELECT_YESNO || (m.type == MSG_SELECT_CHAIN && m.trig))) {   // Quick Effect windows: every option
+				size_t cap = std::max<size_t>(1, beam_width / (m.type == MSG_SELECT_CHAIN ? 24 : 72));   // "no": from width 216; other orders: from 72
+				std::stable_sort(live.begin(), live.end(), [](const Opt* x, const Opt* y) { auto late = [](const Opt* o) { return o->label == "no" || o->label == "pass" || o->label == "finish"; }; return !late(x) && late(y); });
+				if(live.size() > cap) { live.resize(cap); t_capped = true; }
+			}
+			// End Phase card picks: best guess first by what the pick is for (the game's hint), like the opponent's-turn
+			// simulation: their cards first; ours to add / Set / summon, the most valuable; ours to give up (costs, discards,
+			// sending), the least valuable. Then a few per pass (2 until width 72, then 3, 9...).
+			else if(!noEpCap && !noEpPick && st.ending && live.size() > 1 && (m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_OPTION)) {
+				const uint64_t hint = m.hint;
+				const bool giveUp = hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519;
+				auto rank = [&](const Opt* o) { double v = 0; for(uint32_t c : o->picks) { size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
+					bool theirs = at < m.ccon.size() && m.ccon[at] == 1; v += theirs ? 10 : giveUp ? -card_value(c) : card_value(c); }
+					return o->label == "finish" ? (giveUp ? 100.0 : -100.0) : v; };
+				std::stable_sort(live.begin(), live.end(), [&](const Opt* x, const Opt* y) { return rank(x) > rank(y); });
+				size_t cap = std::max<size_t>(2, beam_width / 24);
+				if(live.size() > cap) { live.resize(cap); t_capped = true; }
+			}
 			if(m.type == MSG_SELECT_IDLECMD && st.actions >= maxActions) { live.clear(); for(auto& o : opts) if(o.end) live.push_back(&o); }
 			if(live.empty()) return;
+			if(g_branchLog && live.size() > 1) { std::lock_guard<std::mutex> lk(g_branchMx); auto& e = g_branch[std::string(st.ending ? "EP " : "") + std::to_string(m.type) + " " + (live[1]->step.card ? card_name(live[1]->step.card) : std::string("-"))]; e.first++; e.second += live.size() - 1; }
 			for(size_t i = 1; i < live.size(); i++) {
 				if(out_of_time()) return;
 				St s2 = st; take(s2, *live[i]);
@@ -1885,6 +1925,9 @@ struct Search {
 		// "stable": every line was checked, or the best board stopped improving well before the end (the last 40% of the
 		// time, or the stable-stop share when that's on).
 		bool stable = complete || stoppedStable.load() || (secs - bestAt.load() >= std::max(stableFrac, 0.4) * secs);
+		if(g_branchLog) { std::lock_guard<std::mutex> lk(g_branchMx); std::vector<std::pair<std::string, std::pair<uint64_t, uint64_t>>> v(g_branch.begin(), g_branch.end());
+			std::sort(v.begin(), v.end(), [](auto& x, auto& y) { return x.second.second > y.second.second; });
+			for(size_t i = 0; i < v.size() && i < 25; i++) fprintf(stderr, "branch %-60s points %8llu  extra replays %9llu\n", v[i].first.c_str(), (unsigned long long)v[i].second.first, (unsigned long long)v[i].second.second); }
 		return {{"id", id}, {"done", true}, {"complete", complete}, {"stable", stable}, {"boards", res}, {"stats", {{"replays", replays.load()}, {"states", visited.size()}, {"endBoards", boards.size()}, {"seconds", secs}, {"bestAt", bestAt.load()}, {"stoppedStable", stoppedStable.load()}, {"width", beam_width}, {"depth", beam_depth}, {"simSeconds", simSecs}}}};
 	}
 };

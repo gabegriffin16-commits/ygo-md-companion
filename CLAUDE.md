@@ -136,7 +136,13 @@ Key parts of `src/main.cpp`:
 - **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc; link-time
   optimization (+4.5%). Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
-  `MDC_NOREUSE` to compare). `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
+  `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
+  cut mid-action (`MDC_NOMIDDEDUP`). End Phase: on decks with several End Phase effects (Dracotail / Branded) trying
+  every yes/no, trigger order and pick from every state was ~97% of all replays (`MDC_BRANCHLOG=1` prints where
+  expansions branch); now yes/no = yes until width 216, trigger order = first until 72 (Quick Effect windows: every
+  option, Branded needs them), card picks ordered by the game's hint (add/Set: most valuable; costs: least) and 2 until
+  72 (`MDC_NOEPCAP`, `MDC_NOEPCHAIN`, `MDC_NOEPPICK`). Timed (20s) guide hands: Dracotail +5.1 total, Branded +3.5,
+  Kewl Tune same; fixed-budget tune set and HERO/Elfnote unchanged. `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
   isn't used: on 6 physical cores it slows HERO's beam. `maxReplays` = work budget instead of the clock and `growth`
   = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible; GitHub runs it per
   configuration in parallel via `engine-tune.yml` when `bench/tune.json` changes; runner and PC totals match, e.g.
@@ -287,8 +293,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   matches or beats the guide on 13 of 18 hands, Branded on 13 of 15 (the 2 Branded misses and 2 of the 5 Dracotail ones
   need cards the decklist doesn't run). Real gaps left, all Dracotail and all search reach (the guide board already
   scores higher): Branded Fusion 1cc (14.30 vs 12.60), Walbaz (SS) + Lukias (16.70 vs 13.30), Walbaz (SS) + Mululu
-  (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. More time doesn't help
-  (best found at 1s of 180s), and beam-only / DFS-only modes don't either. Traced (`MDC_TRACE`): the beam's top line
+  (15.55 vs 13.72); the guide ends with 3 Dracotail Traps set where the engine gets 1-2. Cause found (Oct 2026): the
+  End Phase ate ~97% of replays, so in 120s the beam never got past width 8; after the End Phase cap + mid-action
+  duplicate cut, Walbaz + Lukias reaches width 72 in 60s and 8.60 -> 11.85 at 20s (guide 16.70 still ahead). Older notes:
+  more time didn't help (best found at 1s of 180s), and beam-only / DFS-only modes didn't either. Traced (`MDC_TRACE`): the beam's top line
   IS the guide's opening (SS Walbaz, NS Mululu, Ecclesia and the Dark Dragon, Cartesia); what's missed is the long
   tail: Mululu fuses Lukias + Faimena + 1 into Arthalion, then a 3-trigger chain (Arthalion, Lukias, Faimena) sets Flame
   + Sting and returns cards, then the End Phase sets The Fallen & The Virtuous. With those 3 Traps as goals the engine
