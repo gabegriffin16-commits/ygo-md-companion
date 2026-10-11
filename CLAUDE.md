@@ -282,6 +282,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
   Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), Albion the Sanctifire (still a generic 1.5: it
   summons from any GY to each field), Kewl Tune Loudness War (copies a GY effect: text 0).
+- NEXT (owner approved, Oct 2026, after 1.27.0): build item 3a below, so board scoring reads what scripts register instead of
+  English text (cards never tested should score right too).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are
