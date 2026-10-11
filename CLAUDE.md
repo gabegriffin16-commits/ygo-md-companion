@@ -18,6 +18,16 @@ Claude session may be working in the same repo, so keep commits small and messag
   is "They fucked me".
 - Website-only changes need no app release. App changes ship by bumping `version` in `app/package.json`.
 
+## How to work on the engine (lessons, Oct 2026)
+
+- Order: build the yardstick, profile, use the source of truth (core/script data before text heuristics), scan the
+  whole card database, then review decks one by one, then build big features (with a pass/fail test agreed first).
+- Yardsticks: `bench/tune.py` (fixed replay budget, reproducible) for search; `bench/evaldiff.py <old> <new> <cdb> <zip>`
+  (every card's reading, two builds) for any text/script rule, then read every changed card; `bench/review.py` per deck.
+  Timed runs swing ±0.7 per hand: never judge from one. Run timed benchmarks alone (scans compete for the CPU).
+- When adding a cap or filter to the search, log what it keeps on one real example (the End Phase "no chain" bug).
+- Keep reusable tools in `combo-engine/bench/`; session scratch folders get wiped.
+
 ## Two sessions at once
 
 The owner may run two Claude sessions on this repo: a cloud session for UI/app work and Claude Code on their PC for
