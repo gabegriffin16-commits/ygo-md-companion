@@ -205,7 +205,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   "most valuable" for everything, feeding the best monsters into Quick Fusions; picks now follow the game's hint (what we
   summon / add: most valuable; materials, costs, Tributes, discards: least valuable; stop early when giving cards up),
   and the decision budget is 150 play-throughs (48 missed The Fallen & The Virtuous on the guide board). Still open:
-  material choice keeps eating Faimena (a hand interruption of its own) as Fusion material.
+  material choice keeps eating Faimena (a hand interruption of its own) as Fusion material. After those fixes: judge
+  agreement text 18 vs sim 18 of 59 (Dracotail 8/3, Branded 6/8, Kewl Tune 4/7); engine matches or beats the guide by
+  sim on 45/59. So: sim agrees with guides more on Branded / Kewl Tune, less on Dracotail (Quick-Fusion-on-their-turn
+  decks: material / Fusion choices). Next for the sim: smarter material choice (keep cards that are interruptions of
+  their own), and a breaker-first scenario (Dark Ruler No More / Feather Duster / Lightning Storm / Kaiju, used only with
+  a legal, worthwhile target) since the probe never attacks our board itself.
   When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
