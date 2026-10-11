@@ -48,6 +48,23 @@ extern "C++" {
 #include <sstream>
 #include <string>
 #include <thread>
+#ifdef _WIN32
+extern "C" __declspec(dllimport) void* __stdcall GetCurrentThread(void);
+extern "C" __declspec(dllimport) int __stdcall SetThreadPriority(void* thread, int priority);
+#else
+#include <sys/resource.h>
+#include <sys/syscall.h>
+#include <unistd.h>
+#endif
+// The calling thread only gets the CPU when nothing else in the process wants it (depth-first workers filling the
+// beam's idle time in "adaptive" searches).
+static void lower_thread_priority() {
+#ifdef _WIN32
+	SetThreadPriority(GetCurrentThread(), -15);   // THREAD_PRIORITY_IDLE
+#else
+	setpriority(PRIO_PROCESS, (id_t)syscall(SYS_gettid), 19);
+#endif
+}
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -394,6 +411,12 @@ static const int BLANKS = 12;
 // Whether zone choices are worth branching on: only for decks whose cards care about zones (set per search).
 static std::atomic<bool> g_zones{false};
 
+// MDC_PROF=1: where search time goes (summed over threads, printed after each search).
+static std::atomic<uint64_t> g_profNew{0}, g_profReplay{0}, g_profBoard{0}, g_profScore{0}, g_profExpand{0};
+static const bool g_prof = getenv("MDC_PROF") != nullptr;
+struct ProfTimer { std::atomic<uint64_t>& acc; std::chrono::steady_clock::time_point t0;
+	explicit ProfTimer(std::atomic<uint64_t>& a) : acc(a), t0(g_prof ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
+	~ProfTimer() { if(g_prof) acc += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t0).count(); } };
 struct Duel {
 	OCG_Duel h = nullptr;
 	uint64_t lastHint[2] = {0, 0};
@@ -877,19 +900,21 @@ struct Search {
 	void record(Duel& d, const St& st) {
 		if(interrupting() && !st.hit) return;
 		const std::vector<Step>& steps = st.steps;
-		Board b = read_board(d);
+		Board b; { ProfTimer pt(g_profBoard); b = read_board(d); }
 		std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand);
-		double sc = score_of(b);   // can differ for the same visible cards: what's in the GY to revive
+		double sc; { ProfTimer pt(g_profScore); sc = score_of(b); }   // can differ for the same visible cards: what's in the GY to revive
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
 		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; f.mine = st.mine; f.mineType = st.mineType; boards[k] = f; }
 		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); bestPath = st.path; }
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
-		auto d = std::make_unique<Duel>(setup);
+		std::unique_ptr<Duel> d;
+		{ ProfTimer pt(g_profNew); d = std::make_unique<Duel>(setup); }
 		replays++;
 		ok = false;
 		if(!d->h) return d;
+		ProfTimer pt(g_profReplay);
 		bool retry;
 		if(!d->run(m, retry)) return d;
 		for(const Bytes& b : path) { d->respond(b); if(!d->run(m, retry)) return d; }
@@ -1074,11 +1099,12 @@ struct Search {
 	// by each action (and every choice inside it), keep the most promising few, repeat. The beam widens on
 	// each pass until time runs out, so early choices (what to search, what to discard) all get a fair look,
 	// which plain depth-first search with a time limit doesn't give them.
-	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; };   // tie: fixed pseudo-random order for equal h
+	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; std::string vkey; };   // tie: fixed pseudo-random order for equal h; vkey: its duplicate-check key
 	std::mutex vmx; std::unordered_set<std::string> bvisited;
 	// How good a mid-combo state looks: the board so far, plus how much is still left to do from here
 	// (effects ready to use, cards in hand, the Normal Summon).
 	double promise(const Board& b, bool nsLeft, size_t moves) const {
+		ProfTimer pt(g_profScore);
 		return score_of(b) + W_MOVES * moves + W_HAND * b.hand.size() + (nsLeft ? W_NS : 0) + W_GY * b.grave.size();
 	}
 	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
@@ -1107,7 +1133,7 @@ struct Search {
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
-				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par;
+				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par; n.vkey = k;
 				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
 				return;
@@ -1136,7 +1162,7 @@ struct Search {
 				for(auto* o : live) (o->label == "finish" ? keep : rest).push_back(o);
 				std::stable_sort(rest.begin(), rest.end(), [&](const Opt* a, const Opt* b) { return h(a->label) < h(b->label); });
 				for(auto* o : rest) { if(keep.size() >= pickCap) break; keep.push_back(o); }
-				live.swap(keep); capped = true;
+				live.swap(keep); capped = true; t_capped = true;
 			}
 			if(m.type == MSG_SELECT_IDLECMD && st.actions >= maxActions) { live.clear(); for(auto& o : opts) if(o.end) live.push_back(&o); }
 			if(live.empty()) return;
@@ -1154,13 +1180,38 @@ struct Search {
 			if(!d->run(m, retry)) return;
 		}
 	}
+	// Each wider beam pass re-expands states the narrower one already expanded (its kept states are mostly among the
+	// wider pass's too). Their children are kept from the previous pass and reused: no replays for them. Not kept: a
+	// state whose card picks were capped (the wider pass offers more picks) or that time ran out on mid-expansion.
+	static thread_local bool t_capped;
+	std::mutex cmx; std::unordered_map<uint64_t, std::vector<Node>> prevKids, curKids;
+	static uint64_t path_key(const std::vector<Bytes>& path) {
+		uint64_t t = 1469598103934665603ull;
+		for(const auto& b : path) { for(unsigned char ch : b) t = (t ^ ch) * 1099511628211ull; t = (t ^ 0x1ff) * 1099511628211ull; }
+		return t;
+	}
 	std::vector<Node> expand_level(const std::vector<Node>& level) {
 		std::vector<Node> out; std::mutex omx; std::atomic<size_t> next{0};
+		static const bool noReuse = getenv("MDC_NOREUSE") != nullptr;
 		auto work = [&] {
 			for(;;) {
 				size_t i = next++; if(i >= level.size() || out_of_time()) return;
+				ProfTimer pt(g_profExpand);
+				const uint64_t key = path_key(level[i].st.path);
+				std::vector<Node> kept; bool have = false;
+				if(!noReuse) { std::lock_guard<std::mutex> lk(cmx); auto it = prevKids.find(key); if(it != prevKids.end()) { kept = it->second; have = true; } }
+				if(have) {
+					std::vector<Node> fresh;
+					for(auto& c : kept) { { std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(c.vkey).second) continue; } Node x = c; x.parent = i; fresh.push_back(std::move(x)); }
+					{ std::lock_guard<std::mutex> lk(omx); for(auto& x : fresh) out.push_back(std::move(x)); }
+					std::lock_guard<std::mutex> lk(cmx); curKids[key] = std::move(kept);
+					continue;
+				}
+				std::vector<Node> mine; std::mutex mmx; t_capped = false;
 				Prompt m; bool ok; auto d = replay(level[i].st.path, m, ok);
-				if(ok) sub(std::move(d), m, level[i].st, true, out, omx, i);
+				if(ok) sub(std::move(d), m, level[i].st, true, mine, mmx, i);
+				if(!noReuse && ok && !t_capped && !out_of_time()) { std::lock_guard<std::mutex> lk(cmx); curKids[key] = mine; }
+				std::lock_guard<std::mutex> lk(omx); for(auto& x : mine) out.push_back(std::move(x));
 			}
 		};
 		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)level.size()));
@@ -1173,6 +1224,7 @@ struct Search {
 	void beam() {
 		for(size_t width = width0; !out_of_time(); width *= 3) {
 			{ std::lock_guard<std::mutex> lk(vmx); bvisited.clear(); }
+			{ std::lock_guard<std::mutex> lk(cmx); prevKids.swap(curKids); curKids.clear(); }   // reuse only the last pass's expansions
 			capped = false;
 			std::vector<Node> level(1);
 			bool trimmed = false;
@@ -1670,13 +1722,17 @@ struct Search {
 		// long Fallen of the White Dragon lines; in-between splits weren't better than either. The app alternates.
 		int dfsThreads = !useBeam ? std::max(1, threads) : mode == "beam" ? 0 : std::max(1, (int)std::lround(threads * (1.0 - beamShare)));
 		beamThreads = std::max(1, threads - dfsThreads);
+		// "adaptive": the beam gets every thread, and as many depth-first workers run at idle priority, so they only use
+		// the CPU the beam leaves free (narrow beam levels leave most threads idle).
+		const bool adaptive = mode == "adaptive";
+		if(adaptive) { beamThreads = std::max(1, threads); dfsThreads = std::max(1, threads); }
 		if(useBeam) ts.emplace_back([this] { beam(); });
 		// Seeds (the best lines earlier searches found for this hand) are replayed first: their boards are recorded (so this
 		// search can't end worse), the best one becomes the beam's kept line, and the depth-first workers also start from
 		// points along them.
 		std::vector<St> seedStarts;
 		if(!interrupting()) for(const auto& sd : seeds) seed_line(sd, seedStarts);
-		if(dfsThreads) { queue.push_back(St{}); for(auto& st : seedStarts) queue.push_back(st); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this] { worker(); }); }
+		if(dfsThreads) { queue.push_back(St{}); for(auto& st : seedStarts) queue.push_back(st); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this, adaptive] { if(adaptive) lower_thread_priority(); worker(); }); }
 		std::atomic<bool> finished{false};
 		std::mutex pmx; std::condition_variable pcv;
 		std::thread prog([&] {
@@ -1690,6 +1746,10 @@ struct Search {
 		for(auto& t : ts) t.join();
 		{ std::lock_guard<std::mutex> lk(pmx); finished = true; } pcv.notify_all(); prog.join();
 		double secs = std::chrono::duration<double>(Clock::now() - t0).count();
+		if(g_prof) { auto f = [](std::atomic<uint64_t>& a) { double v = a.load() / 1e9; a = 0; return v; };
+			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand);
+			fprintf(stderr, "prof: %.1fs wall x %d threads = %.1f thread-s | new/reset duel %.1f | replay %.1f | read board %.1f | score %.1f | beam expansions %.1f | replays %llu\n",
+				secs, threads, secs * threads, nw, rp, bd, sc, ex, (unsigned long long)replays.load()); }
 		std::vector<Found> all; for(auto& kv : boards) all.push_back(kv.second);
 		std::sort(all.begin(), all.end(), [](const Found& a, const Found& b) { return a.score != b.score ? a.score > b.score : a.steps.size() < b.steps.size(); });
 		json res = json::array();
@@ -1747,6 +1807,7 @@ struct Search {
 };
 
 // ------------------------------------------------------------------ main loop
+thread_local bool Search::t_capped = false;
 static std::unique_ptr<Search> g_search;
 static std::thread g_search_thread;
 static std::mutex g_search_mx;

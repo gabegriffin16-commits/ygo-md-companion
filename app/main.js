@@ -569,7 +569,10 @@ const GEN_DIR = path.join(app.getPath("userData"), "generated");
 const GEN_HANDTRAPS = [14558127, 10045474, 97268402, 94145021];   // Ash, Imperm, Veiler, Droll
 let gen = null;
 function genEvent(d) { pageEvent("overlay-gen", d); }
-function genThreads() { return Math.max(1, Math.min(8, require("os").cpus().length - 1)); }
+// Generation runs in the background: every logical core but one (6-core / 12-thread CPUs still gain ~9% from 8 -> 11),
+// with the helper at below-normal priority while it runs (see genRun) so the PC and the game stay responsive.
+function genThreads() { return Math.max(1, Math.min(15, require("os").cpus().length - 1)); }
+function comboPriority(low) { try { if (comboProc && comboProc.pid) require("os").setPriority(comboProc.pid, low ? require("os").constants.priority.PRIORITY_BELOW_NORMAL : require("os").constants.priority.PRIORITY_NORMAL); } catch {} }
 async function genRun(job) {
   const g = gen;
   const lines = [];
@@ -578,6 +581,7 @@ async function genRun(job) {
   try {
     await comboEnsureData(0);
     await comboStart();
+    comboPriority(true);
     g.phase = "lines"; g.total = job.hands.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
     const best = {}, found = [], single = {};
     // Seeds for a hand: the best line remembered for it, the best line of each of its cards alone (still a legal line
@@ -648,7 +652,7 @@ async function genRun(job) {
     genEvent({ state: "ready", deckId: job.deckId });
   } catch (e) {
     genEvent({ state: "error", deckId: job.deckId, note: e.message || String(e) });
-  } finally { if (gen === g) gen = null; }
+  } finally { comboPriority(false); if (gen === g) gen = null; }
 }
 function genInfo() { return gen ? { deckId: gen.deckId, name: gen.name, phase: gen.phase, done: gen.done, total: gen.total } : null; }
 function genReady() { try { return fs.readdirSync(GEN_DIR).filter(f => f.endsWith(".json")).map(f => f.slice(0, -5)); } catch { return []; } }
