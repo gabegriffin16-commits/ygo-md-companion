@@ -1257,10 +1257,15 @@ struct Search {
 	// (the added card isn't in hand, the monster isn't there, the ATK didn't double). Plays that never came because an
 	// earlier one was stopped give no credit (otherwise negating the Normal Summon would score three plays).
 	static constexpr uint32_t P_ADUSTED = 13650422, P_DFUSION = 94820406, P_REINFORCE = 32807846, P_CELTIC = 91152256,
-		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484, P_POISON = 8842266;
-	static constexpr int PLAYS = 10, THREATS = 12;
-	static constexpr int ORDER[PLAYS - 1] = {0, 1, 2, 3, 4, 9, 5, 6, 7};   // the order they make their Main Phase plays (8, the attack, comes in battle)   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
-	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "Quick-Play chained to their own Spell", "attack", "Extra Deck monster effect"};
+		P_GOBLIN = 25259669, P_CHARGE = 2618045, P_COWBOY = 12014404, P_POT = 55144522, P_UPSTART = 70368879, P_THRASHER = 65367484, P_POISON = 8842266,
+		P_DRNM = 54693926, P_DUSTER = 18144506, P_STORM = 14532163;
+	static constexpr int PLAYS = 13, THREATS = 15;
+	// The order they make their Main Phase plays (8, the attack, comes in battle). Scenario 1 ("breaker first") opens with
+	// real board breakers, each only with a legal, worthwhile target: Dark Ruler No More (10) if we have a face-up monster,
+	// Harpie's Feather Duster (11) if we have backrow, Lightning Storm (12) on whichever of our sides it hits harder.
+	static constexpr int ORDER0[] = {0, 1, 2, 3, 4, 9, 5, 6, 7};
+	static constexpr int ORDER1[] = {10, 11, 12, 0, 1, 2, 3, 4, 9, 5, 6, 7};   // plays they make (Goblindbergh's is two threats: the summon and its trigger)
+	static constexpr const char* THREAT[THREATS] = {"monster effect in hand", "Spell", "Normal Summon", "summon trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "Quick-Play chained to their own Spell", "attack", "Extra Deck monster effect", "Dark Ruler No More", "Harpie's Feather Duster", "Lightning Storm"};
 	struct SimDec { int step; bool act, quick; int pass; };   // one of our decisions: during which play, an activation (a Quick Effect, not a trigger), which option passes
 	struct SimRun { bool ok = false; bool att[THREATS] = {}, stop[THREATS] = {}; int stopsAt[PLAYS] = {}; std::vector<std::pair<double, uint32_t>> credits; std::vector<int> creditPlay; int used = 0; std::vector<SimDec> decs; };
 	static double card_value(uint32_t c) {   // what one of our cards' interruption is worth (its text value; 1 if the text missed it)
@@ -1287,16 +1292,17 @@ struct Search {
 		return false;
 	}
 	static double falloff(std::vector<double> v) { std::sort(v.rbegin(), v.rend()); double s = 0, f = 1.0; for(double x : v) { s += x * f; f = std::max(0.5, f - 0.1); } return s; }
-	Setup sim_setup() const {
+	Setup sim_setup(int scenario) const {
 		Setup s = setup;
 		s.oppHand = {P_ADUSTED, P_REINFORCE, P_GOBLIN, P_CHARGE, P_POT, P_THRASHER, P_UPSTART, P_POISON};
+		if(scenario == 1) for(uint32_t c : {P_DRNM, P_DUSTER, P_STORM}) s.oppHand.push_back(c);
 		s.oppDeck = {P_DFUSION, P_DFUSION, P_CELTIC, P_CELTIC}; for(int i = 0; i < 8; i++) s.oppDeck.push_back(DUMMY);
 		s.oppExtra = {P_COWBOY};
 		return s;
 	}
 	// One play-through. `forced` picks our options at each decision (index; past its end: the first option), and the
 	// options seen are written to `counts` / `chosen` so the caller can walk every combination.
-	bool sim_once(const Found& f, const Setup& s, const std::vector<int>& forced, std::vector<int>& chosen, std::vector<int>& counts, std::set<uint32_t>& offered, SimRun& R) const {
+	bool sim_once(int scenario, const Found& f, const Setup& s, const std::vector<int>& forced, std::vector<int>& chosen, std::vector<int>& counts, std::set<uint32_t>& offered, SimRun& R) const {
 		Duel d(s); if(!d.h) return false;
 		std::vector<uint64_t> left; d.left = &left;
 		Prompt m; bool retry;
@@ -1307,7 +1313,16 @@ struct Search {
 		uint32_t attacker = 0;
 		std::vector<uint32_t> acts[PLAYS];    // our activations while each play was going on
 		std::set<uint64_t> ours;              // our cards when their turn started, by copy (anything else came out during it)
-		std::vector<char> actsOurs[PLAYS];    // whether each activation was by a card we had (decided when it activated)
+		std::vector<char> actsOurs[PLAYS];
+		std::set<uint32_t> usedNow;           // our cards already used this turn
+		// What a card of ours is still worth keeping (for picking what to give up): spent this turn, little; a card that
+		// can still act on their turn on its own (a Faimena in hand, a Cartesia that fuses), more than its text value.
+		auto keep_value = [&](uint32_t c) -> double {
+			if(usedNow.count(c)) return 0.2;
+			auto it = g_cards.find(c); double v = card_value(c);
+			if(it != g_cards.end() && (it->second.ev.fusionAt || it->second.ev.handExtender || it->second.ev.reviveAt)) v += 1.5;
+			return v;
+		};    // whether each activation was by a card we had (decided when it activated)
 		struct Before { int dfusion = 0, celtic = 0, charge = 0, hand = 0, oppLp = 0, ourLp = 0, ourMons = 0; } before;   // what each play's success check compares against
 		auto count = [&](uint32_t loc, uint32_t code) { int n = 0; for(auto& c : d.look(1, loc)) if(c.code == code && (loc != LOCATION_MZONE || (c.pos & POS_FACEUP))) n++; return n; };
 		auto judge = [&](int k) {
@@ -1328,6 +1343,9 @@ struct Search {
 				bool gone = count(LOCATION_MZONE, attacker) == 0;
 				bool nothing = d.lp[0] >= before.ourLp && (int)d.look(0, LOCATION_MZONE).size() >= before.ourMons;
 				mark(10, !acts[8].empty() && (gone || nothing)); break; }
+			case 10: case 11: case 12: { uint32_t bc = k == 10 ? P_DRNM : k == 11 ? P_DUSTER : P_STORM; bool neg = false;
+				for(auto& x : d.negated) if(x.first == bc && x.second == 1) neg = true;
+				mark(k + 2, neg); break; }   // a breaker is stopped only if it was negated (it has no other result to check)
 			case 9: { bool neg = false; for(auto& x : d.negated) if(x.first == P_COWBOY && x.second == 1) neg = true;
 				mark(11, neg || count(LOCATION_MZONE, P_COWBOY) == 0); break; }
 			}
@@ -1350,7 +1368,14 @@ struct Search {
 			}
 			case MSG_SELECT_EFFECTYN: if(d.turnPlayer == 1 && p.code == P_GOBLIN) gobTrig = true; return p32(d.turnPlayer == 1 ? 1 : 0);
 			case MSG_SELECT_YESNO: return p32(d.turnPlayer == 1 ? 1 : 0);
-			case MSG_SELECT_OPTION: {   // Poison of the Old Man: gain the LP
+			case MSG_SELECT_OPTION: {   // Lightning Storm: the side of ours it hurts more; Poison of the Old Man: gain the LP
+				if(step == 12) {
+					int atk = 0; for(auto& c : d.look(0, LOCATION_MZONE)) if(c.pos & POS_ATTACK) atk++;
+					int st = (int)d.look(0, LOCATION_SZONE).size();
+					for(size_t i = 0; i < p.options.size(); i++) { std::string t = evalx::lower(desc_text(p.options[i])); bool mons = t.find("monster") != std::string::npos;
+						if(mons == (atk >= st)) return p32((int)i); }
+					return p32(0);
+				}
 				for(size_t i = 0; i < p.options.size(); i++) { std::string t = evalx::lower(desc_text(p.options[i])); if(t.find("gain") != std::string::npos) return p32((int)i); }
 				return p32(0);
 			}
@@ -1420,8 +1445,11 @@ struct Search {
 				judge(step);
 				// their next play: the first one still to come that they can make now
 				int next = -1; Bytes r;
-				for(int oi = orderAt + 1; oi < PLAYS - 1 && next < 0; oi++) {
-					int k = ORDER[oi];
+				const int* order = scenario == 1 ? ORDER1 : ORDER0; const int norder = scenario == 1 ? (int)(sizeof(ORDER1) / sizeof(int)) : (int)(sizeof(ORDER0) / sizeof(int));
+				int ourFaceUp = 0, ourAtk = 0; for(auto& c : d.look(0, LOCATION_MZONE)) { if(c.pos & POS_FACEUP) ourFaceUp++; if(c.pos & POS_ATTACK) ourAtk++; }
+				int ourBack = (int)d.look(0, LOCATION_SZONE).size();
+				for(int oi = orderAt + 1; oi < norder && next < 0; oi++) {
+					int k = order[oi];
 					auto find = [&](const std::vector<IdleItem>& v, uint32_t code) { for(size_t i = 0; i < v.size(); i++) if(v[i].code == code) return (int)i; return -1; };
 					int i = -1;
 					if(k == 0 && (i = find(m.activate, P_ADUSTED)) >= 0) r = r_idle(5, i);
@@ -1433,6 +1461,9 @@ struct Search {
 					else if(k == 6 && (i = find(m.spsummon, P_THRASHER)) >= 0) r = r_idle(1, i);
 					else if(k == 7 && (i = find(m.activate, P_UPSTART)) >= 0) r = r_idle(5, i);
 					else if(k == 9 && (i = find(m.activate, P_COWBOY)) >= 0) r = r_idle(5, i);
+					else if(k == 10 && ourFaceUp > 0 && (i = find(m.activate, P_DRNM)) >= 0) r = r_idle(5, i);
+					else if(k == 11 && ourBack > 0 && (i = find(m.activate, P_DUSTER)) >= 0) r = r_idle(5, i);
+					else if(k == 12 && (ourAtk > 0 || ourBack > 0) && (i = find(m.activate, P_STORM)) >= 0) r = r_idle(5, i);
 					if(i >= 0) { next = k; orderAt = oi; }
 				}
 				if(next < 0) {   // their Main Phase plays are done: on to battle (once), else stop
@@ -1472,7 +1503,7 @@ struct Search {
 					const bool giveUp = hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519;
 					auto rank = [&](const Opt& o) { double v = 0; for(uint32_t c : o.picks) { size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
 						bool theirs = at < m.ccon.size() && m.ccon[at] == 1;
-						if(theirs) v += 10; else v += (giveUp ? -1 : 1) * 0.1 * card_value(c); }
+						if(theirs) v += 10; else v += giveUp ? -0.1 * keep_value(c) : 0.1 * card_value(c); }
 						return o.label == "finish" ? (giveUp ? 100.0 : -100.0) : v; };   // giving up cards: stop as soon as allowed
 					std::stable_sort(opts.begin(), opts.end(), [&](const Opt& a, const Opt& b) { return rank(a) > rank(b); });
 					if(getenv("MDC_SIMLOG") && opts.size() > 3) { std::string all; for(auto& o : opts) all += " [" + o.label + "]"; fprintf(stderr, "  (all %zu picks:%s)\n", opts.size(), all.substr(0, 400).c_str()); }
@@ -1485,7 +1516,7 @@ struct Search {
 					int passAt = m.type == MSG_SELECT_CHAIN ? (int)opts.size() - 1 : m.type == MSG_SELECT_EFFECTYN ? 1 : -1;
 					bool quick = m.type == MSG_SELECT_CHAIN && !m.trig;
 					R.decs.push_back({step, actCode[pick] != 0, quick, passAt});
-					if(actCode[pick]) { if(step >= 0) { acts[step].push_back(actCode[pick]); actsOurs[step].push_back(ours.count(actAt[pick]) > 0); } if(quick) actedAt = step; R.used++; }
+					if(actCode[pick]) { if(step >= 0) { acts[step].push_back(actCode[pick]); actsOurs[step].push_back(ours.count(actAt[pick]) > 0); } usedNow.insert(actCode[pick]); if(quick) actedAt = step; R.used++; }
 					static const bool slog = getenv("MDC_SIMLOG") != nullptr;
 					if(slog) { std::string ol; if(!actCode[pick]) for(auto& o : opts) ol += " [" + o.label + "]";
 						fprintf(stderr, "  dec#%zu play %d type %d: %d of %zu%s%s\n", bi - 1, step, m.type, pick, opts.size(), actCode[pick] ? (" activates " + card_name(actCode[pick])).c_str() : "", ol.substr(0, 160).c_str()); }
@@ -1515,31 +1546,31 @@ struct Search {
 	// something (credited at the stopping card's value); cards that never got a chance to act (their trigger isn't one
 	// of the probe plays: Nibiru, battle effects) keep half their text value; cards that had the chance and stopped
 	// nothing count 0.
-	json simulate(const Found& f, double& out) const {
-		const Setup s = sim_setup();
+	// One scenario's best play-through for our side (see the local search below); < -1e8: the line didn't replay.
+	double sim_scenario(int scenario, const Found& f, std::set<uint32_t>& offered, int& runs, SimRun& best) const {
+		const Setup s = sim_setup(scenario);
 		static const int budget = getenv("MDC_SIMRUNS") ? atoi(getenv("MDC_SIMRUNS")) : 150;
-		std::set<uint32_t> offered;
+		const int runs0 = runs;
 		// Our choices on their turn, by local search: start from "use everything as soon as it can be used", then try
 		// changing one decision at a time (pass instead, another card, another target), replaying the rest greedily, and
 		// keep a change when it stops more (or the same with fewer cards used). Sweeps repeat until nothing improves.
 		// This drops interruptions wasted on plays they can't stop, and keeps setup plays (a Remix that makes the RS
 		// that negates later): dropping those lowers the total, so that change is rejected.
-		int runs = 0;
 		auto play = [&](const std::vector<int>& forced, std::vector<int>& chosen, std::vector<int>& counts, SimRun& R) -> double {
 			chosen.clear(); counts.clear(); runs++;
-			if(!sim_once(f, s, forced, chosen, counts, offered, R)) return -1e9;   // the line didn't replay
+			if(!sim_once(scenario, f, s, forced, chosen, counts, offered, R)) return -1e9;   // the line didn't replay
 			std::vector<double> v; for(auto& c : R.credits) v.push_back(c.first);
 			return falloff(v) - 0.01 * R.used;   // equal stops: fewer cards used is better
 		};
-		SimRun best; std::vector<int> bestChosen, bestCounts;
+		std::vector<int> bestChosen, bestCounts;
 		double bestV = play({}, bestChosen, bestCounts, best);
-		if(bestV < -1e8) { out = f.score; return {{"ok", false}, {"runs", runs}}; }
+		if(bestV < -1e8) return bestV;
 		// Waste removal first: Quick Effects used on a play beyond the number of plays stopped there (stacked on one play,
 		// or used where they stopped nothing, or before they did anything) all become passes at once, the rest replayed
 		// greedily, while that doesn't lower the total. Changing one at a time can't do this: passing one wasted card
 		// just wastes it on the next play, same total. Triggers aren't touched (a Wingman's destroy is how its Favorite
 		// Contact stops something).
-		for(int it = 0; it < 8 && runs < budget; it++) {
+		for(int it = 0; it < 8 && runs - runs0 < budget; it++) {
 			std::vector<int> forced; size_t last = 0; bool any = false; int seen[PLAYS] = {};
 			for(size_t i = 0; i < bestChosen.size() && i < best.decs.size(); i++) {
 				const SimDec& dc = best.decs[i];
@@ -1555,10 +1586,10 @@ struct Search {
 			if(v < bestV - 1e-9) break;
 			bestV = v; best = R; bestChosen = ch; bestCounts = cn;
 		}
-		for(bool improved = true; improved && runs < budget;) {
+		for(bool improved = true; improved && runs - runs0 < budget;) {
 			improved = false;
-			for(size_t i = 0; i < bestChosen.size() && runs < budget && !improved; i++)
-				for(int alt = 0; alt < bestCounts[i] && runs < budget; alt++) {
+			for(size_t i = 0; i < bestChosen.size() && runs - runs0 < budget && !improved; i++)
+				for(int alt = 0; alt < bestCounts[i] && runs - runs0 < budget; alt++) {
 					if(alt == bestChosen[i]) continue;
 					std::vector<int> forced(bestChosen.begin(), bestChosen.begin() + i); forced.push_back(alt);
 					std::vector<int> ch, cn; SimRun R;
@@ -1566,19 +1597,32 @@ struct Search {
 					if(v > bestV + 1e-9) { bestV = v; best = R; bestChosen = ch; bestCounts = cn; improved = true; break; }
 				}
 		}
+		return bestV;
+	}
+	// Both scenarios (their normal plays; breaker first), averaged.
+	json simulate(const Found& f, double& out) const {
+		std::set<uint32_t> offered; int runs = 0;
+		SimRun best, brk;
+		if(sim_scenario(0, f, offered, runs, best) < -1e8) { out = f.score; return {{"ok", false}, {"runs", runs}}; }
+		bool brkOk = sim_scenario(1, f, offered, runs, brk) > -1e8;
 		json why = json::object(); double text = score_of(f.board, &why);
-		double textStops = 0; std::vector<double> sims; json untested = json::array(), credits = json::array();
+		double textStops = 0; std::vector<double> unt; json untested = json::array();
 		if(why.contains("stops")) for(auto& st : why["stops"]) {
 			textStops += st["counts"].get<double>();
 			uint32_t c = st.value("code", 0u);
-			if(c && !offered.count(c)) { double v = uncovered(c) ? st["value"].get<double>() * 0.5 : 0; sims.push_back(v); untested.push_back({{"card", c}, {"value", v}}); }
+			if(c && !offered.count(c)) { double v = uncovered(c) ? st["value"].get<double>() * 0.5 : 0; unt.push_back(v); untested.push_back({{"card", c}, {"value", v}}); }
 		}
-		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "attack", "Extra Deck monster effect"};
-		for(size_t i = 0; i < best.credits.size(); i++) { const auto& c = best.credits[i]; sims.push_back(c.first);
-			credits.push_back({{"card", c.second}, {"value", c.first}, {"play", i < best.creditPlay.size() ? PLAY[best.creditPlay[i]] : ""}}); }
-		out = text - textStops + falloff(sims);
-		json th = json::array(); for(int t = 0; t < THREATS; t++) th.push_back({{"play", THREAT[t]}, {"tried", best.att[t]}, {"stopped", best.stop[t]}});
-		return {{"ok", true}, {"text", text}, {"plays", th}, {"credits", credits}, {"untested", untested}, {"runs", runs}};
+		static const char* PLAY[PLAYS] = {"monster effect in hand", "Spell", "Normal Summon + trigger", "monster effect on field", "Extra Deck summon", "2nd Spell", "monster summoned from hand", "3rd Spell", "attack", "Extra Deck monster effect", "Dark Ruler No More", "Harpie's Feather Duster", "Lightning Storm"};
+		auto stops = [&](const SimRun& r, json& credits) { std::vector<double> v = unt;
+			for(size_t i = 0; i < r.credits.size(); i++) { const auto& c = r.credits[i]; v.push_back(c.first);
+				credits.push_back({{"card", c.second}, {"value", c.first}, {"play", i < r.creditPlay.size() ? PLAY[r.creditPlay[i]] : ""}}); }
+			return falloff(v); };
+		auto plays = [&](const SimRun& r) { json th = json::array(); for(int t = 0; t < THREATS; t++) if(r.att[t] || t < 12) th.push_back({{"play", THREAT[t]}, {"tried", r.att[t]}, {"stopped", r.stop[t]}}); return th; };
+		json credits = json::array(), bcredits = json::array();
+		double s0 = stops(best, credits), s1 = brkOk ? stops(brk, bcredits) : s0;
+		out = text - textStops + 0.5 * (s0 + s1);
+		return {{"ok", true}, {"text", text}, {"plays", plays(best)}, {"credits", credits}, {"untested", untested}, {"runs", runs},
+			{"normal", s0}, {"breaker", {{"ok", brkOk}, {"stops", s1}, {"plays", brkOk ? plays(brk) : json::array()}, {"credits", bcredits}}}};
 	}
 	bool simOn = false;
 

@@ -208,9 +208,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   material choice keeps eating Faimena (a hand interruption of its own) as Fusion material. After those fixes: judge
   agreement text 18 vs sim 18 of 59 (Dracotail 8/3, Branded 6/8, Kewl Tune 4/7); engine matches or beats the guide by
   sim on 45/59. So: sim agrees with guides more on Branded / Kewl Tune, less on Dracotail (Quick-Fusion-on-their-turn
-  decks: material / Fusion choices). Next for the sim: smarter material choice (keep cards that are interruptions of
-  their own), and a breaker-first scenario (Dark Ruler No More / Feather Duster / Lightning Storm / Kaiju, used only with
-  a legal, worthwhile target) since the probe never attacks our board itself.
+  decks: material / Fusion choices). Then added: material picks keep cards that can still act on their own (spent this
+  turn: cheap; Fusion-on-their-turn / hand extenders / revivers: dear), and a breaker-first scenario (scenario 1:
+  Dark Ruler No More if we have a face-up monster, Harpie's Feather Duster if we have backrow, Lightning Storm on the side
+  it hits harder, then the normal plays; a breaker counts as stopped only if the engine reports it negated; the rules
+  engine enforces DRNM's "no monster effects in response"). Score = text - text stops + average of both scenarios'
+  stops. Judge agreement after that: text 20 vs sim 15 of 59 (Dracotail 9/3, Branded 7/8, Kewl Tune 4/4): breakers
+  pull monster-negate guide boards (Kewl Tune) down, and Dracotail's Quick-Fusion boards still under-credit. Conclusion
+  so far: the sim doesn't agree with guide boards better than the text model, so it stays an opt-in diagnostic
+  (sim.py / compare.py SIM=1) rather than the app's ranking. Differences are a few hands of 59, and some guide boards
+  are imported with what's made on the opponent's turn, so treat the tallies as rough.
   When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine

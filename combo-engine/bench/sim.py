@@ -34,6 +34,11 @@ for b in r.get("boards", []):
     if not s.get("ok"): print("   simulation failed (kept the text score)"); continue
     print("   plays: " + " | ".join("%s: %s" % (t["play"], "STOPPED" if t["stopped"] else "went through" if t["tried"] else "never came") for t in s["plays"]))
     for c in s["credits"]: print("   stopped one with %s (%.2f) on: %s" % (n(c["card"]), c["value"], c.get("play", "")))
-    for c in s["untested"]: print("   never got a chance: %s (half: %.2f)" % (n(c["card"]), c["value"]))
+    for c in s["untested"]: print("   never got a chance: %s (counted: %.2f)" % (n(c["card"]), c["value"]))
+    bk = s.get("breaker", {})
+    if bk.get("ok"):
+        print("   breaker first (%.2f vs %.2f normal): %s" % (bk["stops"], s.get("normal", 0), " | ".join("%s: %s" % (t["play"], "STOPPED" if t["stopped"] else "went through")
+              for t in bk["plays"] if t["tried"])))
+        for c in bk["credits"]: print("     stopped one with %s (%.2f) on: %s" % (n(c["card"]), c["value"], c.get("play", "")))
     print("   (%d play-throughs)" % s["runs"])
 p.stdin.write(json.dumps({"cmd": "quit"}) + "\n"); p.stdin.flush()
