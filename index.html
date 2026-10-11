@@ -1293,7 +1293,7 @@ html.fadebg .bldbtns .bldshare, html.fadebg .uacts .ushare{background:var(--pane
 .unotes{padding:12px 14px; margin-bottom:14px}
 .unotetext{margin:6px 0 0; white-space:pre-line; color:var(--muted); font-size:.9rem; line-height:1.5}
 .udeckzone{margin:0 0 16px}
-.ugrid{display:grid; grid-template-columns:repeat(auto-fill, var(--tw, 96px)); gap:8px; margin-top:6px; justify-content:start}
+.ugrid{display:grid; grid-template-columns:repeat(6, minmax(0, 1fr)); gap:10px; margin-top:6px}   /* 6 across, as big as the column allows */
 .utile{display:flex; flex-direction:column; gap:4px; padding:0; border:0; background:none; cursor:pointer; text-align:left; min-width:0}
 .utile .uart{position:relative; display:block; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel); aspect-ratio:421/614}
 .utile img{display:block; width:100%; height:100%; object-fit:cover}
@@ -1600,6 +1600,26 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .bldana{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
 .bld[data-view="ana"] .bldbody{display:none !important}
 .bld[data-view="ana"] .bldana{display:block}
+/* back / forward */
+.navgrp{display:inline-flex; align-items:center; gap:2px}
+.navbtn{display:inline-grid; place-items:center; padding:0; border:0; background:none; color:inherit; cursor:pointer}
+.navbtn:disabled{opacity:.3; cursor:default}
+#ovBar .navgrp{margin-right:6px; -webkit-app-region:no-drag}
+#ovBar .navbtn{width:20px; height:22px; opacity:.8}
+#ovBar .navbtn:hover:not(:disabled){opacity:1; color:var(--gold)}
+#ovBar .navbtn:disabled{opacity:.3}
+#ovBar .navbtn svg{width:12px; height:12px}
+.navgrp.webnav{gap:4px; margin-right:4px}
+.webnav .navbtn{width:26px; height:26px; border:1px solid var(--line); border-radius:50%; color:var(--muted); background:color-mix(in srgb, var(--bg) 60%, var(--panel))}
+.webnav .navbtn:hover:not(:disabled){color:var(--gold); border-color:var(--gold)}
+/* unsaved changes: asked before leaving the builder */
+.bldask{position:fixed; inset:0; z-index:10050; display:grid; place-items:center; padding:16px; background:color-mix(in srgb, #000 45%, transparent)}
+.bldaskbox{width:min(420px, 100%); box-sizing:border-box; background:var(--panel); border:1px solid var(--line); border-radius:14px; padding:18px 18px 16px; box-shadow:0 18px 50px rgba(0,0,0,.45)}
+.bldaskbox h3{margin:0 0 6px; overflow-wrap:anywhere}
+.bldaskbox .hint{margin:0 0 14px}
+.bldaskbtns{display:flex; gap:8px; justify-content:flex-end; flex-wrap:wrap}
+.bldaskbtns button{padding:8px 16px}
+.bldaskbtns .bldaskdrop{margin-right:auto; color:var(--red); border-color:color-mix(in srgb, var(--red) 45%, var(--line))}
 .bldlines{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
 .bld[data-view="lines"] .bldbody{display:none !important}
 .bld[data-view="lines"] .bldlines{display:block}
@@ -2708,7 +2728,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!left){ left = document.createElement("div"); left.id = "ovLeft"; left.className = "ovgrp ovleft"; bar.appendChild(left); }
       if (!document.getElementById("ovRe")){
         var rl = document.createElement("button"); rl.type = "button"; rl.className = "ovb"; rl.id = "ovRe"; rl.title = "Reload the page"; rl.textContent = "↻";
-        rl.addEventListener("click", function(){ location.reload(); }); bar.appendChild(rl);
+        rl.addEventListener("click", function(){ var bd = document.getElementById("builder"); if (bd && bd._leave) bd._leave(function(){ location.reload(); }); else location.reload(); }); bar.appendChild(rl);
       }
       var LABELS = {ovL:"Left", ovR:"Right", ovF:"Expand", ovRe:"Reload"};
       ["ovL", "ovR", "ovF", "ovRe"].forEach(function(id){
@@ -2850,6 +2870,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     save("hbc-tab", name);
     if (name !== "users") window.lastTab = name;
     window.scrollTo(0,0);
+    if (window.NAV) NAV.rec();
   }
   tabs.forEach(function(t){ t.addEventListener("click", function(){ showTab(t.dataset.tab); }); });
   var savedTab = load("hbc-tab", "hand");
@@ -4214,6 +4235,18 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var w = nodes("div", "dlines"), G = genOf(d), saved = (d.lines || []).filter(function(L){ return L && Array.isArray(L.board) && Array.isArray(L.steps); });
     var fb = (d.name || "Untitled deck") + " (" + (d.id || "none") + ")";
     if (!G && !saved.length){ w.appendChild(nodes("p", "hint dlempty", o.empty || "No lines for this deck yet.")); return w; }
+    if (G && G.lines.length){
+      // Collapse / expand every line at once, as on the Lines tab.
+      var fa = nodes("div", "foldall"), fb2 = nodes("button", "mini", "Collapse all"); fb2.type = "button"; fa.appendChild(fb2); w.appendChild(fa);
+      var paintFa = function(){ fb2.textContent = [].some.call(w.querySelectorAll(".genplan"), function(c){ return !c.classList.contains("folded"); }) ? "Collapse all" : "Expand all"; };
+      fb2.addEventListener("click", function(){
+        var anyOpen = [].some.call(w.querySelectorAll(".genplan"), function(c){ return !c.classList.contains("folded"); });
+        w.querySelectorAll(".genplan").forEach(function(c){ if (c.classList.contains("folded") !== anyOpen) c.querySelector(".planbtn").click(); });
+        paintFa();
+      });
+      w.addEventListener("click", function(e){ if (e.target.closest && e.target.closest(".planbtn")) setTimeout(paintFa, 0); });
+      setTimeout(paintFa, 0);
+    }
     if (G){
       if (o.stale) w.appendChild(nodes("p", "hint generr", o.stale));
       var singles = G.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
@@ -5664,7 +5697,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     else {
       var paintShare = function(){ shareBtn.setAttribute("aria-checked", deck.shared ? "true" : "false"); shareBtn.querySelector("span").textContent = deck.shared ? "Shared" : "Unlisted"; };
       paintShare();
-      shareBtn.addEventListener("click", function(){ deck.shared = !deck.shared; dirty = true; paintShare(); });
+      shareBtn.addEventListener("click", function(){ deck.shared = !deck.shared; setDirty(true); paintShare(); });
     }
     // Saved decks: pick one to load it here for editing.
     var pickBtn = $(".bldpick"), pickMenu = nodes("div", "deckmenu bldpickmenu"); pickMenu.hidden = true; pickMenu.setAttribute("role", "menu"); root.appendChild(pickMenu);
@@ -5672,10 +5705,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (saved && !isNew) $(".bldpicklbl").textContent = "Editing: " + (saved.name || "Untitled deck");
     function closePick(){ pickMenu.hidden = true; pickBtn.setAttribute("aria-expanded", "false"); }
     function switchTo(next, fresh, item){
-      if (dirty && !item.dataset.armed){ var was = item.querySelector(".dmlabel").textContent;
-        item.dataset.armed = "1"; item.querySelector(".dmlabel").textContent = "Unsaved changes: tap again";
-        setTimeout(function(){ if (item.isConnected && item.dataset.armed){ delete item.dataset.armed; item.querySelector(".dmlabel").textContent = was; } }, 3000); return; }
-      closePick(); openBuilder(next, fresh);
+      closePick(); leave(function(){ openBuilder(next, fresh); });
     }
     function pickItem(label, sub, cls, fn, icon){
       var b = nodes("button", "dmitem dmgrid" + (cls ? " " + cls : "")); b.type = "button"; b.setAttribute("role", "menuitem");
@@ -5722,9 +5752,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       pickMenu.style.top = (r.bottom + 6) + "px";
     });
     root.addEventListener("click", function(e){ if (!pickMenu.hidden && !pickMenu.contains(e.target) && !pickBtn.contains(e.target)) closePick(); });
-    nameIn.addEventListener("input", function(){ deck.name = nameIn.value; dirty = true; });
+    nameIn.addEventListener("input", function(){ deck.name = nameIn.value; setDirty(true); });
     var notesIn = $(".bldnotes textarea"); notesIn.value = deck.notes || "";
-    notesIn.addEventListener("input", function(){ deck.notes = notesIn.value; dirty = true; });
+    notesIn.addEventListener("input", function(){ deck.notes = notesIn.value; setDirty(true); });
     // Resize from the top-right grip: drag up for a taller box.
     var nh = load("hbc-notesh", 120); notesIn.style.height = nh + "px";
     // A height dragged in a bigger window can squeeze the deck out of a smaller one: keep room for the cards.
@@ -5748,8 +5778,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function copies(id){ var r = deck.main.concat(deck.extra).filter(function(x){ return x.id === id; })[0]; return r ? r.n : 0; }
     function limitMsg(c){ return c.b === "F" ? c.n + " is Forbidden in Master Duel" : c.b ? c.n + " is " + BAN_NAME[c.b] + ": " + BAN_MAX[c.b] + " max" : "3 copies max of " + c.n; }
     function paintAna(){ var bx = $(".bldana"); if (!bx) return; renderAnalysis(bx, deck.main, deck.extra, {cols:true, onCard:function(c){ showInfo(c); }});
-      if (GEN_OK || genOf(deck)){ var host = bx.querySelector(".anaside") || bx; host.insertBefore(genBox(deck, function(){ return dirty; }, function(){ dirty = true; }), host.firstChild); } }
-    function changed(){ dirty = true; paintDeckList(); paintGrid(); if (view === "ana") paintAna(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
+      if (GEN_OK || genOf(deck)){ var host = bx.querySelector(".anaside") || bx; host.insertBefore(genBox(deck, function(){ return dirty; }, function(){ setDirty(true); }), host.firstChild); } }
+    function changed(){ setDirty(true); paintDeckList(); paintGrid(); if (view === "ana") paintAna(); if (view === "sim") paintSim(); else simHand = []; if (!info.hidden && info._card) showInfo(info._card); }
     function add(c){
       if (copies(c.id) >= banMax(c)){ toast(limitMsg(c)); return; }
       var arr = MDC.isExtra(c) ? deck.extra : deck.main, row = arr.filter(function(x){ return x.id === c.id; })[0];
@@ -6058,7 +6088,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         extraOpts:function(){ return cfList(deck.extra || []); },
         goals:function(){ return deckGoals(deck); },
         save:function(L){
-          deck.lines = [L].concat(deck.lines || []); dirty = true;
+          deck.lines = [L].concat(deck.lines || []); setDirty(true);
           var rec = deck.id && MDC.get(deck.id);
           if (rec){ rec.lines = deck.lines.slice(); return MDC.put(rec); }
           return true;
@@ -6114,7 +6144,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       sug.addEventListener("click", function(){
         var A = MDA.analyzeDeck(deck.main, deck.extra, CARD_BY_ID);
         deck.starters = A.cards.filter(function(x){ return x.zone === "main" && x.role === "starter"; }).map(function(x){ return x.c.id; });
-        dirty = true; paintSim(); toast(deck.starters.length ? deck.starters.length + " starters marked" : "No one-card starters found");
+        setDirty(true); paintSim(); toast(deck.starters.length ? deck.starters.length + " starters marked" : "No one-card starters found");
       });
       oh.appendChild(sug); odds.appendChild(oh);
       var sum = nodes("p", "simsum");
@@ -6135,7 +6165,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         row.addEventListener("click", function(){
           var i = deck.starters.indexOf(r.id);
           if (i >= 0) deck.starters.splice(i, 1); else deck.starters.push(r.id);
-          dirty = true; paintSim();
+          setDirty(true); paintSim();
         });
         tbl.appendChild(row);
       });
@@ -6147,6 +6177,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     root.querySelectorAll(".bldviews button").forEach(function(b){
       b.addEventListener("click", function(){
         view = b.dataset.v === "build" ? "browse" : b.dataset.v; root.dataset.view = view;
+        if (window.NAV) NAV.rec();
         root.querySelectorAll(".bldviews button").forEach(function(o){
           var v = o.dataset.v === "build" ? "browse" : o.dataset.v;
           o.setAttribute("aria-selected", v === view || (o.dataset.v === "build" && view === "deck") ? "true" : "false");
@@ -6223,41 +6254,141 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     }
     $(".bldexp").addEventListener("click", function(){ MDC.download(fileName(nameIn.value || deck.name || "deck") + ".ydk", MDC.toYdk(deck)); });
     function close(){ closePick(); root._off(); root.remove(); document.documentElement.classList.remove("building");
-      if (bldReload){ bldReload = false; location.reload(); } }
+      if (bldReload){ bldReload = false; location.reload(); return; }
+      if (window.NAV) NAV.rec(); }
+    root._close = close; root._deckId = function(){ return MDC.get(deck.id) ? deck.id : null; };
     // Escape closes the top-most thing; with nothing open it closes the builder (asking first if there are unsaved changes).
     // Runs in the capture phase so a text box that Escape is about to clear still shows its text here.
     function onKey(e){
       if (e.key !== "Escape") return;
+      var ask = root.querySelector(".bldask");
+      if (ask){ ask.remove(); e.preventDefault(); return; }
       if (!pickMenu.hidden) closePick(); else if (!info.hidden) info.hidden = true; else if (!fpanel.hidden){ fpanel.hidden = true; fbtn.setAttribute("aria-expanded", "false"); }
       else if (!(e.target && e.target.value)) $(".bldcancel").click();
     }
     document.addEventListener("keydown", onKey, true);
     root._off = function(){ document.removeEventListener("keydown", onKey, true); window.removeEventListener("resize", onResize); };
     var cancel = $(".bldcancel");
-    cancel.addEventListener("click", function(){
-      if (dirty && !cancel.dataset.armed){ cancel.dataset.armed = "1"; cancel.textContent = "Discard changes?"; setTimeout(function(){ delete cancel.dataset.armed; cancel.textContent = "Close"; }, 3000); return; }
-      close();
-    });
-    $(".bldsave").addEventListener("click", function(){
+    cancel.addEventListener("click", function(){ leave(close); });
+    // Leaving with unsaved changes asks first: Save, Don't save, or Keep editing.
+    function leave(go){
+      if (!dirty){ go(); return; }
+      var old = root.querySelector(".bldask"); if (old) old.remove();
+      var bg = nodes("div", "bldask"), box = nodes("div", "bldaskbox"); bg.setAttribute("role", "dialog"); bg.setAttribute("aria-modal", "true");
+      box.appendChild(nodes("h3", null, "Save changes to " + ((nameIn.value || "").trim() || "this deck") + "?"));
+      box.appendChild(nodes("p", "hint", "You have changes that aren't saved yet. Leaving without saving drops them."));
+      var row = nodes("div", "bldaskbtns");
+      var keep = nodes("button", "ghost", "Keep editing"), drop = nodes("button", "ghost bldaskdrop", "Don't save"), sv = nodes("button", "primary", "Save");
+      [keep, drop, sv].forEach(function(x){ x.type = "button"; row.appendChild(x); });
+      box.appendChild(row); bg.appendChild(box); root.appendChild(bg);
+      var done = function(){ bg.remove(); };
+      keep.addEventListener("click", done);
+      bg.addEventListener("click", function(e){ if (e.target === bg) done(); });
+      drop.addEventListener("click", function(){ done(); setDirty(false); go(); });
+      sv.addEventListener("click", function(){ done(); doSave(); if (!dirty) go(); });
+      setTimeout(function(){ sv.focus(); }, 0);
+    }
+    root._leave = leave; root._dirty = function(){ return dirty; };
+    function setDirty(v){
+      dirty = !!v;
+      var sb = root.querySelector(".bldsave"); if (sb){ sb.classList.toggle("primary", dirty); sb.classList.toggle("ghost", !dirty); sb.title = dirty ? "Save your changes" : "No unsaved changes"; }
+    }
+    setDirty(dirty);
+    $(".bldsave").addEventListener("click", function(){ doSave(); });
+    function doSave(){
       var firstSave = isNew;
       deck.name = (nameIn.value || "").trim() || "Untitled deck";
       if (!deck.main.length){ toast(deck.extra.length ? "Add some Main Deck cards first" : "Add some cards first"); return; }
       if (!MDC.put(deck)){ toast("Couldn't save: storage is full or blocked"); return; }
       // Stay in the builder and keep piloting whatever you were piloting. Saving the piloted deck refreshes it when you close.
-      dirty = false; isNew = false; nameIn.value = deck.name;
+      setDirty(false); isNew = false; nameIn.value = deck.name;
       $(".bldpicklbl").textContent = "Editing: " + deck.name;
       if (deck.id === PILOT_ID) bldReload = true;
       if (view === "ana") paintAna();   // Generate unlocks once the deck is saved
       toast("Saved " + deck.name);
       if (firstSave && GEN_OK && !genOf(deck)) genNudge();
-    });
+    }
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
     var rsz; function onResize(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ clampNotes(); paintGrid(); if (list.offsetParent) fitDeck(); }, 150); }
     window.addEventListener("resize", onResize);
     setTimeout(function(){ if (clampNotes()) fitDeck(); }, 60);
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
+    if (window.NAV) NAV.rec();
   }
 
+
+  // ---------- Back / forward: the app's own history of where you've been (tabs, Users pages, the deck builder) ----------
+  window.NAV = (function(){
+    var stack = [], idx = -1, busy = false, btns = [];
+    function snap(){
+      var t = document.querySelector('header.top .tab[aria-selected="true"]'), tab = t ? t.dataset.tab : "hand";
+      var bd = document.getElementById("builder");
+      return {tab:tab, users:tab === "users" && window.USERS_NAV ? USERS_NAV.get() : null,
+        bld:bd && bd._deckId ? {id:bd._deckId(), view:bd.dataset.view || "browse"} : null};
+    }
+    function same(a, b){ return JSON.stringify(a) === JSON.stringify(b); }
+    function rec(){
+      if (busy) return;
+      var s = snap(); if (idx >= 0 && same(s, stack[idx])) return;
+      stack = stack.slice(0, idx + 1); stack.push(s); if (stack.length > 60) stack.shift(); idx = stack.length - 1; paint();
+    }
+    function bldView(bd, v){ var b = bd.querySelector('.bldviews [data-v="' + (v === "browse" ? "browse" : v) + '"]'); if (b && b.offsetParent) b.click(); else { b = bd.querySelector('.bldviews [data-v="build"]'); if (v === "browse" && b && b.offsetParent) b.click(); } }
+    function apply(s, done){
+      var bd = document.getElementById("builder");
+      var rest = function(){
+        var t = document.getElementById("t-" + s.tab);
+        if (t && t.getAttribute("aria-selected") !== "true") t.click();
+        if (s.tab === "users" && s.users && window.USERS_NAV) USERS_NAV.set(s.users);
+        if (s.bld && s.bld.id){
+          var cur = document.getElementById("builder");
+          if (!cur || cur._deckId() !== s.bld.id){ var rec0 = MDC.get(s.bld.id); if (rec0) openBuilder(JSON.parse(JSON.stringify(rec0)), false); cur = document.getElementById("builder"); }
+          if (cur && cur.dataset.view !== s.bld.view) bldView(cur, s.bld.view);
+        }
+        done();
+      };
+      if (bd && (!s.bld || !s.bld.id || bd._deckId() !== s.bld.id)) bd._leave(function(){ bd._close(); rest(); });
+      else rest();
+    }
+    function go(d){
+      var to = idx + d; if (to < 0 || to >= stack.length || busy) return;
+      busy = true;
+      apply(stack[to], function(){ idx = to; busy = false; paint(); });
+      // Keep editing in the unsaved-changes question leaves you where you were.
+      setTimeout(function(){ if (busy && !document.querySelector(".bldask")) { busy = false; paint(); } }, 0);
+      var ask = document.querySelector(".bldask");
+      if (ask) new MutationObserver(function(m, ob){ if (!ask.isConnected){ ob.disconnect(); if (busy){ busy = false; paint(); } } }).observe(ask.parentNode, {childList:true});
+    }
+    function paint(){ btns.forEach(function(b){ var d = +b.dataset.d, ok = d < 0 ? idx > 0 : idx < stack.length - 1; b.disabled = !ok; }); }
+    function button(d){
+      var b = document.createElement("button"); b.type = "button"; b.dataset.d = d; b.className = "navbtn";
+      b.title = d < 0 ? "Back (Alt+Left)" : "Forward (Alt+Right)"; b.setAttribute("aria-label", d < 0 ? "Back" : "Forward");
+      b.innerHTML = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="' + (d < 0 ? "M14.5 5.5L8 12l6.5 6.5" : "M9.5 5.5L16 12l-6.5 6.5") + '"/></svg>';
+      b.addEventListener("click", function(){ go(d); }); btns.push(b); return b;
+    }
+    // Alt+Left / Alt+Right, and the mouse's back / forward buttons.
+    document.addEventListener("keydown", function(e){
+      if (!e.altKey || e.ctrlKey || e.metaKey || (e.key !== "ArrowLeft" && e.key !== "ArrowRight")) return;
+      e.preventDefault(); go(e.key === "ArrowLeft" ? -1 : 1);
+    });
+    document.addEventListener("mouseup", function(e){ if (e.button === 3 || e.button === 4){ e.preventDefault(); go(e.button === 3 ? -1 : 1); } });
+    return {rec:rec, go:go, button:button, paint:paint};
+  })();
+  NAV.rec();
+  // Where the buttons sit: first in the app's bar, or at the start of the website's header.
+  var navGrp = document.createElement("div"); navGrp.className = "navgrp"; navGrp.appendChild(NAV.button(-1)); navGrp.appendChild(NAV.button(1));
+  (function placeNav(tries){
+    var left = document.getElementById("ovLeft"), grp = navGrp;
+    if (left){ left.insertBefore(grp, left.firstChild); NAV.paint(); return; }
+    if ((window.overlayApp || document.documentElement.classList.contains("in-overlay")) && tries < 40){ setTimeout(function(){ placeNav(tries + 1); }, 250); return; }
+    var hs = document.querySelector("header.top .hdrside"); if (hs){ grp.classList.add("webnav"); hs.insertBefore(grp, hs.firstChild); }
+    NAV.paint();
+  })(0);
+
+  window.addEventListener("beforeunload", function(e){
+    if (window.overlayApp) return;
+    var bd = document.getElementById("builder");
+    if (bd && bd._dirty && bd._dirty()){ e.preventDefault(); e.returnValue = ""; }
+  });
 
   // ---------- Users: everyone's shared decks (accounts only) ----------
   (function(){
@@ -6296,6 +6427,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!dir){ load(); return; }   // e.g. after a copy changed your deck list
       var u = at.user && dir.filter(function(x){ return x.id === at.user; })[0];
       if (at.level !== "users" && !u) at = {level:"users"};
+      if (window.NAV) NAV.rec();
       if (at.level === "users") return paintUsers();
       if (at.level === "decks") return paintDecks(u);
       var d = u.decks.filter(function(x){ return x.id === at.deck; })[0];
@@ -6358,6 +6490,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       wrap.appendChild(g); return wrap;
     }
     // Piloting reloads the page; land on the Duel tab, not back on Users.
+    window.USERS_NAV = {get:function(){ return JSON.parse(JSON.stringify(at)); }, set:function(a){ at = JSON.parse(JSON.stringify(a)); paint(); }};
     function pilotFromUsers(id){ save("hbc-tab", "hand"); MDC.setPilot(id); }
     function paintOne(u, d){
       var mine = u.id === me.id;
@@ -6424,24 +6557,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (nLines && at.show === "lines"){ var ul = deckLinesEl(d); ul.classList.add("ulines"); view.appendChild(ul); return; }
       view.appendChild(tiles(d.main || [], "Main Deck", allRows));
       if ((d.extra || []).length) view.appendChild(tiles(d.extra, "Extra Deck", allRows));
-      requestAnimationFrame(fitTiles);
     }
     // Card tiles as large as the space allows: the biggest size that shows the whole deck without scrolling (between a
     // readable minimum and a cap), so a 40-card deck usually fits on one screen.
-    function fitTiles(){
-      var grids = [].slice.call(view.querySelectorAll(".ugrid")); if (!grids.length || !grids[0].offsetParent) return;
-      var W = grids[0].clientWidth, gap = 8, top = grids[0].getBoundingClientRect().top, H = window.innerHeight - top - 28;
-      // Fewest columns (biggest cards, filling the row) that still fit the whole deck on screen; 168px at most, 70px at least.
-      var zones = grids.map(function(g){ return g.children.length; }), head = 34, best = 70;
-      for (var cols = Math.max(1, Math.ceil((W + gap) / (168 + gap))); cols <= 30; cols++){
-        var w = Math.floor((W - gap * (cols - 1)) / cols); if (w < 70) break;
-        var rowH = w * 614 / 421 + gap, h = 0;
-        zones.forEach(function(n, i){ h += Math.ceil(n / cols) * rowH + (i ? head : 0); });
-        best = w; if (h <= H) break;
-      }
-      grids.forEach(function(g){ g.style.setProperty("--tw", best + "px"); });
-    }
-    window.addEventListener("resize", function(){ if (view.querySelector(".ugrid")) fitTiles(); });
     tabBtn.addEventListener("click", function(){ load(false); });
     if (!document.getElementById("tab-users").hidden) load(false);
   })();
@@ -6571,7 +6689,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       S.push({seg:"deck", sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:duel, title:"Card lookup",
         text:["Search for any card to see its art, stats and effects."]});
       if (app){
-        S.push({seg:"deck", sel:"#ovLeft", before:closeAll, title:"Window controls", text:["Snap the window left or right.", "Switch between full and compact view.", "Reload, or change the theme."]});
+        S.push({seg:"deck", sel:"#ovLeft", before:closeAll, title:"Window controls", text:["Go back or forward, like a browser (Alt+Left / Alt+Right work too).", "Snap the window left or right.", "Switch between full and compact view.", "Reload, or change the theme."]});
         S.push({seg:"deck", sel:"#ovK", before:closeAll, title:"Settings", text:["Turn Read my hand on or off.", "Adjust opacity, or lock clicks through to the game.", "Set hotkeys, or replay this tour."]});
       } else {
         S.push({seg:"deck", sel:"header.top .hdrside", before:closeAll, title:"Display", text:["Change the theme.", "Fade the background.", "Switch to compact view."]});
