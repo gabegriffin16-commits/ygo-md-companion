@@ -311,6 +311,18 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   of its own pick is a drawback (a following sentence "Its effects are negated." is merged into its effect), and "cannot be
   negated" isn't a negate (101 cards changed of 14121, reviewed; Ash / Veiler / Imperm / Solemn / Baronne / Chalice
   unchanged). `bench/negscan.py` = whole-database scan for text negates the scripts don't back.
+  Guideless review (Oct 2026): `bench/guideless/*.json` = 8 current Master Duel Meta top lists the engine was never tuned
+  on (Snake-Eye, Yubel, Ryzeal, Maliss (its Maliss monsters didn't map to the cdb), Tenpai Dragon, Labrynth, Memento,
+  Fire King); every card read by hand against `eval`. Fixed (each as a general rule, checked with a whole-database diff):
+  "the activated effect becomes \"...\"" = negate (Phantom of Yubel, Samsara D Lotus, Number 75, Dark World
+  Brainwashing); "if a monster is Special Summoned to your opponent's field" / "by your Normal Trap effect" are their-turn
+  triggers (Promethean Princess, Mikanko, Lovely Labrynth's destroy); "If this card is Normal or Special Summoned" effects
+  count when it lands on their turn (Cooky Yummy revived by a Yummy Synchro); "send all ... from the field to the GY" =
+  wipe (AA-ZEUS); "place ... on the top/bottom of the Deck" = removal (Time Thief Redoer); Link/Synchro/Xyz/Fusion using
+  their monster as material = removal (Unchained Soul of Rage, W:P Fancy Ball); "3 or more attacks declared" effects never
+  happen on their turn (Sangenpai); Battle Phase / Damage Step-only locks 0.5 (Mementomictlan, Ancient Gear, Utopia the
+  Lightning). Known gaps left: Fire King High Avatar Garunix (revives in their Standby Phase and wipes), quoted-name
+  conditions ("if you control \"Mementoal Tecuhtlica\"") aren't `needs` yet.
   Next: conditions an effect needs (script `cond`).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the

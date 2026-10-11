@@ -136,13 +136,15 @@ inline bool negates(const std::string& e) {
 }
 inline float hurt(const std::string& e) {
 	float v = 0;
+	if(has(e, "3 or more attacks have been declared")) return 0;   // only after our own attacks (Sangenpai): never on their turn
 	// What it does comes after the condition: "If a Fusion Monster you control is destroyed by an opponent's card effect,
 	// while this card is in your GY: ..." (Dracotail Pan) destroys nothing. Narrowing words (whose effects a negate
 	// answers) can still be in the condition, so the adjustments below read the whole text.
 	const std::string full = e; const size_t colon = full.find(':');
 	const std::string x = colon == std::string::npos ? full : full.substr(colon + 1);
 	{ const std::string& e = x;
-	if((has(e, "negate the attack") || has(e, "negate the next attack") || has(e, "negate an attack")) && !has(e, "activation")) v = 0.5f;   // battle only (Necro Gardna): no play stopped
+	if(has(e, "effect becomes \"") || has(e, "effect becomes:")) v = 3.0f;   // "the activated effect becomes \"...\"" replaces it: as good as a negate (Phantom of Yubel, Samsara D Lotus)
+	else if((has(e, "negate the attack") || has(e, "negate the next attack") || has(e, "negate an attack")) && !has(e, "activation")) v = 0.5f;   // battle only (Necro Gardna): no play stopped
 	else if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
 	else if(negates(e)) v = 3.0f;
 	// "Opponent's" means their cards, not "during your opponent's turn" (Rindbrumm reviving itself from the GY on their
@@ -158,7 +160,10 @@ inline float hurt(const std::string& e) {
 	else if(has(e, "take control") || has(e, "gain control")) v = 2.5f;
 	else if(has(e, "tribute") && (has(e, "on the field") || has(e, "your opponent controls"))) v = 2.5f;
 	else if(has(e, "draw") && has(e, "opponent") && (has(e, "special summon") || has(e, "activates"))) v = 2.0f;   // Maxx "C" and friends
-	else if(has(e, "send") && has(e, "to the gy") && (has(e, "your opponent controls") || theirs(e)) && !has(e, "their deck") && !has(e, "top card")) v = 2.0f;   // milling their Deck (Light of Destruction) stops nothing
+	else if(has(e, "send") && has(e, "to the gy") && (has(e, "your opponent controls") || theirs(e)) && !has(e, "their deck") && !has(e, "top card")) v = 2.0f;
+	else if(has(e, "send all") && has(e, "from the field to the gy")) v = 2.5f;
+	else if((has(e, "link summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "fusion summon")) && (has(e, "only that opponent's monster") || has(e, "monster your opponent controls as material") || has(e, "1 link-2 or lower monster your opponent controls"))) v = 2.5f;   // their monster as material: it's gone (Unchained Soul of Rage)   // a field wipe (Divine Arsenal AA-ZEUS)
+	else if((has(e, "top of the deck") || has(e, "bottom of the deck")) && (has(e, "your opponent controls") || has(e, "on the field")) && !has(e, "from your hand") && !has(e, "place this card") && !has(e, "return this card")) v = 2.0f;   // spun to the Deck (Time Thief Redoer)   // milling their Deck (Light of Destruction) stops nothing
 	else if(has(e, "change") && has(e, "face-down")) v = 1.5f;
 	else if(has(e, "cannot be added")) v = 2.0f;   // Droll & Lock Bird: no more searches this turn
 	else if(has(e, "cannot activate") && has(e, "opponent")) v = 1.5f;
@@ -217,7 +222,7 @@ inline bool revive_of(const std::string& e, std::string& tag, int& maxLv) {
 inline bool on_their_turn(const std::string& e, bool spellTrapQuick) {
 	return spellTrapQuick || has(e, "(quick effect)") || has(e, "this is a quick effect") || has(e, "your opponent activates") || has(e, "opponent's turn") ||
 		has(e, "either player's turn") || has(e, "your opponent would") || has(e, "opponent normal or special summons") ||
-		has(e, "opponent special summons") || has(e, "your opponent normal summons") || has(e, "during the battle phase") ||
+		has(e, "opponent special summons") || has(e, "summoned to your opponent's field") || has(e, "by your normal trap effect") || has(e, "your opponent normal summons") || has(e, "during the battle phase") ||
 		has(e, "when an attack is declared") || has(e, "opponent's monster declares an attack");
 }
 // Fusion materials: split the first line on " + "; every part needs a quoted name.
@@ -374,7 +379,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			}
 		}
 		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
-		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is synchro summoned") || has(e, "this card is xyz summoned") || has(e, "this card is link summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
+		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is synchro summoned") || has(e, "this card is xyz summoned") || has(e, "this card is link summoned") || has(e, "this card is summoned") || has(e, "this card is normal or special summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));   // (Cooky☆Yummy, revived on their turn by a Yummy Synchro)
 		// Summoned on their turn, it Fusion Summons using their monster as material (Fallen of Albaz): that's removal.
 		if(!theirTurn && mon && has(e, "this card is normal or special summoned") && has(e, "fusion summon") && has(e, "either field")) r.onSummon = std::max(r.onSummon, 2.0f);
 		// A Fusion it makes: "Fusion Summon 1 ...", not "except Fusion Monsters" (Branded Opening) or "return 1 Fusion Monster
@@ -418,7 +423,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && !has(e, "cannot target") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only"))) {
 			if(has(e, "or more atk")) typedLock = true;   // only strong monsters (TY-PHON: 3000 or more ATK)
 			bool typed = typedLock; for(const char* t : {"dragon", "spellcaster", "warrior", "fiend", "zombie", "machine", "fairy", "beast", "plant", "insect", "aqua", "pyro", "rock", "thunder", "reptile", "psychic", "wyrm", "cyberse", "dinosaur", "fish", "illusion"}) if(has(e, t)) typed = true;
-			r.lock = std::max(r.lock, has(e, "attack") && !has(e, "activate") && !has(e, "summon") ? 0.5f : typed ? 1.5f : 2.5f);   // an attack lock doesn't slow their combo
+			r.lock = std::max(r.lock, (has(e, "attack") && !has(e, "activate") && !has(e, "summon")) || has(e, "during the battle phase") || has(e, "end of the damage step") || has(e, "monster battles") ? 0.5f : typed ? 1.5f : 2.5f);   // ...nor one that only holds in the Battle Phase (Sangenpai Transcendent Dragion)   // an attack lock doesn't slow their combo
 		}
 		if(has(e, "cannot be destroyed by card effects") || has(e, "unaffected by") || has(e, "cannot be targeted") || has(e, "cannot target")) r.sturdy += 0.6f;
 		if(leaves || has(e, "if this card in its owner's")) r.sturdy += 0.4f;
