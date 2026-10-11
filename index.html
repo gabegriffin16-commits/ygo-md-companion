@@ -1259,7 +1259,19 @@ html.in-overlay #authScreen{top:16px}
 .uhead h2{margin:0; flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
 .ubk{flex:none; width:34px; height:34px; display:grid; place-items:center; padding:0; border-radius:50%; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 60%, var(--panel)); color:var(--muted); cursor:pointer}
 .ubk:hover{color:var(--gold); border-color:var(--gold)}
-.urefresh{padding:6px 14px; border-radius:999px; font-size:.8rem}
+.uhead-top h2{flex:0 1 auto}
+.urefresh{flex:none; width:30px; height:30px; display:grid; place-items:center; padding:0; border-radius:50%; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 60%, var(--panel)); color:var(--muted); cursor:pointer}
+.urefresh:hover{color:var(--gold); border-color:var(--gold)}
+.urefresh.spin svg{animation:uspin .7s linear infinite}
+@keyframes uspin{to{transform:rotate(360deg)}}
+/* Shared toggles beside regular buttons: same type, corners and fill as the buttons next to them */
+.bldbtns .bldshare, .uacts .ushare{font:600 .9rem var(--display); color:var(--muted); background:none; gap:10px}
+.bldbtns .bldshare{border-radius:10px; padding:0 10px 0 14px}
+.uacts .ushare{border-radius:12px; padding:0 12px 0 18px}
+.bldbtns .bldshare .sw, .uacts .ushare .sw{width:30px; height:17px} .bldbtns .bldshare .sw::after, .uacts .ushare .sw::after{width:13px; height:13px}
+.bldbtns .bldshare[aria-checked="true"] .sw::after, .uacts .ushare[aria-checked="true"] .sw::after{transform:translateX(13px)}
+.bldbtns .bldshare:hover, .uacts .ushare:hover{background:none; border-color:var(--gold)}
+html.fadebg .bldbtns .bldshare, html.fadebg .uacts .ushare{background:var(--panel2) !important; color:var(--ink)}
 .usub{margin:0 0 12px}
 .ulist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden}
 .urow{display:flex; align-items:center; gap:12px; width:100%; padding:11px 14px; background:none; border:0; border-top:1px solid var(--line); color:var(--ink); text-align:left; cursor:pointer; font:inherit}
@@ -5543,8 +5555,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       import:'<path d="M12 4v10M8 10.5l4 4 4-4"/><path d="M5 15.5V19h14v-3.5"/>',
       export:'<path d="M12 15V5M8 8.5l4-4 4 4"/><path d="M5 15.5V19h14v-3.5"/>',
       del:'<path d="M5 7.5h14M10 7.5V5h4v2.5M7 7.5l.8 11.5h8.4L17 7.5"/>',
-      deck:'<rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/>',
-      builder:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v4"/><rect x="5.5" y="5.5" width="6" height="5" rx="1"/><path d="M5.5 13.5h3"/><path d="M18.5 11.5l2.5 2.5-6.5 6.5H12V18z"/>'};
+      deck:'<g transform="translate(0.8 0)"><rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/></g>',
+      builder:'<g transform="translate(1.1 0)"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v4"/><rect x="5.5" y="5.5" width="6" height="5" rx="1"/><path d="M5.5 13.5h3"/><path d="M18.5 11.5l2.5 2.5-6.5 6.5H12V18z"/></g>'};
     var o = {}; Object.keys(p).forEach(function(k){ o[k] = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p[k] + '</svg>'; });
     return o;
   })();
@@ -6273,7 +6285,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var h = nodes("div", "uhead");
       if (back){ var b = nodes("button", "ubk"); b.type = "button"; b.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>'; b.title = back.label; b.setAttribute("aria-label", back.label); b.addEventListener("click", back.fn); h.appendChild(b); }
       var h2 = nodes("h2", null, title); h2.title = title; h.appendChild(h2);
-      if (!back){ var r = nodes("button", "ghost urefresh", "Refresh"); r.type = "button"; r.addEventListener("click", function(){ load(true); }); h.appendChild(r); }
+      if (!back){
+        // A small refresh wheel right after the title.
+        h.classList.add("uhead-top");
+        var r = nodes("button", "urefresh"); r.type = "button"; r.title = "Refresh"; r.setAttribute("aria-label", "Refresh players");
+        r.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3"/><path d="M19.5 4.5v4h-4"/></svg>';
+        r.addEventListener("click", function(){ r.classList.add("spin"); load(true); }); h.appendChild(r);
+      }
       return h;
     }
     function paint(){
