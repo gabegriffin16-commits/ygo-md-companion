@@ -754,6 +754,9 @@ html:not(.compact) header.top .tab{font-size:.82rem; padding:7px 3px}
 .plan > ol{margin-top:8px}
 .plan.folded > ol{display:none}
 .plan.folded{padding-top:10px; padding-bottom:10px}
+/* cards that fold: a gold outline on hover says they open and close */
+.plan:has(> h3 .planbtn){transition:box-shadow .12s}
+.plan:has(> h3 .planbtn):hover{box-shadow:0 0 0 1px color-mix(in srgb, var(--gold) 75%, transparent)}
 .foldall{display:flex; justify-content:flex-end; margin-bottom:-28px}
 
 /* counter guide: deck dropdown */
