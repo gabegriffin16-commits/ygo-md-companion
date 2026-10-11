@@ -141,7 +141,9 @@ inline float hurt(const std::string& e) {
 	// while this card is in your GY: ..." (Dracotail Pan) destroys nothing. Narrowing words (whose effects a negate
 	// answers) can still be in the condition, so the adjustments below read the whole text.
 	const std::string full = e; const size_t colon = full.find(':');
-	const std::string x = colon == std::string::npos ? full : full.substr(colon + 1);
+	std::string x = colon == std::string::npos ? full : full.substr(colon + 1);
+	// Protection isn't removal: "it cannot be destroyed by your opponent's card effects" (Salamangreat Almiraj).
+	for(size_t at; (at = x.find("cannot be destroyed")) != std::string::npos;) x.replace(at, 19, "is kept safe");
 	{ const std::string& e = x;
 	if(has(e, "effect becomes \"") || has(e, "effect becomes:")) v = 3.0f;   // "the activated effect becomes \"...\"" replaces it: as good as a negate (Phantom of Yubel, Samsara D Lotus)
 	else if((has(e, "negate the attack") || has(e, "negate the next attack") || has(e, "negate an attack")) && !has(e, "activation")) v = 0.5f;   // battle only (Necro Gardna): no play stopped
