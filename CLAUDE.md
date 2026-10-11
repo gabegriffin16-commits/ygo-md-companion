@@ -282,8 +282,17 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
   Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), Albion the Sanctifire (still a generic 1.5: it
   summons from any GY to each field), Kewl Tune Loudness War (copies a GY effect: text 0).
-- NEXT (owner approved, Oct 2026, after 1.27.0): build item 3a below, so board scoring reads what scripts register instead of
-  English text (cards never tested should score right too).
+- Script-based reading (item 3a, owner approved Oct 2026), in progress. Done: `{"cmd":"fx","cards":[..]}` loads cards in a duel
+  and lists every effect their scripts registered, read from the core (`mdc_card_effects` in reset.cpp: type, event code,
+  categories, range, count limit; helper-built effects included). `fx_check` (main.cpp, once per card, at search / score /
+  simboard / eval): a place (field / set / hand / GY) the text credits with an interruption but where the script has no
+  effect that could act on the opponent's turn is a misread and its value is dropped (`eval` lists it as `noScript`;
+  `MDC_NOFXCHECK` to compare). 2500 random cards: 6 dropped, all real (Necro Gardna, Gem-Knight Hollowcore, Tenyi
+  Shthana...); 0 on the five test decks. Found with it: "this card from your hand or (face-up) field" also works from the
+  field (Tri-Brigade Mercourier, Ghost Ogre). tune.py 118.68 -> 120.20. `bench/fxdiag.py` = the report (script-only
+  negates too). Limits: categories don't say whose cards a removal hits, and modal cards (The Fallen & The Virtuous) set
+  categories only on activation, so the text still decides *what* an effect is worth; the script decides *where/when*.
+  Next: count limits (two uses of a card per turn?), Quick Effect vs ignition from the script, and conditions.
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are

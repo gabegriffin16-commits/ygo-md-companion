@@ -94,6 +94,8 @@ struct CardRow {
 	bool matTrig = false;      // it does something when used as material ("if this card is sent to the GY as material for a Fusion Summon")
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
+	int8_t fxChecked = 0;      // 1: checked against its script (fx_check); fxZeroed: places whose text value the script didn't back (bits 1 field, 2 set, 4 hand, 8 GY)
+	uint8_t fxZeroed = 0;
 	std::string desc;
 };
 static std::unordered_map<uint32_t, CardRow> g_cards;
@@ -403,6 +405,8 @@ struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExt
 	std::vector<uint32_t> preField, preBack, preGy, preBanished; std::vector<int> preZones; };   // a board set straight onto the field (simboard)
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
 void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
+struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; };
+std::vector<MdcFx> mdc_card_effects(OCG_Duel h);   // src/reset.cpp: what our cards' scripts registered
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
 static std::unordered_map<OCG_Duel, int> g_uses;   // how many times each pooled duel has been reused
 static void pool_flush() { std::lock_guard<std::mutex> lk(g_pool_mx); for(OCG_Duel d : g_pool) { mdc_forget_duel(d); OCG_DestroyDuel(d); } g_pool.clear(); g_uses.clear(); }
@@ -656,6 +660,53 @@ static std::vector<Opt> choices0(const Prompt& m) {
 static const bool g_branchLog = getenv("MDC_BRANCHLOG") != nullptr; static std::mutex g_branchMx; static std::map<std::string, std::pair<uint64_t, uint64_t>> g_branch;
 struct Board { std::vector<uint32_t> mzone, szone, hand, grave, banished, extra; std::vector<int> mslot; };   // mslot: zone of each mzone card (2 = center)
 struct Found { std::vector<Step> steps; std::vector<std::string> labels; Board board; double score = 0; std::vector<Bytes> mine; std::vector<int> mineType; };   // mine: our own responses (replays the line even when the opponent gets extra prompts)
+
+// The text model says where a card interrupts from (field / set / hand / GY); its script says where it can act at all.
+// Each card is loaded once in a duel and its registered effects read from the rules engine (mdc_card_effects): a place
+// the text credits but no script effect could act from on the opponent's turn (no Quick Effect, trigger, Trap
+// activation or lasting effect there) is a text misread, and that value is dropped. Cards whose script registered
+// nothing (missing script) keep their text values.
+static std::mutex g_fx_mx;
+static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
+	static const bool off = getenv("MDC_NOFXCHECK") != nullptr;
+	if(off) return;
+	std::lock_guard<std::mutex> lk(g_fx_mx);
+	Setup su; std::unordered_set<uint32_t> todo;
+	for(const auto* v : lists) for(uint32_t c : *v) { auto it = g_cards.find(c); if(it == g_cards.end() || it->second.fxChecked || !todo.insert(c).second) continue;
+		((it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) ? su.extra : su.deck).push_back(c); }
+	if(todo.empty()) return;
+	std::unordered_map<uint32_t, uint8_t> can; std::unordered_set<uint32_t> any;
+	enum : uint16_t { EFFECT_TYPE_SINGLE = 0x1, EFFECT_TYPE_ACTIVATE = 0x10, EFFECT_TYPE_IGNITION = 0x40, EFFECT_TYPE_TRIGGER_O = 0x80, EFFECT_TYPE_QUICK_O = 0x100,
+		EFFECT_TYPE_TRIGGER_F = 0x200, EFFECT_TYPE_QUICK_F = 0x400 };   // the engine's effect types (effect_constants.h)
+	{
+		Duel dd(su);
+		if(!dd.h) return;
+		for(const MdcFx& f : mdc_card_effects(dd.h)) {
+			auto it = g_cards.find(f.card); if(it == g_cards.end()) continue;
+			const uint32_t ty = it->second.type; const bool trapLike = ty & (TYPE_TRAP | TYPE_QUICKPLAY);
+			any.insert(f.card);
+			uint8_t m = 0;
+			auto zones = [&](uint16_t r) { uint8_t z = 0; if(r & (LOCATION_MZONE | 0x400 | 0x800)) z |= 1; if(r & LOCATION_SZONE) z |= trapLike ? (ty & TYPE_CONTINUOUS ? 3 : 2) : 1; if(r & LOCATION_HAND) z |= 4; if(r & LOCATION_GRAVE) z |= 8; return z; };
+			const uint16_t t = f.type;
+			if(t & EFFECT_TYPE_ACTIVATE) m |= trapLike ? (ty & TYPE_CONTINUOUS ? 3 : 2) : 1;
+			else if(t & EFFECT_TYPE_IGNITION) m = 0;
+			else if((t & (EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_TRIGGER_F)) && (t & EFFECT_TYPE_SINGLE)) m |= 1 | 8 | (trapLike ? 2 : 0) | (f.range ? zones(f.range) : 0);   // "if this (Set) card is Summoned / destroyed / sent...": acts from where it was
+			else if(t & (EFFECT_TYPE_QUICK_O | EFFECT_TYPE_QUICK_F | EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_TRIGGER_F)) m |= zones(f.range);
+			else m |= f.range ? zones(f.range) : 1;   // lasting effects (continuous, field, granted)
+			can[f.card] |= m;
+		}
+	}
+	for(uint32_t c : todo) {
+		CardRow& r = g_cards[c]; r.fxChecked = 1;
+		if(!any.count(c)) continue;
+		uint8_t m = can[c], z = 0;
+		if(r.ev.field > 0 && !(m & 1)) { r.ev.field = 0; z |= 1; }
+		if(r.ev.set > 0 && !(m & 2)) { r.ev.set = 0; z |= 2; }
+		if(r.ev.hand > 0 && !(m & 4)) { r.ev.hand = 0; z |= 4; }
+		if(r.ev.gy > 0 && !(m & 8)) { r.ev.gy = 0; z |= 8; }
+		r.fxZeroed = z;
+	}
+}
 
 struct Search {
 	Setup setup;
@@ -2046,6 +2097,7 @@ int main(int argc, char** argv) {
 			Board b; b.mzone = ids(req, "field"); b.szone = ids(req, "backrow"); b.hand = ids(req, "hand");
 			b.grave = ids(req, "gy"); b.banished = ids(req, "banished"); b.extra = ids(req, "extra");
 			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) b.mslot.push_back(z.get<int>());
+			if(ready) fx_check({&b.mzone, &b.szone, &b.hand, &b.grave, &b.banished, &b.extra, &sc.setup.deck});
 			json why = json::object(); sc.score_of(b, &why);
 			emit({{"id", id}, {"score", why}}); continue;
 		}
@@ -2060,14 +2112,40 @@ int main(int argc, char** argv) {
 			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) { b.mslot.push_back(z.get<int>()); sc.setup.preZones.push_back(z.get<int>()); }
 			sc.setup.deck = deck; sc.setup.extra = extra; sc.setup.hand = b.hand;
 			sc.setup.preField = b.mzone; sc.setup.preBack = b.szone; sc.setup.preGy = b.grave; sc.setup.preBanished = b.banished;
+			fx_check({&b.mzone, &b.szone, &b.hand, &b.grave, &b.banished, &deck, &extra});
 			Found f; f.board = b; f.score = sc.score_of(b);
 			double v = f.score; json j = sc.simulate(f, v); j["textScore"] = f.score;
 			emit({{"id", id}, {"score", v}, {"sim", j}}); continue;
 		}
+		if(cmd == "fx") {   // what each card's script registered (effect type, event code, categories, range, count limit)
+			if(!ready) { emit({{"id", id}, {"error", "not initialized"}}); continue; }
+			Setup su;
+			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); uint32_t t = it == g_cards.end() ? 0 : it->second.type;
+				((t & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) ? su.extra : su.deck).push_back(c); }
+			Duel dd(su);
+			json out = json::object();
+			static const std::pair<uint32_t, const char*> TY[] = {{0x1, "single"}, {0x2, "field"}, {0x4, "equip"}, {0x8, "actions"}, {0x10, "activate"}, {0x20, "flip"},
+				{0x40, "ignition"}, {0x80, "trigger_o"}, {0x100, "quick_o"}, {0x200, "trigger_f"}, {0x400, "quick_f"}, {0x800, "continuous"}, {0x1000, "xmaterial"}, {0x2000, "grant"}, {0x4000, "target"}};
+			static const char* CAT[] = {"destroy", "release", "remove", "tohand", "todeck", "tograve", "deckdes", "handes", "summon", "spsummon", "token", "flip", "pos", "control",
+				"disable", "disable_summon", "draw", "search", "equip", "damage", "recover", "atkchange", "defchange", "counter", "coin", "dice", "leave_grave", "lvchange",
+				"negate", "announce", "fusion_summon", "toextra", "set"};
+			if(dd.h) for(const MdcFx& f : mdc_card_effects(dd.h)) {
+				json ty = json::array(); for(auto& t : TY) if(f.type & t.first) ty.push_back(t.second);
+				json cat = json::array(); for(int b = 0; b < 33; b++) if(f.category & (1ull << b)) cat.push_back(CAT[b]);
+				json e = {{"type", ty}, {"code", f.code}, {"cat", cat}, {"range", f.range}, {"flag", f.flag}};
+				if(f.countMax) { e["count"] = f.countMax; if(f.countCode) e["countCode"] = f.countCode; }
+				if(f.desc) e["desc"] = desc_text(f.desc);
+				std::string parts; if(f.cond) parts += "cond "; if(f.cost) parts += "cost "; if(f.tgt) parts += "target "; if(f.op) parts += "op"; if(!parts.empty()) e["fn"] = parts;
+				out[std::to_string(f.card)].push_back(e);
+			}
+			emit({{"id", id}, {"fx", out}}); continue;
+		}
 		if(cmd == "eval") {   // what the board evaluator reads from each card (for checking src/evaluate.h)
 			json out = json::object();
+			{ std::vector<uint32_t> cs = ids(req, "cards"); if(ready) fx_check({&cs}); }
 			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardEval& e = it->second.ev;
 				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}};
+				if(it->second.fxZeroed) { json z = json::array(); const char* P[] = {"field", "set", "hand", "gy"}; for(int q = 0; q < 4; q++) if(it->second.fxZeroed & (1 << q)) z.push_back(P[q]); out[std::to_string(c)]["noScript"] = z; }
 				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
 				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}, {"race", e.fusionRace}, {"minLevel", e.fusionMinLv}};
@@ -2101,6 +2179,7 @@ int main(int argc, char** argv) {
 			s->widthGrowth = (size_t)std::max(2, std::min(6, req.value("growth", 3)));
 			if(req.contains("seeds") && req["seeds"].is_array()) for(auto& sd : req["seeds"]) if(sd.is_array()) { std::vector<std::string> v; for(auto& l : sd) if(l.is_string()) v.push_back(l.get<std::string>()); if(!v.empty()) s->seeds.push_back(v); }
 			s->mode = req.value("mode", std::string());
+			fx_check({&s->setup.deck, &s->setup.extra, &s->setup.hand});
 			{
 				// Branch on zones only if some card in the deck talks about zones or columns.
 				bool z = false;

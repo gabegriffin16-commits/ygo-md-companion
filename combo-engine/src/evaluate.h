@@ -374,7 +374,11 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		}
 		if(h > 0 && !bringOnly) {
 			if(fromGy) inGy.push_back(h);
-			else if(mon && fromHand) inHand.push_back(h);
+			else if(mon && fromHand) {
+				inHand.push_back(h);
+				// "send this card from your hand or face-up field": it works from the field too (Tri-Brigade Mercourier)
+				if(has(e, "this card from your hand or face-up field") || has(e, "this card from your hand or field") || has(e, "this card from your hand or monster zone") || has(e, "this card in your hand or on the field")) onField.push_back(h);
+			}
 			else if(trap || quickplay) setV.push_back(h);
 			else onField.push_back(h);
 		}
