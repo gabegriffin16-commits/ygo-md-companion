@@ -324,6 +324,11 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   Lightning). Known gaps left: Fire King High Avatar Garunix (revives in their Standby Phase and wipes), quoted-name
   conditions ("if you control \"Mementoal Tecuhtlica\"") are `needs` now (26 cards; a named Spell counts from the
   Spell & Trap Zone: Toon World, Macro Cosmos).
+  Audits of the guideless decks (audit.py, Snake-Eye / Yubel / Labrynth): Snake-Eye's simulation showed boards winning
+  through opponent's-turn Synchro/Link Summons; "Synchro/Xyz/Link Summon using monsters you control" (Yummy★Snatchy,
+  Formula Synchron, T.G. Wonder Magician: 20 cards) is now a bring valued by what the field can make, and Synchros that
+  "treat 1 Link-1 monster as a Level 1 Tuner" let a Link-1 count as Level 1 in the reach check. Labrynth single cards
+  search completely and score low (it plays on their turn with Traps); Yubel fine.
   Next: conditions an effect needs (script `cond`).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the

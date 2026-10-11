@@ -851,7 +851,10 @@ struct Search {
 			if(e->bringKinds & 0x2000) {
 				std::vector<int> lv; for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(c != self && it != g_cards.end() && !(it->second.type & (TYPE_XYZ | TYPE_LINK))) lv.push_back((int)(it->second.level & 0xff)); }
 				bool fromGyTuner = e->bringGyTuner; for(const auto& nd : e->needs) if(nd.where == 2 && (nd.m.kinds & 0x1000)) fromGyTuner = true;
-				if(e->bringSelf) { auto it = g_cards.find(self); if(it != g_cards.end()) lv.push_back((int)(it->second.level & 0xff)); }   // it's a material too
+				if(e->bringSelf) { auto it = g_cards.find(self); if(it != g_cards.end() && !(it->second.type & TYPE_LINK)) lv.push_back((int)(it->second.level & 0xff)); }   // it's a material too
+				// Synchros that "treat 1 Link-1 monster you control as a Level 1 Tuner" (Yummy): a Link-1 counts as Level 1.
+				bool link1 = false; for(uint32_t c : pool) { auto it = g_cards.find(c); if(it != g_cards.end() && evalx::lower(it->second.desc).find("link-1 monster you control as a level 1 tuner") != std::string::npos) { link1 = true; break; } }
+				if(link1) for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(it != g_cards.end() && (it->second.type & TYPE_LINK) && (it->second.level & 0xff) == 1 && (c != self || e->bringSelf)) lv.push_back(1); }
 				std::vector<int> tun;
 				if(fromGyTuner) for(uint32_t c : b.grave) { auto it = g_cards.find(c); if(it != g_cards.end() && (it->second.type & TYPE_TUNER) && !(it->second.type & TYPE_SYNCHRO)) tun.push_back((int)(it->second.level & 0xff)); }
 				std::vector<char> any(64, 0), two(64, 0); any[0] = 1;   // any: sums of 1+ monsters (any[0]: none); two: sums of 2+

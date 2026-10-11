@@ -303,7 +303,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 				else if(tail.find(" from your ") != std::string::npos) { std::string src = tail.substr(tail.find(" from your ") + 11, 24);
 					if(has(src, "hand")) from |= 1; if(has(src, "deck") && !has(src, "extra deck")) from |= 2; }
 				// "...then you can Synchro Summon 1 Tuner Synchro Monster" (not "material for a Fusion, Synchro, Xyz, or Link Summon").
-				for(const auto& k : std::initializer_list<std::pair<const char*, uint32_t>>{{"synchro summon 1 ", 0x2000}, {"xyz summon 1 ", 0x800000}, {"link summon 1 ", 0x4000000}}) {
+				for(const auto& k : std::initializer_list<std::pair<const char*, uint32_t>>{{"synchro summon 1 ", 0x2000}, {"xyz summon 1 ", 0x800000}, {"link summon 1 ", 0x4000000},
+						{"synchro summon using", 0x2000}, {"xyz summon using", 0x800000}, {"link summon using", 0x4000000}}) {   // "...Synchro Summon using monsters you control" (Yummy★Snatchy)
 					size_t at = e.find(k.first); if(at == std::string::npos || from) continue;
 					from |= 16; kinds = k.second; tail = e.substr(at);
 					if(has(tail.substr(0, 40), "tuner synchro") || has(tail.substr(0, 40), "tuner xyz")) kinds |= 0x1000;
@@ -317,6 +318,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 					}
 					r.bringFrom = from; r.bringKinds = kinds; r.bringBase = h;
 					r.bringGyTuner = has(e, "tuner in your gy") || has(e, "tuners in your gy");
+					if(has(e, "summon using monsters you control")) r.bringSelf = true;   // it's one of the materials
 					size_t up = e.find("level by "); if(up != std::string::npos && has(e.substr(std::max<size_t>(up, 12) - 12, 12), "increase")) r.bringLvUp = std::atoi(e.c_str() + up + 9);
 					r.bringAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
 					// What it needs first: "choose / target N ... in your GY" (Remix: 2 non-Synchro Tuners).
