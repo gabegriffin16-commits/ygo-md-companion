@@ -53,7 +53,7 @@ struct CardEval {
 	// control ("while you control a Fusion Monster that mentions "Fallen of Albaz"": Tri-Brigade Mercourier), or a cost
 	// paid from the GY ("banish 1 Tuner from your GY": Kewl Tune RS; "1 face-up Fusion Monster you control, or 2 Fusion
 	// Monsters in your GY, that mention "Fallen of Albaz"": Branded Retribution).
-	struct Need { int where = 1; int n = 1; Mat m; };   // where: 1 = we control it, 2 = in our GY
+	struct Need { int where = 1; int n = 1; Mat m; };   // where: 1 = we control it, 2 = in our GY, 3 = we control no (other) monsters, 4 = n+ cards in our hand, 5 = no cards in our hand
 	std::vector<Need> needs;
 	std::vector<Mat> mats;
 	// A summon on their turn from the hand, Deck or Extra Deck: worth what it can bring (judged in score_of against what's
@@ -351,6 +351,14 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			r.copyMat = true; size_t q = e.find('"'), q2 = q == std::string::npos ? q : e.find('"', q + 1); if(q2 != std::string::npos) r.copyTag = e.substr(q + 1, q2 - q - 1);
 		}
 		// What an interruption needs (alternatives): "while / if you control a ... monster"; a GY cost before the ";".
+		if(h > 0 && r.needs.empty()) {
+			// Our own board / hand: "if you control no monsters" (Yosenjus' Sword Sting), "if you have 3 or more cards in your
+			// hand" (Dark World Brainwashing), "if you have no cards in your hand" (Infernity).
+			const std::string pre = e.substr(0, std::min(e.find(':'), e.size()));
+			if(has(pre, "you control no other monsters") || has(pre, "you control no monsters")) { CardEval::Need nd; nd.where = 3; nd.n = has(pre, "no other") ? 0 : -1; r.needs.push_back(nd); }
+			else if(has(pre, "you have no cards in your hand")) { CardEval::Need nd; nd.where = 5; r.needs.push_back(nd); }
+			else { size_t hc = pre.find(" or more cards in your hand"); if(hc != std::string::npos && hc >= 2) { CardEval::Need nd; nd.where = 4; nd.n = std::max(1, std::atoi(pre.c_str() + pre.rfind(' ', hc - 1) + 1)); r.needs.push_back(nd); } }
+		}
 		if(h > 0 && r.needs.empty()) {
 			for(const char* lead : {"while you control ", "if you control "}) {
 				size_t at = e.find(lead); if(at == std::string::npos) continue;

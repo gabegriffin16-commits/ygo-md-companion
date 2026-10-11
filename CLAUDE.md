@@ -345,7 +345,11 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   (43 cards: Almiraj, Hedge Guard); "this card that was Special Summoned this turn" effects are ours-only (W:P Fancy Ball).
   Known gap: Labrynth links off Lady / Lovely Labrynth where guides keep them (their value is synergy: Lovely's destroy
   when our Traps remove a monster, no responses to Normal Traps, Big Welcome's Level 8+ Fiend bounce).
-  Next: conditions an effect needs (script `cond`).
+  Conditions: `bench/condscan.py` groups every interruption's condition (text before the colon) by pattern. Most are
+  timing ("when your opponent activates"), already handled; board-state ones are few. Added `needs` kinds 3 / 4 / 5: "if
+  you control no (other) monsters" (Sky Striker Mechas), "N or more cards in your hand" (Dark World Brainwashing), "no
+  cards in your hand" (Infernity): 21 cards, 30% when unmet. Conditions about the opponent's board ("if your opponent
+  controls more monsters") stay unchecked (unknown on our turn).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are

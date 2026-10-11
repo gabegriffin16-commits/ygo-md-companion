@@ -820,6 +820,9 @@ struct Search {
 				return true;
 			};
 			for(const auto& nd : e->needs) {   // alternatives: any one met will do
+				if(nd.where == 3) { size_t others = 0; for(uint32_t c : b.mzone) if(c != e->code) others++; if(others == 0 && (nd.n == 0 || b.mzone.empty() || std::find(b.mzone.begin(), b.mzone.end(), e->code) == b.mzone.end())) return 1.0; continue; }
+				if(nd.where == 4) { if((int)b.hand.size() >= nd.n) return 1.0; continue; }
+				if(nd.where == 5) { if(b.hand.empty()) return 1.0; continue; }
 				int have = 0;
 				for(uint32_t c : nd.where == 2 ? b.grave : b.mzone) { auto it = g_cards.find(c); if(it != g_cards.end() && fits(nd.m, it->second)) have++; }
 				if(nd.where == 1 && nd.m.exact && !nd.m.kinds) for(uint32_t c : b.szone) { auto it = g_cards.find(c); if(it != g_cards.end() && fits(nd.m, it->second)) have++; }   // a named Spell/Trap
@@ -2170,7 +2173,7 @@ int main(int argc, char** argv) {
 				if(e.bringAt) { json ts = json::array(); for(const auto& t : e.bringTags) ts.push_back(t.name + (t.exact ? "" : "*"));
 					out[std::to_string(c)]["brings"] = {{"at", e.bringAt}, {"from", e.bringFrom}, {"kinds", e.bringKinds}, {"tags", ts}, {"base", e.bringBase}}; }
 				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; }
-				if(!e.needs.empty()) { json ms = json::array(); for(const auto& nd : e.needs) ms.push_back({{"where", nd.where == 2 ? "gy" : "field"}, {"n", nd.n}, {"tag", nd.m.tag}, {"mentions", nd.m.mentions}, {"kinds", nd.m.kinds}, {"attr", nd.m.attr}, {"race", nd.m.race}}); out[std::to_string(c)]["needs"] = ms; } }
+				if(!e.needs.empty()) { json ms = json::array(); for(const auto& nd : e.needs) ms.push_back({{"where", nd.where == 2 ? "gy" : nd.where == 3 ? "no monsters" : nd.where == 4 ? "hand size" : nd.where == 5 ? "empty hand" : "field"}, {"n", nd.n}, {"tag", nd.m.tag}, {"mentions", nd.m.mentions}, {"kinds", nd.m.kinds}, {"attr", nd.m.attr}, {"race", nd.m.race}}); out[std::to_string(c)]["needs"] = ms; } }
 			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {
