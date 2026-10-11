@@ -233,9 +233,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   board as shown: field / backrow / hand / gy, score, and the app version), `note`. Readable only by the writer, the
   admin and the enginetest account; Claude reads reports with `tools/feedback.py` and turns them into engine test
   cases. Signed-in users only; nothing in the UI should mention admin. Check with the owner on placement/look.
-- Search result wording (owner approved): the combo finder's summary now says "every line checked" (complete), "...
-  The best one stopped improving early, so it's likely the best." (stable) or "... It was still improving when time
-  ran out." (neither), from the engine's `complete` / `stable`.
+- Search result wording (owner approved complete-vs-stable wording; adjusted): "every line checked" when complete,
+  otherwise "from N lines tried (best found Xs in). Searching again can find a better one." The engine's `stable` turned
+  out unreliable at short budgets (HERO Stratos + Faris is "stable" at 5-20 s on 8.93, 60 s finds 10.59), so the UI
+  doesn't claim "likely the best".
+- Search memory (1.23.0): `app/main.js` keeps the best line per deck + goals + hand in userData `combo-seeds.json`
+  (newest 3000). Every combo finder search and generated-line search sends it as the engine's `seeds` (choice labels,
+  replayed first: results can't get worse; the best becomes the beam's kept line and the depth-first workers start
+  from points along it) and saves anything better. Line generation: pass 1 as before (seeded), pass 2 ("Improving
+  lines") gives not-fully-checked hands 15 s more each from their best line, best hands first, 5-minute budget; lines
+  and handtrap backups are built after. Engine: request `"seeds": [[labels...]]`.
 - PINNED (owner): guide "vs <handtrap>" lines (vs Ash / Imperm / Veiler / Droll) are the reference for the app's handtrap
   backup lines, not for normal lines: compare them with the engine's interrupting search (oppHand + hitCard at the step
   the guide got hit, found from the guide's steps), and use MDM's per-combo vsHandTraps list to check that engine lines

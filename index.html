@@ -3895,11 +3895,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (r.missing && r.missing.length) wrap.appendChild(nodes("p", "hint", "Not scripted in the engine yet, so treated as blanks: " + r.missing.map(cfName).join(", ") + "."));
       var boards = (r.boards || []).filter(function(b){ return b.steps.length; });
       if (!boards.length){ wrap.appendChild(nodes("p", "hint", "No plays found for this hand.")); return; }
-      // complete: every line was checked; stable: the best board stopped improving well before time ran out (likely the
-      // best there is); otherwise it was still improving when time ran out.
+      // complete: every line was checked. Otherwise say when the best board was found: a short search often settles on a
+      // board a longer one beats, so "stopped improving" isn't a promise it's the best (searches for this hand also
+      // start from the best line found before, so trying again keeps improving it).
       var tried = r.stats && r.stats.replays ? r.stats.replays.toLocaleString() + " lines tried" : "the time allowed";
+      var at = r.stats && typeof r.stats.bestAt === "number" ? " (best found " + Math.max(1, Math.round(r.stats.bestAt)) + "s in)" : "";
       wrap.appendChild(nodes("p", "hint cfsum", boards.length + " end board" + (boards.length > 1 ? "s" : "") + (r.complete ? ", every line checked." :
-        " from " + tried + (r.stable ? ". The best one stopped improving early, so it's likely the best." : ". It was still improving when time ran out."))));
+        " from " + tried + at + ". Searching again can find a better one.")));
       boards.slice(0, st.more ? 12 : 4).forEach(function(b){
         var L = cfLine(b, hand);
         var sv = nodes("button", "mini", "Save to Lines"); sv.type = "button";
@@ -4092,9 +4094,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (run && run.deckId === deck.id){
         var pr = nodes("div", "cfprog"), bar = nodes("div", "cfbar"), fill = nodes("i"); bar.appendChild(fill); pr.appendChild(bar);
         var frac = run.total ? run.done / run.total : 0;
-        fill.style.width = Math.round((run.phase === "handtraps" ? 0.5 + frac / 2 : frac / 2) * 100) + "%";
+        fill.style.width = Math.round((run.phase === "handtraps" ? 0.5 + frac / 2 : run.phase === "refine" ? 0.35 + frac * 0.15 : frac * 0.35) * 100) + "%";
         var row = nodes("div", "cfprow");
-        row.appendChild(nodes("span", "cfptxt", (run.phase === "handtraps" ? "Checking handtraps " : run.phase === "lines" ? "Finding lines " : "Getting ready") + (run.total && run.phase !== "prepare" ? run.done + " of " + run.total : "…")));
+        row.appendChild(nodes("span", "cfptxt", (run.phase === "handtraps" ? "Checking handtraps " : run.phase === "refine" ? "Improving lines " : run.phase === "lines" ? "Finding lines " : "Getting ready") + (run.total && run.phase !== "prepare" ? run.done + " of " + run.total : "…")));
         var cx = nodes("button", "mini", "Cancel"); cx.type = "button"; cx.addEventListener("click", function(){ overlayApp.genCancel(); }); row.appendChild(cx);
         pr.appendChild(row); wrap.appendChild(pr);
         wrap.appendChild(nodes("p", "hint", "Runs in the background. You can close the builder or keep playing; the lines save to the deck when it's done."));

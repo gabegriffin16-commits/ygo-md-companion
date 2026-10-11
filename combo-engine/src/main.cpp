@@ -635,6 +635,7 @@ struct Search {
 	// "What if they hit this?": follow `prefix` (our choices, by label) until our step `hitStep` is activated,
 	// let the opponent chain `hitCard` there, then search freely from whatever is left.
 	std::vector<std::string> prefix; uint32_t hitCard = 0; int hitStep = -1;
+	std::vector<std::vector<std::string>> seeds;   // lines found before for this hand (choice labels): replayed first, then built on
 	bool interrupting() const { return hitCard != 0; }
 	std::atomic<bool> stop{false};
 	Clock::time_point t0;
@@ -1240,6 +1241,33 @@ struct Search {
 			cv.notify_all();
 		}
 	}
+	// Replay a line by its choice labels (as returned with "labels":true), recording each board along the way; stops where
+	// a label no longer matches (the deck changed). Every free Main Phase point on it is added to `starts`.
+	void seed_line(const std::vector<std::string>& labels, std::vector<St>& starts) {
+		Prompt m; bool ok; auto d = replay({}, m, ok); if(!ok) return;
+		St st; bool retry;
+		for(size_t li = 0; li < labels.size();) {
+			if(st.ending && m.type == MSG_SELECT_IDLECMD) break;   // the opponent's turn has started
+			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
+				bool hn; Opt o = opp_choice(m, st, hn); d->respond(o.resp); st.path.push_back(o.resp);
+				if(!d->run(m, retry)) return;
+				continue;
+			}
+			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
+			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			zone_opts(m, st, opts);
+			const Opt* pick = nullptr; for(auto& o : opts) if(o.label == labels[li]) { pick = &o; break; }
+			if(!pick) break;
+			if(m.type == MSG_SELECT_IDLECMD) { record(*d, st); if(starts.size() < 64) starts.push_back(st); }
+			Opt o = *pick;
+			d->respond(o.resp); take(st, o);
+			if(o.main && m.type == MSG_SELECT_IDLECMD) st.actions++;
+			li++;
+			if(!d->run(m, retry)) return;
+		}
+		if(m.type == MSG_SELECT_IDLECMD) record(*d, st);
+	}
+
 	// ---------------- the opponent's turn, played out (re-ranks the best boards) ----------------
 	// Text scoring guesses what a board stops; this plays the opponent's turn for real against each finished board and
 	// checks. The opponent is a fixed "probe" hand where each card stands for one kind of play:
@@ -1639,7 +1667,12 @@ struct Search {
 		int dfsThreads = !useBeam ? std::max(1, threads) : mode == "beam" ? 0 : std::max(1, threads / 2);
 		beamThreads = std::max(1, threads - dfsThreads);
 		if(useBeam) ts.emplace_back([this] { beam(); });
-		if(dfsThreads) { queue.push_back(St{}); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this] { worker(); }); }
+		// Seeds (the best lines earlier searches found for this hand) are replayed first: their boards are recorded (so this
+		// search can't end worse), the best one becomes the beam's kept line, and the depth-first workers also start from
+		// points along them.
+		std::vector<St> seedStarts;
+		if(!interrupting()) for(const auto& sd : seeds) seed_line(sd, seedStarts);
+		if(dfsThreads) { queue.push_back(St{}); for(auto& st : seedStarts) queue.push_back(st); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this] { worker(); }); }
 		std::atomic<bool> finished{false};
 		std::mutex pmx; std::condition_variable pcv;
 		std::thread prog([&] {
@@ -1790,6 +1823,7 @@ int main(int argc, char** argv) {
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
 			s->simOn = req.value("sim", false);
+			if(req.contains("seeds") && req["seeds"].is_array()) for(auto& sd : req["seeds"]) if(sd.is_array()) { std::vector<std::string> v; for(auto& l : sd) if(l.is_string()) v.push_back(l.get<std::string>()); if(!v.empty()) s->seeds.push_back(v); }
 			s->mode = req.value("mode", std::string());
 			{
 				// Branch on zones only if some card in the deck talks about zones or columns.

@@ -457,6 +457,27 @@ function comboRequest(obj) {
   const id = obj.id || comboSeq++;
   return new Promise((resolve, reject) => { comboWaiters.set(id, { resolve, reject }); comboSend(Object.assign({ id }, obj)); });
 }
+// Search memory: the best line found so far for each deck + goals + hand (choice labels). Every search for that hand
+// starts from it (the engine replays it as a seed, so results can't get worse) and saves anything better, so the
+// combo finder and generated lines keep improving across searches.
+const SEED_FILE = path.join(app.getPath("userData"), "combo-seeds.json");
+let seedStore = null;
+function seedLoad() { if (!seedStore) { try { seedStore = JSON.parse(fs.readFileSync(SEED_FILE, "utf8")); } catch { seedStore = {}; } } return seedStore; }
+function seedKey(deck, extra, hand, targets) {
+  const str = [deck, extra, hand, targets || []].map(a => (a || []).slice().sort((x, y) => x - y).join(",")).join("|");
+  let h = 5381; for (let i = 0; i < str.length; i++) h = ((h * 33) ^ str.charCodeAt(i)) >>> 0;
+  return h.toString(36) + "." + str.length;
+}
+function seedGet(key) { const e = seedLoad()[key]; return e && Array.isArray(e.l) && e.l.length ? e : null; }
+function seedPut(key, board) {
+  if (!board || !Array.isArray(board.labels) || !board.labels.length) return;
+  const st = seedLoad(), cur = st[key];
+  if (cur && cur.s >= board.score - 1e-9) { cur.t = Date.now(); return; }
+  st[key] = { s: board.score, l: board.labels, t: Date.now() };
+  const keys = Object.keys(st);
+  if (keys.length > 3000) keys.sort((a, b) => st[a].t - st[b].t).slice(0, keys.length - 3000).forEach(k => delete st[k]);   // keep the newest 3000
+  try { fs.writeFileSync(SEED_FILE, JSON.stringify(st)); } catch {}
+}
 ipcMain.handle("combo:available", () => fs.existsSync(comboExe()));
 ipcMain.handle("combo:search", async (e, q) => {
   if (bench) return { error: "an engine test is running. Try again when it's done." };
@@ -472,8 +493,11 @@ ipcMain.handle("combo:search", async (e, q) => {
     if (comboActive !== id) return { id, stopped: true, boards: [] };
     comboEvent({ id, stage: "search" });
     const threads = Math.max(1, Math.min(8, require("os").cpus().length - 1));
-    return await comboRequest({ id, cmd: "search", deck: q.deck || [], extra: q.extra || [], hand: q.hand || [],
-      targets: q.targets || [], maxActions: q.maxActions || 16, timeMs: q.timeMs || 20000, top: q.top || 12, threads });
+    const key = seedKey(q.deck, q.extra, q.hand, q.targets), seed = seedGet(key);
+    const r = await comboRequest({ id, cmd: "search", deck: q.deck || [], extra: q.extra || [], hand: q.hand || [],
+      targets: q.targets || [], maxActions: q.maxActions || 16, timeMs: q.timeMs || 20000, top: q.top || 12, threads, labels: true, ...(seed ? { seeds: [seed.l] } : {}) });
+    if (r && r.boards && r.boards[0]) seedPut(key, r.boards[0]);
+    return r;
   } catch (err) {
     return { id, error: err.message || String(err) };
   } finally { if (comboActive === id) comboActive = 0; }
@@ -552,14 +576,32 @@ async function genRun(job) {
     await comboEnsureData(0);
     await comboStart();
     g.phase = "lines"; g.total = job.hands.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
-    const best = {};
+    const best = {}, found = [];
+    // Pass 1: every hand, quickly, each starting from the best line found for it before (search memory).
     for (const hand of job.hands) {
       if (g.cancel) break;
       // Same amount of searching per hand on any PC: more cores, less waiting.
       const per = Math.max(4000, Math.min(10000, 40000 / genThreads()));
-      const r = await send({ hand, timeMs: Math.round(hand.length > 1 ? per : per * 0.8), maxActions: 16, labels: true });
+      const key = seedKey(job.deck, job.extra, hand, job.targets), seed = seedGet(key);
+      const r = await send({ hand, timeMs: Math.round(hand.length > 1 ? per : per * 0.8), maxActions: 16, labels: true, ...(seed ? { seeds: [seed.l] } : {}) });
+      if (r.boards && r.boards[0]) seedPut(key, r.boards[0]);
+      found.push({ hand, key, r });
+      g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
+    }
+    // Pass 2: hands not fully checked get more time, starting from their best line; best hands first, within a fixed
+    // budget so generation doesn't run on for long. (Not only "unstable" ones: a 5 s search often settles on a board
+    // that a longer one beats, e.g. Stratos + Faris 8.93 -> 10.59.)
+    const unsettled = found.filter(x => x.r.boards && x.r.boards[0] && !x.r.complete).sort((a, b) => b.r.boards[0].score - a.r.boards[0].score);
+    g.phase = "refine"; g.total = unsettled.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
+    const refineEnd = Date.now() + 5 * 60 * 1000;
+    for (const x of unsettled) {
+      if (g.cancel || Date.now() > refineEnd) break;
+      const r = await send({ hand: x.hand, timeMs: 15000, maxActions: 16, labels: true, seeds: [x.r.boards[0].labels] });
+      if (r.boards && r.boards[0] && r.boards[0].score > x.r.boards[0].score) { x.r = r; seedPut(x.key, r.boards[0]); }
+      g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
+    }
+    for (const { hand, r } of found) {
       const b = r.boards && r.boards[0];
-      const key = hand.slice().sort().join(",");
       // Skip "lines" that are just a Normal Summon.
       if (b && b.steps.length >= 2 && b.steps.some(x => x.do !== "Normal Summon")) {
         const parts = hand.length > 1 ? hand.map(c => best[c] || 0) : [];
@@ -569,7 +611,6 @@ async function genRun(job) {
         }
         if (hand.length === 1) best[hand[0]] = b.score;
       }
-      g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
     }
     // Backup lines for each step a handtrap can hit.
     const tries = [];
