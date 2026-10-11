@@ -4,14 +4,18 @@ const { pathToFileURL } = require("url");
 const path = require("path");
 const fs = require("fs");
 
-const SITE_URL = process.env.OMNI_SITE || "https://gabegriffin16-commits.github.io/ygo-md-companion/";
+const SITE_URL = process.env.MDC_SITE || process.env.OMNI_SITE || "https://gabegriffin16-commits.github.io/ygo-md-companion/";
 const SITE_DIR = path.join(__dirname, "site");
 // The bundled copy is served as app://site/ so the page can load deck.json, rules.json and cards.json
 // (browsers block fetch() from file:// pages).
 const LOCAL_URL = "app://site/index.html";
 protocol.registerSchemesAsPrivileged([{ scheme: "app", privileges: { standard: true, secure: true, supportFetchAPI: true } }]);
-// Keep using the old settings folder so hotkeys, window spot and card cache carry over after the rename.
-app.setPath("userData", path.join(app.getPath("appData"), "Omni HERO Overlay"));
+// Settings, decks, card data and generated lines live in %APPDATA%/Master Duel Companion. Versions before 1.25 used
+// "Omni HERO Overlay": move it over once (if it's in use, e.g. the old version is still closing, keep using it and
+// try again next start).
+const UD_NEW = path.join(app.getPath("appData"), "Master Duel Companion"), UD_OLD = path.join(app.getPath("appData"), "Omni HERO Overlay");
+try { if (!fs.existsSync(UD_NEW) && fs.existsSync(UD_OLD)) fs.renameSync(UD_OLD, UD_NEW); } catch (e) {}
+app.setPath("userData", fs.existsSync(UD_NEW) || !fs.existsSync(UD_OLD) ? UD_NEW : UD_OLD);
 const SETTINGS_FILE = path.join(app.getPath("userData"), "settings.json");
 
 const DEFAULT_HOTKEYS = {
@@ -91,7 +95,7 @@ function toggleVisible() {
 let readerDeckSig = null;
 function checkReaderDeck() {
   if (!win) return;
-  win.webContents.executeJavaScript("JSON.stringify((window.OMNI_DECK || []).map(c => c.cid))").then(sig => {
+  win.webContents.executeJavaScript("JSON.stringify((window.MDC_DECK || window.OMNI_DECK || []).map(c => c.cid))").then(sig => {
     if (!sig || sig === "[]") return;
     if (readerDeckSig !== null && sig !== readerDeckSig && readerWin) { stopReader(); setTimeout(startReader, 500); }
     readerDeckSig = sig;
@@ -768,8 +772,8 @@ ipcMain.handle("reader:config", () => ({ testVideo: process.env.OMNI_READER_VIDE
   rate: +process.env.OMNI_READER_RATE || 1 }));
 ipcMain.handle("reader:templates", async () => {
   if (!win) return [];
-  // The companion page publishes the main deck (key, name, card id) as window.OMNI_DECK.
-  const deck = await win.webContents.executeJavaScript("window.OMNI_DECK || null").catch(() => null);
+  // The companion page publishes the main deck (key, name, card id) as window.MDC_DECK (OMNI_DECK on older pages).
+  const deck = await win.webContents.executeJavaScript("window.MDC_DECK || window.OMNI_DECK || null").catch(() => null);
   if (!deck || !deck.length) return [];
   const out = [];
   for (const c of deck) {

@@ -1882,12 +1882,14 @@ window.CARD_IDS = {"Mulcharmy Fuwalos": 42141493, "Infinite Impermanence": 10045
 </script>
 <script>
 // ================= decks you build (saved on this device) =================
-// The built-in HERO deck comes from deck.json + rules.json. Decks you build live in localStorage
-// ("mdc-decks") as card ids and copies, and can be moved between people as .ydk files.
+// Decks live in localStorage ("mdc-decks", per account) as card ids and copies, and can be moved between people as
+// .ydk files. Decks with base "hero" (Omni HERO and copies of it) also get the HERO play data from deck.json + rules.json.
 var MDC = (function(){
-  var KEY = "mdc-decks", PILOT = "mdc-pilot", heroOK = true, hooks = {};
+  var KEY = "mdc-decks", PILOT = "mdc-pilot", adminOK = false, hooks = {};
   // Signed in: each account gets its own copy of the deck list and pilot on this device.
-  function scope(uid, allowHero){ KEY = "mdc-decks:" + uid; PILOT = "mdc-pilot:" + uid; heroOK = !!allowHero; }
+  function scope(uid, admin){ KEY = "mdc-decks:" + uid; PILOT = "mdc-pilot:" + uid; adminOK = !!admin; }
+  // A per-account localStorage key: key("mdc-x") -> "mdc-x:<uid>".
+  function key(name){ return KEY.replace(/^mdc-decks/, name); }
   function on(name, fn){ hooks[name] = fn; }
   function replaceAll(decks){ return wr(KEY, decks); }
   function rd(k, d){ try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
@@ -1905,21 +1907,20 @@ var MDC = (function(){
   }
   function remove(id){
     wr(KEY, list().filter(function(d){ return d.id !== id; }));
-    if (rd(PILOT, null) === id) wr(PILOT, heroOK ? "hero" : null);
+    if (rd(PILOT, null) === id) wr(PILOT, null);
     if (hooks.remove) hooks.remove(id);
   }
-  // "hero" is the built-in Omni HERO deck (only when allowed); null means no deck yet.
+  // null means no deck yet. "hero" (the old built-in Omni HERO deck) now means the Omni HERO deck on the account.
   function pilot(){
-    var p = rd(PILOT, null);
-    if (p === "hero" && heroOK) return "hero";
-    if (p && p !== "hero" && get(p)) return p;
-    if (heroOK) return "hero";
-    var l = list(); return l.length ? l[0].id : null;
+    var p = rd(PILOT, null), l = list();
+    if (p === "hero"){ var o = l.filter(function(d){ return d.omni; })[0]; if (o) return o.id; }
+    if (p && get(p)) return p;
+    return l.length ? l[0].id : null;
   }
-  function heroAllowed(){ return heroOK; }
-  // Combo lines saved from Find combos: on the deck record when there is one, else (the built-in deck) on this device.
-  function lines(id){ var d = id && get(id); return d ? (d.lines || []) : id === "hero" ? rd(KEY.replace(/^mdc-decks/, "mdc-herolines"), []) : []; }
-  function setLines(id, a){ var d = id && get(id); if (d){ d.lines = a; return put(d); } return id === "hero" ? wr(KEY.replace(/^mdc-decks/, "mdc-herolines"), a) : false; }
+  function isAdmin(){ return adminOK; }
+  // Combo lines saved from Find combos live on the deck record.
+  function lines(id){ var d = id && get(id); return d ? (d.lines || []) : []; }
+  function setLines(id, a){ var d = id && get(id); if (d){ d.lines = a; return put(d); } return false; }
   function setPilot(id){ wr(PILOT, id); location.reload(); }
   function newId(){ return "d" + Date.now().toString(36) + Math.floor(Math.random() * 1e4).toString(36); }
   var EXTRA_RE = /^(fusion|synchro|xyz|link)/;
@@ -2004,7 +2005,7 @@ var MDC = (function(){
     });
     inp.click();
   }
-  return {scope:scope, on:on, lines:lines, setLines:setLines, replaceAll:replaceAll, heroAllowed:heroAllowed, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
+  return {scope:scope, on:on, lines:lines, setLines:setLines, replaceAll:replaceAll, isAdmin:isAdmin, key:key, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
     toDeckData:toDeckData, toYdk:toYdk, fromYdk:fromYdk, download:download, pickFile:pickFile};
 })();
 
@@ -2221,12 +2222,12 @@ var CLOUD = (function(){
 
 function startCompanion(DECKDATA, RULES, CARDDB){
   "use strict";
-  // Decks you build have no play rules or written lines yet; the HERO-only guidance is hidden for them.
-  // Copies of Omni HERO (base "hero") keep its play rules, lines, checkpoints and counter tips.
-  var HEROMODE = !DECKDATA.custom || !!DECKDATA.heroRules;
+  // PLAYRULES: the deck has hand-written play rules, lines, checkpoints and counter tips (Omni HERO and copies of it,
+  // base "hero"). Other decks get generated lines instead, and the rule-based guidance is hidden for them.
+  var PLAYRULES = !DECKDATA.custom || !!DECKDATA.playRules;
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
   var PREC = null, PGEN = null;   // the piloted deck's record and its generated lines
-  if (!HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = genOf(PREC); }
+  if (!PLAYRULES){ PREC = MDC.get(PILOT_ID); PGEN = genOf(PREC); }
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   // The Users tab only exists with accounts on.
   if (!(window.CLOUD && CLOUD.user())){ ["t-users", "tab-users"].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); }); }
@@ -2287,7 +2288,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var UNRULED = ALL_IDS.filter(function(id){ return !R[id] && !F[id].normal && !F[id].missing; });
   var MISSING = ALL_IDS.filter(function(id){ return F[id].missing; });
   // The overlay app's hand reader looks for these cards on screen.
-  window.OMNI_DECK = DECKDATA.main.map(function(c){ return {key:c.id, name:F[c.id].short, cid:F[c.id].db.id || null}; });
+  window.MDC_DECK = window.OMNI_DECK = DECKDATA.main.map(function(c){ return {key:c.id, name:F[c.id].short, cid:F[c.id].db.id || null}; });
   // ---- the shapes the rest of the page uses, built from the data above ----
   function longName(n){ return n.replace(/^Elemental HERO /, "").replace(/^Destiny HERO - /, ""); }
   var CARDS = DECKDATA.main.map(function(c){ var f = F[c.id];
@@ -2519,7 +2520,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
       lkRow.appendChild(lk); pop.appendChild(lkRow);
       // Engine test (only on the admin's account; no label says so)
-      if (app.benchRun && CLOUD.configured() && MDC.heroAllowed()){
+      if (app.benchRun && CLOUD.configured() && MDC.isAdmin()){
         sec("Engine test");
         var br = row("Run engine test", "Runs Claude's latest test plan on this PC"), bb = nodes("button", "mini", "Run"); bb.type = "button";
         var running = false;
@@ -2891,7 +2892,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     genEvaluate();
     var out = document.getElementById("result");
     out.innerHTML = "";
-    if (!HEROMODE) return;
+    if (!PLAYRULES) return;
     var total = Object.keys(hand).reduce(function(a,k){ return a + (hand[k]||0); }, 0);
     if (!total){
       var e = document.createElement("div"); e.className = "empty";
@@ -3163,7 +3164,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     box.appendChild(wrap);
     return A;
   }
-  if (!HEROMODE){
+  if (!PLAYRULES){
     var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim(), canGen = !!(window.overlayApp && overlayApp.genStart);
     var esc = function(t){ return String(t).replace(/[<>&]/g, ""); };
     var noDeckBox = '<div class="dbox nolines"><h3>No deck yet</h3><p class="hint">Build, import or copy a deck and its starters, odds and handtrap checkpoints show up here.</p></div>';
@@ -3214,7 +3215,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       deckPane.appendChild(cta);
       return;
     }
-    if (HEROMODE && (UNRULED.length || MISSING.length)){
+    if (PLAYRULES && (UNRULED.length || MISSING.length)){
       var warn = document.createElement("div"); warn.className = "sub deckwarn";
       warn.textContent = "\u2691 " + (MISSING.length ? MISSING.length + " not found in cards.json. " : "") + (UNRULED.length ? UNRULED.length + " without play rules yet." : "");
       deckPane.appendChild(warn);
@@ -3234,7 +3235,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         b.querySelector(".ct").textContent = c.n + "\u00D7";
         b.querySelector(".nm").textContent = c.name;
         b.title = c.name;
-        if (!HEROMODE){ /* built decks have no play rules by design: no flags */ }
+        if (!PLAYRULES){ /* built decks have no play rules by design: no flags */ }
         else if (MISSING.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (not found in cards.json: check the name)"; }
         else if (UNRULED.indexOf(c.id) >= 0){ b.classList.add("norule"); b.title += " (no play rules yet)"; }
         var dot = b.querySelector(".dot");
@@ -3577,7 +3578,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var h = document.createElement("h2"); h.textContent = d.name; card.appendChild(h);
     if (d.note){ var n = document.createElement("p"); n.className = "hint"; n.textContent = d.note; card.appendChild(n); }
     d.sections.forEach(function(s){
-      if (!HEROMODE && s[0] === "Your board") return;      // written for the HERO deck
+      if (!PLAYRULES && s[0] === "Your board") return;      // written for Omni HERO
       var box = document.createElement("div"); box.className = "cg-sec cg-" + s[0].toLowerCase().replace(/[^a-z]+/g, "").replace("maxxcfuwalos","maxxc");
       var t = document.createElement("h3"); t.textContent = s[0]; box.appendChild(t);
       var ul = document.createElement("ul"); ul.className = "notes";
@@ -3662,10 +3663,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         setLP(m[1] === "+" ? D.lp[k] + n : m[1] === "=" ? n : D.lp[k] - n, true);
       });
       col.appendChild(inp);
-      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = k === "me" && HEROMODE ? "Instant Contact cost or 1000 damage" : "1000 damage";
+      var b1 = nodes("button", "mini", "\u22121000"); b1.type = "button"; b1.title = k === "me" && PLAYRULES ? "Instant Contact cost or 1000 damage" : "1000 damage";
       b1.addEventListener("click", function(){ setLP(D.lp[k] - 1000); }); col.appendChild(b1);
       if (k === "me"){
-        var bh = nodes("button", "mini", "\u00BD"); bh.type = "button"; bh.title = HEROMODE ? "Halve your LP (A Hero Lives cost)" : "Halve your LP";
+        var bh = nodes("button", "mini", "\u00BD"); bh.type = "button"; bh.title = PLAYRULES ? "Halve your LP (A Hero Lives cost)" : "Halve your LP";
         bh.addEventListener("click", function(){ setLP(Math.floor(D.lp.me / 2)); }); col.appendChild(bh);
       }
       bar.appendChild(col);
@@ -3755,7 +3756,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     box.appendChild(hb);
     var body = nodes("div", "vsbody");
     d.sections.forEach(function(s){
-      if (!HEROMODE && s[0] === "Your board") return;      // written for the HERO deck
+      if (!PLAYRULES && s[0] === "Your board") return;      // written for Omni HERO
       if (!/^(Ash this|Don't Ash|Imperm|Maxx)/.test(s[0])) return;
       body.appendChild(nodes("h4", /^Ash/.test(s[0]) ? "ash" : null, s[0]));
       var ul = nodes("ul"); s[1].forEach(function(x){ ul.appendChild(nodes("li", null, x)); }); body.appendChild(ul);
@@ -4024,7 +4025,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     return duelCF;
   }
   paintSavedLines();
-  // ---------- generated lines: the Omni HERO treatment for any deck ----------
+  // ---------- generated lines: written-quality lines for any deck ----------
   // "Generate lines" (builder > Analysis) has the app play every starter and two-card start in the rules engine,
   // then replay each line with Ash / Imperm / Veiler / Droll hitting each step to find the backup line.
   // The result is saved on the deck as deck.gen = {sig, at, lines:[{h, s, f, b, l, st, fb:[{i, by, s, f, b, st}]}]}.
@@ -4136,7 +4137,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var g = {sig:data.sig, at:data.at, v:data.v, goals:data.goals || [], lines:data.lines};
       rec.gen = g; MDC.put(rec);
       if (CF.bld && CF.bld.id === deckId) CF.bld.gen = g;
-      if (deckId === PILOT_ID && !HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
+      if (deckId === PILOT_ID && !PLAYRULES){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
       if (!data.quiet) toast("Lines ready for " + (rec.name || "your deck"));   // quiet: background improvements to lines you already have
       return true;
     });
@@ -4255,7 +4256,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var w = null; (L.fb || []).forEach(function(f){ var d = L.s - f.s; if (!w || d > w.d) w = {d:d, f:f}; }); return w;
   }
   function paintGen(){
-    if (HEROMODE || !PGEN) return;
+    if (PLAYRULES || !PGEN) return;
     var stale = PREC && PGEN.sig !== genSig(PREC);
     var singles = PGEN.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
     var pairs = PGEN.lines.filter(function(L){ return L.h.length > 1; }).sort(function(a, b){ return b.s - a.s; });
@@ -4342,7 +4343,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(document.getElementById("chipArea"));
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
-    if (HEROMODE){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
+    if (PLAYRULES){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
     else if (PGEN){ var rg = box("Best line for this hand"), gr = nodes("div", "result"); gr.id = "genResult"; rg.appendChild(gr); }
     if (CF_OK) box("Find combos").appendChild(duelFinder());
     paintChips(); evaluate();
@@ -4398,8 +4399,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var add = nodes("div", "addrow");
     var src = nodes("select", "addsel"); src.setAttribute("aria-label", "What added the card");
     src.appendChild(nodes("option", null, "What added a card?\u2026")).value = "";
-    // The per-card search sources come from the Omni HERO play rules; other decks get the generic ones.
-    var SRC = HEROMODE ? ADD_SOURCES : [ADD_SOURCES[0], {k:"effect", t:"Searched or added by a card effect", targets:MAIN_IDS}, ADD_SOURCES[ADD_SOURCES.length - 1]];
+    // The per-card search sources come from the deck's play rules; other decks get the generic ones.
+    var SRC = PLAYRULES ? ADD_SOURCES : [ADD_SOURCES[0], {k:"effect", t:"Searched or added by a card effect", targets:MAIN_IDS}, ADD_SOURCES[ADD_SOURCES.length - 1]];
     SRC.forEach(function(s){ var o = nodes("option", null, s.t); o.value = s.k; src.appendChild(o); });
     var tgt = nodes("select", "addsel"); tgt.setAttribute("aria-label", "Card added to hand"); tgt.disabled = true;
     function fillTargets(){
@@ -4970,7 +4971,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (!list.length) pl.appendChild(nodes("p", "hint", "Nothing left to play from what's tracked. Use Manual tracking below for anything else."));
       var w4 = nodes("div", "togs");
       var baits = [];
-      if (!HEROMODE){
+      if (!PLAYRULES){
         // Built decks: "Normal Summon: Stratos · Shadow Mist · …" instead of one long button per card.
         var VERBS = ["Normal Summon ", "Tribute Summon ", "Set "], grouped = {};
         list = list.filter(function(p){
@@ -5003,7 +5004,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       pl.appendChild(w4);
       var noRule = UNRULED.filter(function(id){ return D.hand[id] || b.field.indexOf(id) >= 0; });
-      if (HEROMODE && noRule.length) pl.appendChild(nodes("p", "hint warnline", "⚑ No play rules yet for " + noRule.map(nm).join(", ") + ". Track them with Manual tracking, and ask to have rules added."));
+      if (PLAYRULES && noRule.length) pl.appendChild(nodes("p", "hint warnline", "⚑ No play rules yet for " + noRule.map(nm).join(", ") + ". Track them with Manual tracking, and ask to have rules added."));
     }
 
     var last = D.acts[D.acts.length - 1];
@@ -5038,7 +5039,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function renderMain(){
     B(); syncZones();
     renderPlays();
-    if (HEROMODE){
+    if (PLAYRULES){
       var r = box(null);
       var det = nodes("details", "planfold"); det.open = D.n === 1 && !D.acts.length;
       det.appendChild(nodes("summary", null, "Best line for your current hand"));
@@ -5058,13 +5059,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var mb = nodes("button", "ghost", D.showManual ? "Hide manual tracking" : "Manual tracking (for anything the plays don't cover)"); mb.type = "button";
     mb.addEventListener("click", function(){ D.showManual = !D.showManual; persist(); renderBody(); });
     mt.appendChild(mb);
-    // The stop / once-per-turn / lock boxes are built from the Omni HERO play rules; other decks only get the hand box.
-    if (D.showManual && !window.autoOn()){ renderHandBox(); if (HEROMODE){ renderStopBox(); renderOptBox(); renderLockBox(); } }
+    // The stop / once-per-turn / lock boxes are built from the deck's play rules; other decks only get the hand box.
+    if (D.showManual && !window.autoOn()){ renderHandBox(); if (PLAYRULES){ renderStopBox(); renderOptBox(); renderLockBox(); } }
   }
 
   function reminders(){
     var out = [];
-    if (!HEROMODE) return D.stops.length ? ["You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time."] : [];
+    if (!PLAYRULES) return D.stops.length ? ["You got stopped " + D.stops.length + (D.stops.length > 1 ? " times" : " time") + " this turn. Add what they used to your note so you can play around it next time."] : [];
     if (D.zones.increase === "gy") out.push("Increase is in your GY. If you take damage on their turn, move it to Field / backrow next turn.");
     if (D.zones.increase === "field") out.push("Increase is in your backrow, ready to restart the engine next turn.");
     if (D.opt.destiny) out.push("Fusion Destiny's monster is destroyed at the End Phase of the next turn.");
@@ -5087,7 +5088,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["Once-per-turns", Object.keys(D.opt).filter(function(k){ return D.opt[k]; }).map(function(k){ return OPT_LABEL[k]; }).join(", ") || "none marked"],
       ["LP", "You " + D.lp.me + ", opponent " + D.lp.opp]
     ];
-    if (!HEROMODE) rows = rows.filter(function(r){ return r[0] !== "They fucked me" && r[0] !== "Once-per-turns"; });   // HERO-only trackers
+    if (!PLAYRULES) rows = rows.filter(function(r){ return r[0] !== "They fucked me" && r[0] !== "Once-per-turns"; });   // trackers built from play rules
     if (vsDeck()) rows.unshift(["Against", vsDeck().name]);
     rows.forEach(function(r){ var p = nodes("p", "lr"); p.appendChild(nodes("b", null, r[0] + ": ")); p.appendChild(document.createTextNode(r[1])); b.appendChild(p); });
     var rem = reminders();
@@ -5388,8 +5389,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function rows(arr){ return arr.map(function(c){ var d = CARD_BY_NAME[c.name]; return d ? {id:d.id, n:c.n} : null; }).filter(Boolean); }
     var mine = DECKDATA.custom ? MDC.get(PILOT_ID) : null, out = mine ? JSON.parse(JSON.stringify(mine)) : {};
     out.id = PILOT_ID; out.name = PILOT_NAME; out.main = rows(DECKDATA.main); out.extra = rows(DECKDATA.extra);
-    if (HEROMODE) out.base = "hero";
-    delete out.owner; delete out.unsynced;
+    if (PLAYRULES) out.base = "hero";
+    delete out.owner; delete out.unsynced; delete out.omni;
     return out;
   }
   function importYdk(){
@@ -5412,11 +5413,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function openDeckMenu(anchor){
     closeMenus(deckMenu); deckMenu.innerHTML = "";
     deckMenu.appendChild(nodes("div", "dmhead", "Decks"));
-    if (MDC.heroAllowed()){
-      var hero = menuItem("Omni HERO", PILOT_ID === "hero" ? "on" : "", function(){ if (PILOT_ID !== "hero") MDC.setPilot("hero"); else closeDeckMenu(); });
-      hero.appendChild(nodes("small", null, "built in"));
-    }
-    if (!MDC.heroAllowed() && !MDC.list().length) deckMenu.appendChild(nodes("div", "dmempty", "No decks yet."));
+    if (!MDC.list().length) deckMenu.appendChild(nodes("div", "dmempty", "No decks yet."));
     MDC.list().forEach(function(d){
       var cnt = (d.main || []).reduce(function(a, r){ return a + r.n; }, 0);
       var it = menuItem(d.name || "Untitled deck", PILOT_ID === d.id ? "on" : "", function(){ if (PILOT_ID !== d.id) MDC.setPilot(d.id); else closeDeckMenu(); });
@@ -5431,7 +5428,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (DECKDATA.custom && !DECKDATA.none) menuItem("Delete this deck", "act danger", function(b){
       if (!b.dataset.armed){ b.dataset.armed = "1"; b.textContent = "Tap again to delete " + PILOT_NAME;
         setTimeout(function(){ if (b.isConnected && b.dataset.armed){ delete b.dataset.armed; b.textContent = "Delete this deck"; } }, 3000); return; }
-      MDC.remove(PILOT_ID); MDC.setPilot(MDC.heroAllowed() ? "hero" : null);
+      MDC.remove(PILOT_ID); MDC.setPilot(null);
     });
 
     var r = anchor.getBoundingClientRect();
@@ -5557,7 +5554,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       });
       pickMenu.appendChild(nodes("div", "dmsep"));
       pickItem("+ Start a new deck", null, "act", function(b){ switchTo({id:MDC.newId(), name:"", main:[], extra:[]}, true, b); });
-      if (PILOT_ID === "hero" && MDC.heroAllowed()) pickItem("Copy Omni HERO to edit", null, "act", function(b){ var c = currentAsBuilt(); c.id = MDC.newId(); c.name = "Omni HERO (copy)"; switchTo(c, true, b); });
     }
     pickBtn.addEventListener("click", function(e){
       e.stopPropagation();
@@ -6014,7 +6010,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         toast("Imported" + (r.unknown ? " (" + r.unknown + " unknown card" + (r.unknown > 1 ? "s" : "") + " skipped)" : ""), 2400);
       });
     });
-    // After a new deck's first save: offer to generate its lines (the step that makes a built deck as complete as Omni HERO).
+    // After a new deck's first save: offer to generate its lines (the step that gives a built deck its lines, checkpoints and counter guide).
     function genNudge(){
       if ($(".bldnudge")) return;
       var nb = nodes("div", "bldnudge");
@@ -6068,7 +6064,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   (function(){
     var tabBtn = document.getElementById("t-users"), view = document.getElementById("usersView");
     if (!tabBtn || !view) return;
-    var dir = null, loading = false, at = {level:"users"}, heroCache = null;
+    var dir = null, loading = false, at = {level:"users"};
     var me = CLOUD.profile() || {};
     function ago(t){
       if (!t) return ""; var m = Math.round((Date.now() - t) / 60000);
@@ -6076,24 +6072,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var d = Math.round(h / 24); return d < 30 ? d + (d === 1 ? " day ago" : " days ago") : new Date(t).toLocaleDateString();
     }
     function count(rows){ return (rows || []).reduce(function(a, r){ return a + r.n; }, 0); }
-    // Omni HERO, built from deck.json, listed under the owner's profile so anyone can copy it.
-    function heroDeck(){
-      if (heroCache) return Promise.resolve(heroCache);
-      return fetch("deck.json", {cache:"no-cache"}).then(function(r){ return r.json(); }).then(function(d){
-        function rows(a){ return (a || []).map(function(c){ var x = CARD_BY_NAME[c.name]; return x ? {id:x.id, n:c.n} : null; }).filter(Boolean); }
-        heroCache = {id:"hero", name:"Omni HERO", main:rows(d.main), extra:rows(d.extra), shared:true, builtin:true,
-          notes:"The built-in HERO deck. A copy comes with its play lines, checkpoints and counter tips."};
-        return heroCache;
-      });
-    }
     function load(force){
       if (loading) return; if (dir && !force){ paint(); return; }
       loading = true; view.innerHTML = ""; view.appendChild(nodes("p", "hint", "Loading players…"));
       CLOUD.directory().then(function(list){
-        dir = list; loading = false;
-        var admin = dir.filter(function(u){ return u.is_admin; })[0];
-        if (!admin){ paint(); return; }
-        return heroDeck().then(function(h){ if (!admin.decks.some(function(d){ return d.id === "hero"; })) admin.decks.unshift(h); paint(); }, function(){ paint(); });
+        dir = list; loading = false; paint();
       }).catch(function(e){ loading = false; view.innerHTML = ""; view.appendChild(nodes("p", "hint", "Couldn't load players (" + e.message + ").")); });
     }
     function head(title, back){
@@ -6182,7 +6165,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var pil = nodes("button", "primary", PILOT_ID === d.id ? "Piloting" : "Pilot this deck"); pil.type = "button"; pil.disabled = PILOT_ID === d.id;
         pil.addEventListener("click", function(){ pilotFromUsers(d.id); }); acts.appendChild(pil);
       }
-      if (mine && !d.builtin){
+      if (mine){
         var ed = nodes("button", "ghost", "Edit"); ed.type = "button"; ed.addEventListener("click", function(){ var x = MDC.get(d.id); if (x) openBuilder(JSON.parse(JSON.stringify(x)), false); }); acts.appendChild(ed);
         var sh = nodes("button", "fadeitem fadetog ushare"); sh.type = "button"; sh.setAttribute("role", "switch");
         sh.innerHTML = '<span></span><span class="sw" aria-hidden="true"></span>';
@@ -6192,8 +6175,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         acts.appendChild(sh);
       } else if (!mine) {
         // Already copied this one? Offer the copy instead of making a duplicate.
-        var copyName = (d.name || "Deck") + (d.builtin ? "" : " (" + u.username + ")");
-        var had = MDC.list().filter(function(x){ return x.copiedFrom ? x.copiedFrom === d.id : (d.builtin ? x.base === "hero" && x.name === copyName : x.name === copyName); })[0];
+        var copyName = (d.name || "Deck") + " (" + u.username + ")";
+        var had = MDC.list().filter(function(x){ return x.copiedFrom ? x.copiedFrom === d.id : x.name === copyName; })[0];
         var showCopy = function(c){
           acts.innerHTML = "";
           var pc = nodes("button", "primary", PILOT_ID === c.id ? "Piloting the copy" : "Pilot the copy"); pc.type = "button"; pc.disabled = PILOT_ID === c.id;
@@ -6203,11 +6186,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         };
         var cp = nodes("button", "primary", "Copy to my decks"); cp.type = "button";
         cp.addEventListener("click", function(){
-          // Everything the creator has: cards, notes, starters, and (for Omni HERO copies) its play lines and checkpoints.
+          // Everything the creator has: cards, notes, starters, and (base "hero": Omni HERO) its play lines and checkpoints.
           var c = JSON.parse(JSON.stringify(d));
-          delete c.owner; delete c.updated; delete c.unsynced; delete c.builtin;
+          delete c.owner; delete c.updated; delete c.unsynced; delete c.omni;
           c.id = MDC.newId(); c.name = copyName; c.shared = true; c.copiedFrom = d.id;
-          if (d.builtin){ c.base = "hero"; c.notes = ""; }
           if (!MDC.put(c)){ toast("Couldn't save: storage is full or blocked"); return; }
           toast("Copied to your decks");
           dir = null;   // your deck list changed
@@ -6302,7 +6284,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       try { localStorage.removeItem(PREV); } catch (e) {}
       if (prev && !MDC.get(prev) && prev !== "hero") prev = null;
       if (st && st.prevTab) save("hbc-tab", st.prevTab);
-      MDC.setPilot(prev || (MDC.heroAllowed() ? "hero" : null));   // reloads
+      MDC.setPilot(prev || null);   // reloads
     }
 
     function steps(st){
@@ -6513,14 +6495,35 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 // Load the deck, the play rules, and the card database, then start.
 // With accounts on (MDC_CLOUD filled in), you sign in first and your decks come from your account.
 (function(){
-  if (window.OMNI_DATA){ var o = window.OMNI_DATA; startCompanion(o.deck, o.rules, o.cards); return; }
+  if (window.MDC_DATA){ var o = window.MDC_DATA; startCompanion(o.deck, o.rules, o.cards); return; }
   function get(u){ return fetch(u, {cache:"no-cache"}).then(function(r){ if (!r.ok) throw new Error(u + " (" + r.status + ")"); return r.json(); }); }
   var note = document.createElement("div"); note.id = "bootNote"; note.textContent = "Loading deck and card data…";
   document.body.appendChild(note);
   function fail(msg){ if (!note.parentNode) document.body.appendChild(note); note.className = "err"; note.textContent = msg; }
-  function boot(){
+  // Omni HERO used to be a built-in deck shown to the owner. It's now a regular deck on their account, made once from
+  // deck.json (base "hero", so it keeps the HERO play rules, written lines and checkpoints), shared like any other deck.
+  // Lines saved on a device for the old built-in deck move onto it.
+  function ensureOmni(){
+    if (!MDC.isAdmin()) return Promise.resolve();
+    var lk = MDC.key("mdc-herolines"), flag = MDC.key("mdc-omni"), old = [];
+    try { old = JSON.parse(localStorage.getItem(lk) || "[]") || []; } catch (e) {}
+    function addLines(d){ var seen = {}; (d.lines || []).forEach(function(l){ seen[JSON.stringify(l)] = 1; });
+      d.lines = (d.lines || []).concat(old.filter(function(l){ return !seen[JSON.stringify(l)]; })); }
+    var have = MDC.list().filter(function(d){ return d.omni; })[0];
+    if (have){ if (old.length){ addLines(have); if (MDC.put(have)) localStorage.removeItem(lk); } return Promise.resolve(); }
+    if (localStorage.getItem(flag)) return Promise.resolve();   // made here before and deleted since
+    return Promise.all([get("deck.json"), get("cards.json")]).then(function(a){
+      var byName = {}; a[1].cards.forEach(function(c){ byName[c.n] = c.id; });
+      function rows(arr){ return (arr || []).map(function(c){ var id = byName[c.name]; return id ? {id:id, n:c.n} : null; }).filter(Boolean); }
+      var d = {id:MDC.newId(), name:"Omni HERO", base:"hero", omni:true, main:rows(a[0].main), extra:rows(a[0].extra), shared:true, lines:[]};
+      addLines(d);
+      if (d.main.length && MDC.put(d)){ localStorage.setItem(flag, "1"); localStorage.removeItem(lk); }
+    }).catch(function(e){ if (window.console) console.error(e); });
+  }
+  function boot(){ ensureOmni().then(openPilot); }
+  function openPilot(){
     note.textContent = "Loading deck and card data…";
-    var pilot = MDC.pilot(), mineDeck = pilot && pilot !== "hero" ? MDC.get(pilot) : null;
+    var pilot = MDC.pilot(), mineDeck = pilot ? MDC.get(pilot) : null;
     if (mineDeck && mineDeck.base === "hero"){
       // Your copy of Omni HERO: the HERO play data, with your card counts and any cards you added.
       Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
@@ -6532,25 +6535,16 @@ function startCompanion(DECKDATA, RULES, CARDDB){
           if (b){ b = JSON.parse(JSON.stringify(b)); b.n = r.n; return b; }
           return (plain[zone].filter(function(x){ return x.name === c.n; })[0]) || null; }).filter(Boolean); }
         var deck = JSON.parse(JSON.stringify(base));
-        deck.name = mineDeck.name; deck.custom = true; deck.heroRules = true; deck.deckId = mineDeck.id;
+        deck.name = mineDeck.name; deck.custom = true; deck.playRules = true; deck.deckId = mineDeck.id;
         deck.main = merge(mineDeck.main || [], "main"); deck.extra = merge(mineDeck.extra || [], "extra");
         startCompanion(deck, a[1], cards);
       }).catch(function(err){ if (window.console) console.error(err); fail("Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload."); });
       return;
     }
-    if (pilot !== "hero"){
-      get("cards.json").then(function(cards){
-        note.remove();
-        var deck = pilot ? MDC.toDeckData(MDC.get(pilot), cards) : {name:"No deck yet", custom:true, none:true, deckId:null, main:[], extra:[]};
-        startCompanion(deck, {cards:{}, locks:{}}, cards);
-      }).catch(function(err){
-        if (window.console) console.error(err);
-        fail("Couldn't open that deck (" + (err && err.message || err) + "). Pick another deck or reload.");
-      });
-      return;
-    }
-    Promise.all([get("deck.json"), get("rules.json"), get("cards.json")]).then(function(a){
-      note.remove(); startCompanion(a[0], a[1], a[2]);
+    get("cards.json").then(function(cards){
+      note.remove();
+      var deck = mineDeck ? MDC.toDeckData(mineDeck, cards) : {name:"No deck yet", custom:true, none:true, deckId:null, main:[], extra:[]};
+      startCompanion(deck, {cards:{}, locks:{}}, cards);
     }).catch(function(err){
       fail(location.protocol === "file:"
         ? "This page needs deck.json, rules.json and cards.json, and browsers block those when you open the file directly. Use your GitHub site or the overlay app."

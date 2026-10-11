@@ -1,5 +1,5 @@
 """
-Downloads the card images for the Omni HERO Duel Companion into an "images"
+Downloads the card images for the Master Duel Companion into an "images"
 folder next to this script, named <card id>.jpg to match index.html.
 
 Run it once (double-click download_card_images.bat), then upload the
@@ -9,7 +9,7 @@ Already-downloaded images are skipped, so it's safe to run again.
 import json, os, time, urllib.parse, urllib.request
 
 API = "https://db.ygoprodeck.com/api/v7/cardinfo.php"
-HEADERS = {"User-Agent": "OmniHERO-companion/1.0 (personal use)"}
+HEADERS = {"User-Agent": "MasterDuelCompanion/1.0 (personal use)"}
 CARD_IDS = {
     "Mulcharmy Fuwalos": 42141493,
     "Infinite Impermanence": 10045474,

@@ -50,7 +50,7 @@ def fetch_mdm():
     return ban, pop
 
 def main():
-    req = urllib.request.Request(API, headers={"User-Agent": "OmniHERO-companion/1.0 (personal use)"})
+    req = urllib.request.Request(API, headers={"User-Agent": "MasterDuelCompanion/1.0 (personal use)"})
     print("Downloading card database (about 25 MB)...")
     with urllib.request.urlopen(req, timeout=120) as r:
         data = json.load(r)["data"]

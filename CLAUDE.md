@@ -36,7 +36,7 @@ combo-engine work. To stay out of each other's way:
 | Path | What it is |
 |---|---|
 | `index.html` | The whole site/app UI (single file). `startCompanion(DECKDATA, RULES, CARDDB)` builds everything. |
-| `deck.json`, `rules.json` | The built-in Omni HERO deck: hand-written lines, play rules, checkpoints. |
+| `deck.json`, `rules.json` | Omni HERO play data: hand-written lines, play rules, checkpoints. Used by decks with `base:"hero"` (the owner's Omni HERO deck and copies), the tutorial deck and `omni.json`. |
 | `cards.json` | Card database for the page (from YGOPRODeck; `update_card_db.py`). |
 | `app/` | Electron overlay app (`main.js`, `preload.js`, screen reader `reader*.js`, `handreader.js`, `hudreader.js`). |
 | `combo-engine/` | The combo finder helper (C++, AGPL-3.0, separate program). See its README for the protocol. |
@@ -48,7 +48,10 @@ combo-engine work. To stay out of each other's way:
 Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it checks `releases/latest` and offers updates.
 
 ### Page modules (in index.html)
-- `MDC`: decks in localStorage, scoped per account (`MDC.scope(uid, isAdmin)`; `MDC.heroAllowed()` is the admin flag).
+- `MDC`: decks in localStorage, scoped per account (`MDC.scope(uid, isAdmin)`; `MDC.isAdmin()` is the admin flag; `MDC.key(name)` = per-account localStorage key).
+  No built-in deck any more: Omni HERO is a regular shared deck on the owner's account (`omni:true`, `base:"hero"`), made
+  once from deck.json by `ensureOmni()` at boot (moves old device-saved `mdc-herolines` onto it; stored pilot "hero" maps to it).
+  `PLAYRULES` (was HEROMODE) = the deck has hand-written play rules (base "hero").
   Decks: `{id, name, main:[{id,n}], extra, notes, starters, lines, goals, gen, shared}`. `MDC.lines/setLines` = saved lines.
 - `MDA`: card-text analyzer (roles: starter/extender/handtrap/engine; Ash/Imperm/Droll tags; opening odds).
 - `CLOUD`: Supabase (project `hopdbvllzumhywaxerno`, publishable key in the file). Usernames map to
@@ -153,7 +156,7 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 - **Local build on the owner's PC**: VS 2022 Build Tools + CMake are installed; deps live in
   `%LOCALAPPDATA%/mdc-engine-build` (same versions as CI). `cmake -S combo-engine -B <that>/ce-build -A x64 -DOCGCORE_DIR=<that>/ce-src/ygopro-core
   -DDEPS_DIR=<that>/ce-deps -DMIMALLOC_DIR=<that>/ce-src/mimalloc` then `cmake --build <that>/ce-build --config Release`.
-  Test data: the app's `%APPDATA%/Omni HERO Overlay/combo-data/` (cards.cdb, CardScripts.zip). Bench prints GY/banished.
+  Test data: the app's `%APPDATA%/Master Duel Companion/combo-data/` (`Omni HERO Overlay` before 1.25; the app moves it on first start) (cards.cdb, CardScripts.zip). Bench prints GY/banished.
 - **Engine bench**: `combo-engine/bench/bench.py <engine> <cards.cdb> <scripts.zip> <hand codes> <secs> <maxActions> [threads] [mode] [targets]`
   with `DECK_JSON=combo-engine/bench/omni.json` (Omni HERO) or `elfnote.json`; `ZONES=0/1` forces zone mode.
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + DPE + Favorite Contact set (FC -> Shining Neos
@@ -179,6 +182,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 `engine-test` pre-release with the newest helper. Commit messages end with the Co-Authored-By line used in history.
 
 ## Open items / ideas
+
+- Rebrand (1.25.0): app data folder is now `%APPDATA%/Master Duel Companion` (moved from `Omni HERO Overlay` on first
+  start); the page publishes `window.MDC_DECK` (OMNI_DECK kept as an alias for older apps); `MDC_SITE` env (OMNI_SITE still
+  read). Local storage keys (`hbc-*`, `mdc-*`) are unchanged on purpose (renaming them would drop settings).
 
 - Search stopping (engine part done): results now carry `stable` + `stats.bestAt`; request `stable` (fraction) stops early
   once the best hasn't improved for that share of the time (off by default: runs vary, e.g. HERO's best came at 155s of
