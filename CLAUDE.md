@@ -226,6 +226,11 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
   Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), generic opponent's-turn summons (Incredible
   Ecclesia, Albion the Sanctifire: 1.5 but rarely stop anything), Kewl Tune Loudness War (copies a GY effect: text 0).
+- PINNED (owner): guide "vs <handtrap>" lines (vs Ash / Imperm / Veiler / Droll) are the reference for the app's handtrap
+  backup lines, not for normal lines: compare them with the engine's interrupting search (oppHand + hitCard at the step
+  the guide got hit, found from the guide's steps), and use MDM's per-combo vsHandTraps list to check that engine lines
+  survive what the guide claims. "vs Fuwalos / Purulia" (Mulcharmy) need a new goal (fewest summons / adds); OTK lines
+  only matter for a future going-second mode. Keep normal-line comparisons on true end-board guides.
   When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine
