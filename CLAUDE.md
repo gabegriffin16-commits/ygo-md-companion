@@ -71,7 +71,7 @@ Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it check
   through `root._leave(go)` (Save / Don't save / Keep editing); Save is gold only while there are unsaved changes.
 - Lines outside the Lines tab: `deckLinesEl(deck)` renders a deck's generated + saved lines read-only; used by the builder's
   Lines view (`.bldlines`, data-v "lines") and the Users deck view's Cards | Lines toggle (shown when the deck has lines).
-- Generated lines: `genBox` (builder > Analysis: "Set end-board goals" fold + Generate; also the `.bldgen` button by the view tabs), `paintGen` (Lines / Checkpoints / Counter Guide
+- Generated lines: `genBox` (builder > Analysis and builder > Lines, both live on `GEN.paints`: "Set end-board goals" fold + Generate + progress), `paintGen` (Lines / Checkpoints / Counter Guide
   for decks with `deck.gen`), `genEvaluate` (Duel tab best line from the read hand). `deckGoals/goalSuggest` = end-board goals.
 
 ### App (app/main.js)

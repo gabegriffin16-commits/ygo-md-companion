@@ -1031,16 +1031,9 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bldbar{display:flex; flex-wrap:wrap; align-items:center; gap:6px 12px}
 .bldbar .bldstat{flex:1 1 auto; min-width:0}
 .bld .bldviews{max-width:none; width:auto; align-self:auto; flex:none}
-.bld .bldviews button{padding:5px 16px; white-space:nowrap}
-.bldgen{flex:none; display:inline-flex; flex-direction:column; justify-content:center; gap:3px; height:35px; align-self:center; box-sizing:border-box; padding:0 14px; border-radius:999px;
+.bld .bldviews button{flex:1 1 0; min-width:0; padding:5px 10px; white-space:nowrap}
   border:1px solid color-mix(in srgb, var(--gold) 60%, var(--line)); background:color-mix(in srgb, var(--gold) 14%, var(--panel)); color:var(--ink);
   font:600 .8rem var(--display); cursor:pointer; white-space:nowrap}
-.bldgen:hover:not(:disabled){background:color-mix(in srgb, var(--gold) 24%, var(--panel))}
-.bldgen:disabled{opacity:.55; cursor:default}
-.bldgen .bgbar{display:block; height:3px; border-radius:2px; background:color-mix(in srgb, var(--gold) 25%, transparent); overflow:hidden}
-.bldgen .bgbar i{display:block; height:100%; background:var(--gold); transition:width .4s}
-.bldgen.running{min-width:150px}
-.bldgen .bglab{display:block; text-align:center; font-variant-numeric:tabular-nums}
 /* the Lines tab's progress ring while lines generate */
 .tab .genring{display:inline-block; width:11px; height:11px; margin-left:6px; vertical-align:-1px; border-radius:50%;
   background:conic-gradient(currentColor var(--p, 0%), color-mix(in srgb, currentColor 22%, transparent) 0);
@@ -1048,7 +1041,7 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bldpager .bldhint{flex:1 1 auto; flex-basis:auto; text-align:right; order:9}
 .bldpager .pgcount{margin-left:12px; order:10}
 .bld{gap:6px}
-@media (max-width:760px){ .bld .bldviews{flex:1 1 100%} .bldpager .bldhint{flex-basis:100%} .bldgen{flex:1 1 100%; align-items:center} .bldgen .bgbar{width:60%} }
+@media (max-width:760px){ .bld .bldviews{flex:1 1 100%} .bldpager .bldhint{flex-basis:100%} }
 .ban-F{--bc:#E0525A} .ban-L{--bc:#E8893C} .ban-S{--bc:#D6B43C}
 .pill.banpill{display:inline-flex; align-items:center; gap:6px; background:color-mix(in srgb, var(--bc) 14%, transparent) !important; color:color-mix(in srgb, var(--bc) 70%, var(--ink)) !important;
   border:1px solid color-mix(in srgb, var(--bc) 50%, transparent) !important; border-radius:999px; padding:2px 10px; font:600 .76rem var(--display); letter-spacing:.02em}
@@ -1626,6 +1619,8 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .bld[data-view="lines"] .bldbody{display:none !important}
 .bld[data-view="lines"] .bldlines{display:block}
 .bldlines .dlines{max-width:980px; margin:0 auto}
+.bldlines .dlgenhost{max-width:980px; margin:0 auto 14px}
+.bldlines .dlgenhost .genbox{margin:0}
 .bldlines .dlhead{max-width:980px; margin:0 auto 4px}
 .bldlines .dlhead .hint:empty{display:none}
 .dlines h2{margin:14px 0 10px} .dlines h2:first-child{margin-top:2px}
@@ -6198,53 +6193,31 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         });
         if (view === "sim"){ if (!simHand.length && mainPile().length >= 5) newHand(); else paintSim(); }
         else if (view === "ana") paintAna();
-        else if (view === "lines") paintLinesView();
+        else if (view === "lines") paintLinesView(true);
         else { paintGrid(); if (list.offsetParent) fitDeck(); }
       });
     });
     root.dataset.view = "browse";
     // Lines view: what this deck's lines look like, without leaving the builder.
-    function paintLinesView(){
+    // The same Lines for this deck box as Analysis (shares the progress), then the lines. The box stays put while lines
+    // generate; the list under it is rebuilt only when the lines themselves change.
+    var linesSig = "";
+    function paintLinesView(force){
       var bx = $(".bldlines"); if (!bx) return;
-      var keep = bx.scrollTop; bx.innerHTML = "";
-      var G = genOf(deck), run = GEN.run && GEN.run.deckId === deck.id;
-      var top = nodes("div", "dlhead");
-      top.appendChild(nodes("span", "hint", run ? "Generating new lines\u2026 these update when it's done." : G ? G.lines.length + " generated line" + (G.lines.length === 1 ? "" : "s") + " from " + new Date(G.at).toLocaleDateString() : ""));
-      bx.appendChild(top);
-      bx.appendChild(deckLinesEl(deck, {
+      var host = bx.querySelector(".dlgenhost"), body = bx.querySelector(".dlbody");
+      if (!host){ bx.innerHTML = ""; host = nodes("div", "dlgenhost"); body = nodes("div", "dlbody"); bx.appendChild(host); bx.appendChild(body); }
+      if (!host.firstChild && (GEN_OK || genOf(deck))) host.appendChild(genBox(deck, function(){ return dirty; }, function(){ setDirty(true); }));
+      else if (force && host.firstChild && host.firstChild.repaint) host.firstChild.repaint();
+      var G = genOf(deck), sig = [G ? G.at : 0, G ? G.lines.length : 0, G ? G.sig : "", genSig(deck)].join("|");
+      if (!force && sig === linesSig) return; linesSig = sig;
+      var keep = bx.scrollTop; body.innerHTML = "";
+      if (G){ var top = nodes("div", "dlhead"); top.appendChild(nodes("span", "hint", G.lines.length + " generated line" + (G.lines.length === 1 ? "" : "s") + " from " + new Date(G.at).toLocaleDateString())); body.appendChild(top); }
+      body.appendChild(deckLinesEl(deck, {
         stale: G && G.sig !== genSig(deck) ? "The deck changed since these lines were generated. Regenerate them to match." : "",
-        empty: GEN_OK ? "No lines for this deck yet. Generate lines plays every starter through the rules engine; they show up here when it's done." : "No lines for this deck yet. Generate them in the desktop app."}));
+        empty: GEN_OK ? "No lines for this deck yet. Generate them above; they show up here when it's done." : "No lines for this deck yet. Generate them in the desktop app."}));
       bx.scrollTop = keep;
     }
     GEN.paints.push(function(){ if (!root.isConnected) return false; if (view === "lines") paintLinesView(); return true; });
-    // Generate lines, next to the view switcher: shows progress while it runs; tapping it opens Analysis (and starts it).
-    if (GEN_OK){
-      var gbtn = nodes("button", "bldgen"); gbtn.type = "button";
-      root.querySelector(".bldviews").before(gbtn);
-      var paintGb = function(){
-        if (!root.isConnected) return false;
-        var run = GEN.run, mine = run && run.deckId === deck.id;
-        gbtn.innerHTML = ""; gbtn.classList.toggle("running", !!mine);
-        if (mine){
-          var gp = genProgress(run);
-          var bar = nodes("span", "bgbar"), fill = nodes("i"); fill.style.width = Math.round(gp.frac * 100) + "%"; bar.appendChild(fill);
-          gbtn.appendChild(nodes("span", "bglab", "Generating " + Math.round(gp.frac * 100) + "%")); gbtn.appendChild(bar);
-          gbtn.title = gp.text;
-        } else {
-          gbtn.appendChild(nodes("span", "bglab", run ? "Generating another deck\u2026" : genOf(deck) ? "Regenerate lines" : "Generate lines"));
-          gbtn.title = run ? "Lines are generating for " + (run.name || "another deck") : "Play every starter through the rules engine and fill the Lines, Checkpoints and Counter Guide tabs";
-        }
-        gbtn.disabled = !!run && !mine;
-        return true;
-      };
-      gbtn.addEventListener("click", function(){
-        var v = root.querySelector('.bldviews [data-v="ana"]'); if (v && view !== "ana") v.click();
-        if (GEN.run) return;
-        setTimeout(function(){ var g = root.querySelector(".genbox .cfgo");
-          if (g && !g.disabled) g.click(); else if (g){ toast(g.title || "Save the deck first", 2200); g.scrollIntoView({block:"center"}); } }, 120);
-      });
-      GEN.paints.push(paintGb); paintGb();
-    }
     $(".bldimp").addEventListener("click", function(){
       MDC.pickFile(function(text, name){
         var r = MDC.fromYdk(text, name, CARDDB);
@@ -6323,7 +6296,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (firstSave && GEN_OK && !genOf(deck)) genNudge();
     }
     paintDeckList(); paintGrid(); paintFbtn(); paintSim();
-    var rsz; function onResize(){ if (!document.body.contains(root)) return; clearTimeout(rsz); rsz = setTimeout(function(){ clampNotes(); paintGrid(); if (list.offsetParent) fitDeck(); }, 150); }
+    // The view tabs line up under the buttons above them (full view; compact gives them the whole row).
+    function fitViews(){
+      var v = $(".bldviews"), bb = $(".bldbtns"); if (!v || !bb) return;
+      v.style.width = window.innerWidth > 760 && !document.documentElement.classList.contains("compact") ? Math.round(bb.getBoundingClientRect().width) + "px" : "";
+    }
+    setTimeout(fitViews, 0); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitViews);
+    var rsz; function onResize(){ if (!document.body.contains(root)) return; fitViews(); clearTimeout(rsz); rsz = setTimeout(function(){ clampNotes(); paintGrid(); if (list.offsetParent) fitDeck(); }, 150); }
     window.addEventListener("resize", onResize);
     setTimeout(function(){ if (clampNotes()) fitDeck(); }, 60);
     setTimeout(function(){ (isNew && !deck.name ? nameIn : q).focus(); }, 30);
