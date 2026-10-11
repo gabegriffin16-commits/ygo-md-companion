@@ -138,7 +138,7 @@ bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o) {
 
 // What a card's script registered (for reading cards from their scripts instead of their text): every effect on our
 // cards in a duel, straight from the engine's card structures, so effects built by helper functions count too.
-struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; };
+struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; uint8_t hopt, countFlag; };
 std::vector<MdcFx> mdc_card_effects(OCG_Duel h) {
 	std::vector<MdcFx> out;
 	auto* d = static_cast<duel*>(h);
@@ -151,7 +151,7 @@ std::vector<MdcFx> mdc_card_effects(OCG_Duel h) {
 				effect* e = kv.second;
 				if(!e || e->owner != c || !seen.insert(e).second) continue;
 				out.push_back({c->data.code, e->code, e->type, e->range, e->category, e->flag[0], e->count_limit_max, e->count_code, e->description,
-					e->condition != 0, e->cost != 0, e->target != 0, e->operation != 0, e->hint_timing[1]});
+					e->condition != 0, e->cost != 0, e->target != 0, e->operation != 0, e->hint_timing[1], e->count_hopt_index, e->count_flag});
 			}
 	}
 	return out;

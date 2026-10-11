@@ -24,6 +24,7 @@ struct CardEval {
 	float set = 0;       // ...while set in the Spell & Trap Zone
 	float hand = 0;      // ...while kept in hand (handtraps)
 	float gy = 0;        // ...from the GY
+	float second[4] = {0, 0, 0, 0};   // what a 2nd interruption adds per place (field, set, hand, GY): dropped when both share one use per turn
 	float lock = 0;      // a lasting restriction on the opponent while on the field
 	float sturdy = 0;    // protection / floats: harder to break
 	bool fromSide = false;   // its interruption switches it into the center zone: needs a side zone + a center monster
@@ -398,6 +399,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 	}
 	auto best = [](std::vector<float>& v) { std::sort(v.rbegin(), v.rend()); float s = 0; for(size_t i = 0; i < v.size() && i < 2; i++) s += i ? v[i] * 0.6f : v[i]; return s; };
 	r.field = best(onField); r.set = best(setV); r.hand = best(inHand); r.gy = best(inGy);
+	{ int q = 0; for(auto* v : {&onField, &setV, &inHand, &inGy}) { float one = 0; for(float x : *v) one = std::max(one, x); r.second[q] = (q == 0 ? r.field : q == 1 ? r.set : q == 2 ? r.hand : r.gy) - one; q++; } }
 	if(trap && continuous) r.field = std::max(r.field, r.set);   // a continuous Trap keeps working once flipped
 	if(field || (spell && continuous)) r.field += r.lock;            // continuous / Field Spells: their lock is the point
 	r.sturdy = std::min(r.sturdy, 1.2f);

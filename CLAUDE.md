@@ -296,7 +296,14 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   effects()), "this card from your hand or GY" (Rikka Princess) counts from both; also attack-only negates are 0.5 (Necro
   Gardna, Magic Cylinder) and milling their Deck / their LP isn't removal (Light of Destruction, Cubic Karma).
   Wide check helpers: random 2500-card samples through `eval` before/after (19 cards changed, all checked by hand).
-  Next: count limits (two uses of a card per turn?), Quick Effect vs ignition from the script, and conditions.
+  Use limits (fx_check): a 2nd interruption in one place (text: +60%, `CardEval.second`) is dropped when the script says it's
+  one use there: a Trap / Quick-Play activation (every mode of "activate 1 of these effects" is one activation), a
+  once-per-turn effect, or effects sharing a count code (`eval` lists `oneUse`; `MDC_EVALSECOND=1` shows `second`). All
+  14121 cards: 228 had a 2nd interruption, 146 now count once (single-activation Traps/Spells), 82 keep both (Continuous
+  Traps with two effects, Re-qliate). Test decks: only Favorite Contact's set value 2.4 -> 1.5 (its real value is the
+  Fusion-on-their-turn rule; HERO boards unchanged). Whole-database check (`eval` on every card): 19 places dropped by
+  the script check, all real.
+  Next: conditions an effect needs (script `cond`), Quick Effect vs ignition where the text doesn't say.
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are

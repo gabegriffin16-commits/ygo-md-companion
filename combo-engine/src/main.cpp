@@ -29,6 +29,7 @@ extern "C++" {
 #endif
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <condition_variable>
@@ -95,7 +96,7 @@ struct CardRow {
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	int8_t fxChecked = 0;      // 1: checked against its script (fx_check); fxZeroed: places whose text value the script didn't back (bits 1 field, 2 set, 4 hand, 8 GY)
-	uint8_t fxZeroed = 0;
+	uint8_t fxZeroed = 0, fxShared = 0;   // fxShared: places where its interruptions share one use per turn (only the best counts)
 	std::string desc;
 };
 static std::unordered_map<uint32_t, CardRow> g_cards;
@@ -405,7 +406,7 @@ struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExt
 	std::vector<uint32_t> preField, preBack, preGy, preBanished; std::vector<int> preZones; };   // a board set straight onto the field (simboard)
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
 void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
-struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; };
+struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; uint8_t hopt, countFlag; };
 std::vector<MdcFx> mdc_card_effects(OCG_Duel h);   // src/reset.cpp: what our cards' scripts registered
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
 static std::unordered_map<OCG_Duel, int> g_uses;   // how many times each pooled duel has been reused
@@ -676,6 +677,9 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 		((it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) ? su.extra : su.deck).push_back(c); }
 	if(todo.empty()) return;
 	std::unordered_map<uint32_t, uint8_t> can; std::unordered_set<uint32_t> any;
+	// Per card and place: the once-per-turn key of each opponent's-turn action there ("You can only use 1 of these effects
+	// per turn": the same count code). All the same key = one use per turn there, so a 2nd interruption adds nothing.
+	std::unordered_map<uint32_t, std::array<std::vector<uint64_t>, 4>> keys; uint64_t uniq = 1ull << 63;
 	enum : uint16_t { EFFECT_TYPE_SINGLE = 0x1, EFFECT_TYPE_ACTIVATE = 0x10, EFFECT_TYPE_IGNITION = 0x40, EFFECT_TYPE_TRIGGER_O = 0x80, EFFECT_TYPE_QUICK_O = 0x100,
 		EFFECT_TYPE_TRIGGER_F = 0x200, EFFECT_TYPE_QUICK_F = 0x400 };   // the engine's effect types (effect_constants.h)
 	{
@@ -692,8 +696,12 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 			else if(t & EFFECT_TYPE_IGNITION) m = 0;
 			else if((t & (EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_TRIGGER_F)) && (t & EFFECT_TYPE_SINGLE)) m |= 1 | 8 | (trapLike ? 2 : 0) | (f.range ? zones(f.range) : 0);   // "if this (Set) card is Summoned / destroyed / sent...": acts from where it was
 			else if(t & (EFFECT_TYPE_QUICK_O | EFFECT_TYPE_QUICK_F | EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_TRIGGER_F)) m |= zones(f.range);
-			else m |= f.range ? zones(f.range) : 1;   // lasting effects (continuous, field, granted)
+			else { can[f.card] |= f.range ? zones(f.range) : 1; continue; }   // lasting effects (continuous, field, granted)
 			can[f.card] |= m;
+			// A Trap / Quick-Play is activated once (every mode of "activate 1 of these effects" is one use); a once-per-turn
+			// effect is one use; effects sharing a count code share it.
+			const uint64_t k = (t & EFFECT_TYPE_ACTIVATE) ? 1 : f.countMax == 1 ? ((uint64_t)(f.countCode ? f.countCode : f.card) << 16 | (uint64_t)f.hopt << 8 | f.countFlag) : uniq++;
+			for(int q = 0; q < 4; q++) if(m & (1 << q)) keys[f.card][q].push_back(k);
 		}
 	}
 	for(uint32_t c : todo) {
@@ -705,6 +713,10 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 		if(r.ev.hand > 0 && !(m & 4)) { r.ev.hand = 0; z |= 4; }
 		if(r.ev.gy > 0 && !(m & 8)) { r.ev.gy = 0; z |= 8; }
 		r.fxZeroed = z;
+		uint8_t sh = 0; float* place[4] = {&r.ev.field, &r.ev.set, &r.ev.hand, &r.ev.gy};
+		for(int q = 0; q < 4; q++) { const auto& v = keys[c][q];
+			if(!v.empty() && r.ev.second[q] > 0 && *place[q] > 0 && std::all_of(v.begin(), v.end(), [&](uint64_t x) { return x == v[0] && !(x >> 63); })) { *place[q] = std::max(0.0f, *place[q] - r.ev.second[q]); sh |= 1 << q; } }
+		r.fxShared = sh;
 	}
 }
 
@@ -2146,6 +2158,8 @@ int main(int argc, char** argv) {
 			for(uint32_t c : ids(req, "cards")) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardEval& e = it->second.ev;
 				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}};
 				if(it->second.fxZeroed) { json z = json::array(); const char* P[] = {"field", "set", "hand", "gy"}; for(int q = 0; q < 4; q++) if(it->second.fxZeroed & (1 << q)) z.push_back(P[q]); out[std::to_string(c)]["noScript"] = z; }
+				if(getenv("MDC_EVALSECOND") && (e.second[0] > 0 || e.second[1] > 0 || e.second[2] > 0 || e.second[3] > 0)) out[std::to_string(c)]["second"] = {e.second[0], e.second[1], e.second[2], e.second[3]};
+				if(it->second.fxShared) { json z = json::array(); const char* P[] = {"field", "set", "hand", "gy"}; for(int q = 0; q < 4; q++) if(it->second.fxShared & (1 << q)) z.push_back(P[q]); out[std::to_string(c)]["oneUse"] = z; }
 				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
 				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}, {"race", e.fusionRace}, {"minLevel", e.fusionMinLv}};
