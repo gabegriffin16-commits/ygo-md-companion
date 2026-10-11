@@ -27,7 +27,7 @@ def fits(slot, c):
             if not typ & 1 or lv != int(re.fullmatch(r"(lv|level)(\d+)", w).group(2)): return False
         elif not any(subseq(w, x) for x in re.findall(r"[a-z0-9]+", nm)): return False
     return True
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:

@@ -16,7 +16,7 @@ HANDS = [("omni.json", [40044918, 18094166]), ("omni.json", [18094166, 9411399])
          ("dracotail.json", C("Dracotail Lukias", "Dracotail Faimena")),
          ("branded.json", C("Fallen of the White Dragon", "Blazing Cartesia, the Virtuous", "Nibiru, the Primal Being")),
          ("kewltune.json", C("Kewl Tune Rotary", "Kewl Tune Reco")), ("kewltune.json", C("Kewl Tune Cue"))]
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:

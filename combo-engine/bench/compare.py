@@ -62,7 +62,7 @@ def pick(slot, main, hand):
     return None
 refs = json.load(open(refsf, encoding="utf-8"))
 deck = json.load(open(os.path.join(os.path.dirname(refsf), "..", refs["deck"]) if not os.path.isabs(refs["deck"]) and not os.path.exists(refs["deck"]) else refs["deck"]))
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:

@@ -46,7 +46,7 @@ struct CardEval {
 	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
 	// tag: a quoted name ("" = none); exact: the card itself rather than an archetype. Generic parts ("1 LIGHT
 	// Spellcaster monster", "1 Fusion, Synchro, Xyz, or Link Monster") set attr / race / kinds / effect / minAtk.
-	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false, mentions = false; int n = 1; uint32_t attr = 0, kinds = 0; uint64_t race = 0; int minAtk = 0; };
+	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false, mentions = false; int n = 1; uint32_t attr = 0, kinds = 0, notKinds = 0; uint64_t race = 0; int minAtk = 0; };   // notKinds: non-Synchro etc.
 	// What its interruption needs, as alternatives (any one will do), checked against the board in score_of: a monster we
 	// control ("while you control a Fusion Monster that mentions "Fallen of Albaz"": Tri-Brigade Mercourier), or a cost
 	// paid from the GY ("banish 1 Tuner from your GY": Kewl Tune RS; "1 face-up Fusion Monster you control, or 2 Fusion
@@ -54,6 +54,14 @@ struct CardEval {
 	struct Need { int where = 1; int n = 1; Mat m; };   // where: 1 = we control it, 2 = in our GY
 	std::vector<Need> needs;
 	std::vector<Mat> mats;
+	// A summon on their turn from the hand, Deck or Extra Deck: worth what it can bring (judged in score_of against what's
+	// actually there), not a flat share. Accel Synchro Stardust Dragon: "Stardust Dragon" from the Extra Deck; Kewl Tune
+	// Remix: then Synchro Summon a Tuner Synchro Monster; Incredible Ecclesia: a "Swordsoul" monster or "Fallen of Albaz"
+	// from the hand or Deck. bringAt: an AT_ value; bringFrom: 1 hand, 2 Deck, 16 Extra Deck; bringKinds: what an
+	// Extra Deck summon must be (Synchro 0x2000, Tuner 0x1000); bringBase: the generic share it replaces.
+	struct Tag { std::string name; bool exact = false; };
+	uint8_t bringAt = 0, bringFrom = 0; uint32_t bringKinds = 0; float bringBase = 0; int bringLvUp = 0;   // "increase its Level by 3" first (Elfnote Power Patron)
+	std::vector<Tag> bringTags;
 };
 
 namespace evalx {
@@ -185,8 +193,8 @@ inline std::vector<CardEval::Mat> materials(const std::string& text) {
 		static const std::pair<const char*, uint32_t> attrs[] = {{"light", 0x10}, {"dark", 0x20}, {"earth", 0x1}, {"water", 0x2}, {"fire", 0x4}, {"wind", 0x8}};
 		for(const auto& at : attrs) if(has(rest, at.first)) m.attr |= at.second;
 		static const std::pair<const char*, uint32_t> kinds[] = {{"fusion", 0x40}, {"synchro", 0x2000}, {"xyz", 0x800000}, {"link", 0x4000000}};
-		for(const auto& k : kinds) if(has(rest, k.first)) m.kinds |= k.second;
-		if(has(rest, "tuner") && !has(rest, "non-tuner")) m.kinds |= 0x1000;
+		for(const auto& k : kinds) { if(has(rest, ("non-" + std::string(k.first)).c_str())) m.notKinds |= k.second; else if(has(rest, k.first)) m.kinds |= k.second; }
+		if(has(rest, "non-tuner")) m.notKinds |= 0x1000; else if(has(rest, "tuner")) m.kinds |= 0x1000;
 		m.fusion = m.kinds == 0x40;
 		m.effect = has(rest, "effect monster");
 		size_t atk = rest.find(" atk"); if(atk != std::string::npos && has(rest, "or more")) { size_t w = rest.rfind("with ", atk); if(w != std::string::npos) m.minAtk = std::atoi(rest.c_str() + w + 5); }
@@ -225,12 +233,50 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			// What a summon is worth is what it brings. A revival is valued by what's in the GY (see score_of), so its own
 			// share is small; any other summon gets a generic share, below a real negate.
 			std::string tg; int lv = 99;
-			h = revive_of(e, tg, lv) ? 0.5f : 1.5f;
+			bool rev = revive_of(e, tg, lv);
+			h = rev ? 0.5f : 1.5f;
 			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
 			// The GY part is scored by the revival pass (what's actually there to bring back), so only hand and Deck add here.
 			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
+			// One monster from the hand, Deck or Extra Deck (not a Fusion: those are judged as Fusions, below).
+			else if(!rev && !r.bringAt && !has(e, "fusion summon") && !has(e, "fusion monster")) {
+				size_t ss = e.find("special summon"); std::string tail = ss == std::string::npos ? std::string() : e.substr(ss);
+				uint8_t from = 0; uint32_t kinds = 0;
+				if(has(tail, "from your extra deck")) from |= 16;
+				else if(tail.find(" from your ") != std::string::npos) { std::string src = tail.substr(tail.find(" from your ") + 11, 24);
+					if(has(src, "hand")) from |= 1; if(has(src, "deck") && !has(src, "extra deck")) from |= 2; }
+				// "...then you can Synchro Summon 1 Tuner Synchro Monster" (not "material for a Fusion, Synchro, Xyz, or Link Summon").
+				for(const auto& k : std::initializer_list<std::pair<const char*, uint32_t>>{{"synchro summon 1 ", 0x2000}, {"xyz summon 1 ", 0x800000}, {"link summon 1 ", 0x4000000}}) {
+					size_t at = e.find(k.first); if(at == std::string::npos || from) continue;
+					from |= 16; kinds = k.second; tail = e.substr(at);
+					if(has(tail.substr(0, 40), "tuner synchro") || has(tail.substr(0, 40), "tuner xyz")) kinds |= 0x1000;
+				}
+				if(from) {
+					for(size_t q = tail.find('"'); q != std::string::npos; ) {
+						size_t q2 = tail.find('"', q + 1); if(q2 == std::string::npos) break;
+						std::string nx = tail.substr(q2 + 1, 22); CardEval::Tag t; t.name = tail.substr(q + 1, q2 - q - 1);
+						t.exact = !(has(nx, " monster") || has(nx, " card") || has(nx, " spell") || has(nx, " trap"));
+						r.bringTags.push_back(t); q = tail.find('"', q2 + 1);
+					}
+					r.bringFrom = from; r.bringKinds = kinds; r.bringBase = h;
+					size_t up = e.find("level by "); if(up != std::string::npos && has(e.substr(std::max<size_t>(up, 12) - 12, 12), "increase")) r.bringLvUp = std::atoi(e.c_str() + up + 9);
+					r.bringAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
+					// What it needs first: "choose / target N ... in your GY" (Remix: 2 non-Synchro Tuners).
+					for(const char* lead : {"choose ", "target "}) {
+						size_t at = e.find(lead), gy = at == std::string::npos ? at : e.find(" in your gy", at);
+						if(gy == std::string::npos || gy - at > 50) continue;
+						std::string ph = e.substr(at + std::strlen(lead), gy - at - std::strlen(lead)); size_t sp = ph.find(' ');
+						if(sp == std::string::npos) continue;
+						std::string what = ph.substr(sp + 1); if(!has(what, "monster")) what += " monster";
+						auto ms = materials(what);
+						if(!ms.empty()) { CardEval::Need nd; nd.where = 2; nd.n = std::max(1, std::atoi(ph.c_str())); nd.m = ms[0]; r.needs.push_back(nd); }
+						break;
+					}
+				}
+			}
 		}
+		const bool bringOnly = r.bringAt && r.bringBase == h && h > 0;   // its value comes from what it brings (score_of)
 		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) r.handExtender = true;
 		// What an interruption needs (alternatives): "while / if you control a ... monster"; a GY cost before the ";".
 		if(h > 0 && r.needs.empty()) {
@@ -267,6 +313,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		}
 		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
 		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
+		// Summoned on their turn, it Fusion Summons using their monster as material (Fallen of Albaz): that's removal.
+		if(!theirTurn && mon && has(e, "this card is normal or special summoned") && has(e, "fusion summon") && has(e, "either field")) r.onSummon = std::max(r.onSummon, 2.0f);
 		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "special summon") || has(e, "fusion summon"))) {
 			r.fusionAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
 			r.fusionFrom = (has(e, "hand") ? 1 : 0) | (has(e, "field") || has(e, "you control") ? 2 : 0) | (has(e, " gy") ? 4 : 0) | (has(e, "banish") ? 8 : 0);
@@ -282,7 +330,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 				r.reviveTag = tag; r.reviveMaxLv = lv;
 			}
 		}
-		if(h > 0) {
+		if(h > 0 && !bringOnly) {
 			if(fromGy) inGy.push_back(h);
 			else if(mon && fromHand) inHand.push_back(h);
 			else if(trap || quickplay) setV.push_back(h);

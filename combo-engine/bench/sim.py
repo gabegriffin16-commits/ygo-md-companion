@@ -18,7 +18,7 @@ targets = [code(x) for x in os.environ.get("TARGETS", "").split(";") if x.strip(
 main = list(deck["main"])
 for c in h:
     if c in main: main.remove(c)
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:

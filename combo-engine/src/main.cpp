@@ -739,6 +739,7 @@ struct Search {
 			if(!e || e->needs.empty()) return 1.0;
 			auto fits = [](const CardEval::Mat& m, const CardRow& pc) {
 				if(m.kinds && !(pc.type & m.kinds)) return false;
+				if(m.notKinds && (pc.type & m.notKinds)) return false;
 				if(m.attr && !(pc.attribute & m.attr)) return false;
 				if(m.race && !(pc.race & m.race)) return false;
 				if(!m.tag.empty()) {
@@ -756,6 +757,65 @@ struct Search {
 			}
 			return 0.3;
 		};
+		// A summon on their turn from the hand, Deck or Extra Deck is worth the best monster it can actually bring (its
+		// Quick Effect or what it does when it lands), and a goal it brings counts. Nothing there: a dead effect.
+		// Unknown source (no Deck / Extra Deck given): the generic share.
+		// Each card it can bring is claimed once (two Accel Synchros don't both get the one Stardust Dragon), and a second copy
+		// of the same summoner adds nothing (these effects are once per turn by name).
+		std::map<uint32_t, int> claimed; std::set<uint32_t> bringers;
+		auto bring = [&](const CardEval* e, uint32_t self, const std::string& label) {
+			if(!bringers.insert(self).second) return;
+			if(((e->bringFrom & 16) && !knowExtra) || ((e->bringFrom & 2) && setup.deck.empty())) { stops.push_back({e->bringBase * need(e), label, self}); return; }
+			std::vector<uint32_t> pool;
+			if(e->bringFrom & 16) pool.insert(pool.end(), b.extra.begin(), b.extra.end());
+			if(e->bringFrom & 1) pool.insert(pool.end(), b.hand.begin(), b.hand.end());
+			if(e->bringFrom & 2) {   // the Deck: what's left of it (cards seen on the board are out)
+				std::map<uint32_t, int> left; for(uint32_t c : setup.deck) left[c]++;
+				for(const auto* z : {&b.mzone, &b.szone, &b.hand, &b.grave, &b.banished}) for(uint32_t c : *z) if(left.count(c)) left[c]--;
+				for(auto& kv : left) for(int k = 0; k < kv.second; k++) pool.push_back(kv.first);
+			}
+			// A Synchro Summon on their turn needs materials whose Levels add up exactly: our other monsters, plus a Tuner it
+			// brings back from the GY first when its need asks for GY Tuners (Remix), plus a Level boost it gives first (Power
+			// Patron). Only Levels are checked, not material types. reach[n]: some materials add up to Level n.
+			std::vector<char> reach;
+			if(e->bringKinds & 0x2000) {
+				std::vector<int> lv; for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(c != self && it != g_cards.end() && !(it->second.type & (TYPE_XYZ | TYPE_LINK))) lv.push_back((int)(it->second.level & 0xff)); }
+				bool fromGyTuner = false; for(const auto& nd : e->needs) if(nd.where == 2 && (nd.m.kinds & 0x1000)) fromGyTuner = true;
+				std::vector<int> tun;
+				if(fromGyTuner) for(uint32_t c : b.grave) { auto it = g_cards.find(c); if(it != g_cards.end() && (it->second.type & TYPE_TUNER) && !(it->second.type & TYPE_SYNCHRO)) tun.push_back((int)(it->second.level & 0xff)); }
+				std::vector<char> any(64, 0), two(64, 0); any[0] = 1;   // any: sums of 1+ monsters (any[0]: none); two: sums of 2+
+				for(int l : lv) { std::vector<char> a2 = any, t2 = two;
+					for(int n = 0; n + l < 64; n++) { if(any[n] && n > 0) t2[n + l] = 1; if(two[n]) t2[n + l] = 1; if(any[n]) a2[n + l] = 1; }
+					any = a2; two = t2; }
+				reach.assign(64, 0);
+				for(int n = 1; n < 64; n++) {
+					if(fromGyTuner) { if(any[n]) for(int t : tun) if(n + t < 64) reach[n + t] = 1; }
+					else if(two[n]) reach[n] = 1;
+				}
+				if(e->bringLvUp > 0) for(int n = 63; n >= e->bringLvUp; n--) if(reach[n - e->bringLvUp]) reach[n] = 1;
+			}
+			double best = -1; bool goal = false; uint32_t got = 0;
+			std::map<uint32_t, int> have; for(uint32_t c : pool) have[c]++;
+			for(uint32_t c : pool) {
+				auto it = g_cards.find(c); if(c == self || it == g_cards.end() || !(it->second.type & TYPE_MONSTER) || claimed[c] >= have[c]) continue;
+				const CardRow& pc = it->second;
+				if(e->bringKinds && (pc.type & e->bringKinds) != e->bringKinds) continue;
+				if((e->bringFrom & 16) && !(e->bringFrom & 3) && !(pc.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK))) continue;
+				if((e->bringKinds & 0x2000) && !reach[(int)(pc.level & 0xff) & 63]) continue;
+				if(!e->bringTags.empty()) {
+					auto al = pc.alias ? g_cards.find(pc.alias) : g_cards.end(); const std::string* an = al != g_cards.end() ? &al->second.lname : nullptr;
+					bool ok = false; for(const auto& t : e->bringTags) ok = ok || (t.exact ? (pc.lname == t.name || (an && *an == t.name)) : (pc.lname.find(t.name) != std::string::npos || (an && an->find(t.name) != std::string::npos)));
+					if(!ok) continue;
+				}
+				double v = std::max(1.0, (double)std::max(pc.ev.field, pc.ev.onSummon));
+				bool g = (e->bringFrom & 16) && targets.count(c) > 0;
+				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; got = c; }
+			}
+			if(best < 0) { add(0.3, why ? label + ": nothing to summon" : ""); return; }
+			claimed[got]++;
+			stops.push_back({best * need(e), why ? label + " -> " + nm(got) : "", self});
+			if(goal) add(8, why ? "goal via summon: " + nm(got) : "");
+		};
 		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
 		for(size_t i = 0; i < b.mzone.size(); i++) {
 			uint32_t c = b.mzone[i]; int slot = i < b.mslot.size() ? b.mslot[i] : -1;
@@ -771,13 +831,15 @@ struct Search {
 			if(fuses) fusers.push_back(e);
 			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field * need(e), nm(c), c});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
+			if(works && e->bringAt == CardEval::AT_FIELD) bring(e, c, nm(c));
 			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
 		for(uint32_t c : b.szone) {
 			const CardEval* e = ev(c); if(!e) { add(0.3, "backrow card"); continue; }
 			if(knowExtra && (e->fusionAt == CardEval::AT_SET || e->fusionAt == CardEval::AT_FIELD)) { fusers.push_back(e); add(e->lock, why ? "lock: " + nm(c) : ""); continue; }
 			double v = std::max(e->set, e->field);
-			if(v > 0) stops.push_back({v * need(e), nm(c) + " (set)", c}); else add(0.3, why ? "backrow: " + nm(c) : "");
+			if(e->bringAt == CardEval::AT_SET || e->bringAt == CardEval::AT_FIELD) bring(e, c, nm(c) + " (set)");
+			if(v > 0) stops.push_back({v * need(e), nm(c) + " (set)", c}); else if(!e->bringAt) add(0.3, why ? "backrow: " + nm(c) : "");
 			if(e->reviveAt == CardEval::AT_SET || e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			add(e->lock, why ? "lock: " + nm(c) : "");
 		}
@@ -788,13 +850,15 @@ struct Search {
 			auto it = g_cards.find(c);
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
 			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set * need(e), nm(c) + " (set from hand)", c}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
-			else if(e && e->hand > 0) { stops.push_back({e->hand * need(e), nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); }
+			else if(settable && room && e && e->bringAt == CardEval::AT_SET) { bring(e, c, nm(c) + " (set from hand)"); room--; }
+			else if(e && e->hand > 0) { stops.push_back({e->hand * need(e), nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); if(e->bringAt == CardEval::AT_HAND) bring(e, c, nm(c) + " (hand)"); }
+			else if(e && e->bringAt == CardEval::AT_HAND) bring(e, c, nm(c) + " (hand)");
 			// Anything else is for later: an extender for their turn, a starter for our next turn, or just a card.
 			else if(e && e->handExtender) add(0.8, why ? "hand (extender on their turn): " + nm(c) : "");
 			else if(e && e->starter) add(0.6, why ? "hand (starter next turn): " + nm(c) : "");
 			else add(0.3, why ? "hand: " + nm(c) : "");   // (or one drawn during the line)
 		}
-		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)", c}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); }
+		for(uint32_t c : b.grave) { const CardEval* e = ev(c); if(e && e->gy > 0) stops.push_back({e->gy * 0.8, nm(c) + " (GY)", c}); if(e && e->reviveAt == CardEval::AT_GY) revivers.push_back(e); if(e && e->bringAt == CardEval::AT_GY) bring(e, c, nm(c) + " (GY)"); }
 		// Revival: each reviver brings back the best monster in the GY that fits what it asks for, and that monster's
 		// interruption counts too (an Elfnote that June Pride or Rhapsodia returns on their turn). Any-monster
 		// revivers count for less: their text often has conditions this doesn't read (Type, Attribute).
@@ -1423,7 +1487,7 @@ struct Search {
 		auto keep_value = [&](uint32_t c) -> double {
 			if(usedNow.count(c)) return 0.2;
 			auto it = g_cards.find(c); double v = card_value(c);
-			if(it != g_cards.end() && (it->second.ev.fusionAt || it->second.ev.handExtender || it->second.ev.reviveAt)) v += 1.5;
+			if(it != g_cards.end() && (it->second.ev.fusionAt || it->second.ev.handExtender || it->second.ev.reviveAt || it->second.ev.bringAt)) v += 1.5;
 			return v;
 		};    // whether each activation was by a card we had (decided when it activated)
 		struct Before { int dfusion = 0, celtic = 0, charge = 0, hand = 0, oppLp = 0, ourLp = 0, ourMons = 0; } before;   // what each play's success check compares against
@@ -1884,6 +1948,8 @@ int main(int argc, char** argv) {
 				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
 				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}};
+				if(e.bringAt) { json ts = json::array(); for(const auto& t : e.bringTags) ts.push_back(t.name + (t.exact ? "" : "*"));
+					out[std::to_string(c)]["brings"] = {{"at", e.bringAt}, {"from", e.bringFrom}, {"kinds", e.bringKinds}, {"tags", ts}, {"base", e.bringBase}}; }
 				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; }
 				if(!e.needs.empty()) { json ms = json::array(); for(const auto& nd : e.needs) ms.push_back({{"where", nd.where == 2 ? "gy" : "field"}, {"n", nd.n}, {"tag", nd.m.tag}, {"mentions", nd.m.mentions}, {"kinds", nd.m.kinds}, {"attr", nd.m.attr}, {"race", nd.m.race}}); out[std::to_string(c)]["needs"] = ms; } }
 			emit({{"id", id}, {"eval", out}}); continue;

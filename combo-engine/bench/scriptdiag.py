@@ -39,7 +39,7 @@ def their_turn(e, typ):
     if "ACTIVATE" in t and (typ & 0x4 or typ & 0x10000): return True   # Trap / Quick-Play activation
     if "TRIGGER" in t and any(x in code for x in ("EVENT_SPSUMMON", "EVENT_SUMMON", "EVENT_CHAINING", "EVENT_ATTACK", "EVENT_BE_BATTLE")): return True
     return False
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8")
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:

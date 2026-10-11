@@ -95,8 +95,12 @@ Key parts of `src/main.cpp`:
   Shining Neos Wingman's destroy) and its goal +8. Nothing makeable = dead card.
   End-board goals (`targets`) add +8 each. `{"cmd":"eval","cards":[...]}` shows what it read from cards;
   `{"cmd":"score", field/zones/backrow/hand/gy/banished/extra/targets}` scores any board with a per-card breakdown.
-  Rules tuned against guide boards: summoning itself is no stop; a generic opponent's-turn summon is 1.5, a revival 0.5
-  (+ what it brings back, chains included); negates: "a card or effect" +0.5, Spell/Trap-only -0.7, "would destroy" -1.5;
+  Rules tuned against guide boards: summoning itself is no stop; a revival 0.5 (+ what it brings back, chains included);
+  an opponent's-turn summon from the hand / Deck / Extra Deck is worth the best monster it can actually bring (`bring*`
+  in CardEval, judged in score_of: Accel Synchro -> "Stardust Dragon"; Remix / Kewl Tune Synchro -> a Tuner Synchro
+  whose Level the materials can hit exactly, Remix only with 2 non-Synchro Tuners in the GY; Ecclesia -> a "Swordsoul"
+  or "Fallen of Albaz" left in the Deck/hand; each card claimed once, one use per summoner name; unknown Deck/Extra
+  -> the old generic 1.5); Fallen of Albaz landing on their turn = removal 2.0 (fuses with their monster); negates: "a card or effect" +0.5, Spell/Trap-only -0.7, "would destroy" -1.5;
   attack-only locks 0.5. End hand: handtraps are stops, Traps/Quick-Plays count as set, an extender that summons itself
   from hand on their turn 0.8, a next-turn starter (searches the Deck) 0.6, anything else 0.3.
 - **Opponent's-turn simulation** (`"sim":true`; `simulate` / `sim_once` in main.cpp): re-ranks the returned boards by
@@ -160,8 +164,8 @@ then `cmake --build build`. CI shows the exact downloads. Data for tests: CardSc
 - **Engine bench**: `combo-engine/bench/bench.py <engine> <cards.cdb> <scripts.zip> <hand codes> <secs> <maxActions> [threads] [mode] [targets]`
   with `DECK_JSON=combo-engine/bench/omni.json` (Omni HERO) or `elfnote.json`; `ZONES=0/1` forces zone mode.
   Reference results (Stratos + Faris, Omni list): ends on Sunrise ×2 + DPE + Favorite Contact set (FC -> Shining Neos
-  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (120s, after the pick cap): Crystal Wing + Junora +
-  Dawn Dragster (center), Welcome Home + Rhapsodia set (15.24; before: Accel Synchro Stardust board, 15.04). The guide board
+  Wingman live: Neos + Infernal Rage in GY/banished). Elfnote Lucina (120s, after the summon-value rule): Crystal Wing +
+  Dawn Dragster + Accel Synchro Stardust (center), Welcome Home + Rhapsodia set (15.41; before: Junora board 15.24). The guide board
   (Baronne + Crystal Wing, Rhapsodia set, Strelitzia in GY) scores 14.47 and is reached when Baronne is a goal; see
   `bench/refs/elfnote.json`.
 - **GitHub deep test**: edit `combo-engine/bench/run.json` and push (this session's GitHub access can't start runs by API).
@@ -239,8 +243,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   (Dracotail Sting), Extra-Deck-monster-only negates count like Spell/Trap-only (Rindbrumm), "opponent's turn" isn't
   "their card" (Rindbrumm's GY revival had scored as removal). Note: the judge tally swings 15-20 between runs with the
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
-  Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), generic opponent's-turn summons (Incredible
-  Ecclesia, Albion the Sanctifire: 1.5 but rarely stop anything), Kewl Tune Loudness War (copies a GY effect: text 0).
+  Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), Albion the Sanctifire (still a generic 1.5: it
+  summons from any GY to each field), Kewl Tune Loudness War (copies a GY effect: text 0).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
   static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are
@@ -293,5 +297,7 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   OTK lines, and some end boards include what's made on the opponent's turn, so guide scores there are rough).
   Engine matches or beats the guide on 23 of 26. Real lesson from "1 Card Mix": the guide ends on Kewl Tune Remix,
   which on their turn Tributes itself, revives a Tuner and Synchro Summons (into RS, a negate) plus adds a card; the
-  engine rates Remix as a generic summon (1.5) and picks RS (3.0) instead. Next: value opponent's-turn Synchro Summons
-  by the best Synchro they can actually make (like Favorite Contact's Fusion check), then recheck Elfnote/Kewl Tune.
+  engine rated Remix as a generic summon (1.5). Fixed by the summon-value rule (opponent's-turn summons worth what they
+  can bring). compare.py, 20s per hand, before -> after: Kewl Tune exact guide field 3 -> 7 of 26; Dracotail 6 -> 8 of 18
+  (guide better 3 -> 2); Branded guide better 7 -> 6 of 15. Note: most Kewl Tune guide boards were imported without
+  their GY, so score.py undercounts Remix on those; judge by searches (real GYs).

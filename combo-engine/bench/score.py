@@ -15,7 +15,7 @@ def code(x):
     if c is None: sys.exit("unknown card: %s" % x)
     return c
 spec = json.load(open(spec, encoding="utf-8"))
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
     while True:
@@ -25,7 +25,12 @@ ask({"id": 1, "cmd": "init", "cdb": cdb, "scripts": scripts})
 extra = [code(x) for x in spec.get("extra", [])]
 targets = [code(x) for x in spec.get("targets", [])]
 for i, b in enumerate(spec["boards"]):
-    q = {"id": 10 + i, "cmd": "score", "extra": extra, "targets": targets, "zones": b.get("zones", [])}
+    left = list(extra)   # Extra Deck monsters already on the board came out of the Extra Deck
+    for k in ("field", "gy", "banished", "backrow"):
+        for x in b.get(k, []):
+            c = code(x)
+            if c in left: left.remove(c)
+    q = {"id": 10 + i, "cmd": "score", "extra": left, "targets": targets, "zones": b.get("zones", [])}
     for k in ("field", "backrow", "hand", "gy", "banished"): q[k] = [code(x) for x in b.get(k, [])]
     w = ask(q)["score"]
     print("\n== %s: %.2f" % (b.get("name", "board %d" % (i + 1)), w.get("total", 0)))

@@ -13,7 +13,7 @@ db = sqlite3.connect(cdb)
 def n(c):
     if c == 0: return "(a drawn card)"
     r = db.execute("select name from texts where id=?", (c,)).fetchone(); return r[0] if r else str(c)
-p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, bufsize=1)
+p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def send(o): p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()
 last = [0]
 def wait(i):
