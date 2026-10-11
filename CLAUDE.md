@@ -243,8 +243,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   text misreads.
 - FOR THE UI SESSION (owner approved): a "This line is wrong" feedback button on suggested lines / end boards (Duel tab
   combo finder results and the Lines tab's generated lines). Small form: optional note "What's wrong / what would you do
-  instead?". On send, insert into Supabase `line_feedback` (table + RLS at the bottom of `supabase/schema.sql`; the
-  owner must run that part first): `deck` (deck name + id), `hand` (card codes), `suggested` (the line's steps and end
+  instead?". On send, insert into Supabase `line_feedback` (table + RLS at the bottom of `supabase/schema.sql`, already
+  run by the owner): `deck` (deck name + id), `hand` (card codes), `suggested` (the line's steps and end
   board as shown: field / backrow / hand / gy, score, and the app version), `note`. Readable only by the writer, the
   admin and the enginetest account; Claude reads reports with `tools/feedback.py` and turns them into engine test
   cases. Signed-in users only; nothing in the UI should mention admin. Check with the owner on placement/look.
