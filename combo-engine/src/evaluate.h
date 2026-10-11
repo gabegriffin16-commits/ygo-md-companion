@@ -41,6 +41,7 @@ struct CardEval {
 	// Fusion on the opponent's turn from the Extra Deck (Favorite Contact). Used from: an AT_ value. fusionFrom: where
 	// its materials can come from (1 hand, 2 field, 4 GY, 8 banished). fusionTag: what the Fusion must mention ("hero").
 	uint8_t fusionAt = 0, fusionFrom = 0;
+	uint64_t fusionRace = 0; int fusionMinLv = 0;   // what the Fusion must be: "a Dragon or Spellcaster Fusion Monster", "Level 8 or higher"
 	std::string fusionTag;
 	// A Fusion Monster's materials from its first line ("Elemental HERO Neos" + 1 "Wingman" Fusion Monster).
 	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
@@ -322,6 +323,13 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			// "...that mentions a "HERO" monster as material": the first quoted name near "Fusion Monster".
 			size_t q = e.find('"'), q2 = q == std::string::npos ? q : e.find('"', q + 1);
 			if(q2 != std::string::npos && q < e.find("fusion monster") + 60) r.fusionTag = e.substr(q + 1, q2 - q - 1);
+			// "Fusion Summon 1 Dragon or Spellcaster Fusion Monster" (Faimena), "1 Level 8 or higher Fusion Monster" (Cartesia)
+			size_t fm = e.find("fusion monster"), st = e.rfind("summon", fm == std::string::npos ? 0 : fm);
+			if(fm != std::string::npos && st != std::string::npos && fm - st < 60) {
+				std::string ph = e.substr(st + 6, fm - st - 6);
+				auto ms = materials(ph + " monster"); if(!ms.empty()) r.fusionRace = ms[0].race;
+				size_t lv = ph.find("level "); if(lv != std::string::npos && has(ph.substr(lv), "or higher")) r.fusionMinLv = std::atoi(ph.c_str() + lv + 6);
+			}
 		}
 		if(theirTurn && !r.reviveAt) {
 			std::string tag; int lv = 99;

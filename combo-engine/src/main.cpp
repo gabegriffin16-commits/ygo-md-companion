@@ -857,6 +857,8 @@ struct Search {
 			bool settable = it != g_cards.end() && ((it->second.type & TYPE_TRAP) || ((it->second.type & TYPE_SPELL) && (it->second.type & TYPE_QUICKPLAY)));
 			if(settable && room && e && e->set >= (e->hand > 0 ? e->hand : 0) && e->set > 0) { if(knowExtra && e->fusionAt == CardEval::AT_SET) fusers.push_back(e); else stops.push_back({e->set * need(e), nm(c) + " (set from hand)", c}); room--; if(e->reviveAt == CardEval::AT_SET) revivers.push_back(e); }
 			else if(settable && room && e && e->bringAt == CardEval::AT_SET) { bring(e, c, nm(c) + " (set from hand)"); room--; }
+			// A Fusion it makes from the hand on their turn (Faimena: discard itself) is worth that Fusion, judged with the others.
+			else if(knowExtra && e && e->fusionAt == CardEval::AT_HAND) fusers.push_back(e);
 			else if(e && e->hand > 0) { stops.push_back({e->hand * need(e), nm(c) + " (hand)", c}); if(e->reviveAt == CardEval::AT_HAND) revivers.push_back(e); if(e->bringAt == CardEval::AT_HAND) bring(e, c, nm(c) + " (hand)"); }
 			else if(e && e->bringAt == CardEval::AT_HAND) bring(e, c, nm(c) + " (hand)");
 			// Anything else is for later: an extender for their turn, a starter for our next turn, or just a card.
@@ -928,11 +930,14 @@ struct Search {
 			if(fz->fusionFrom & 2) addp(b.mzone);
 			if(fz->fusionFrom & 4) addp(b.grave);
 			if(fz->fusionFrom & 8) addp(b.banished);
+			if(fz->fusionAt == CardEval::AT_HAND) { auto at = std::find(pool.begin(), pool.end(), fz->code); if(at != pool.end()) pool.erase(at); }   // it discards itself
 			double best = -1; bool goal = false; uint32_t made = 0; std::set<uint32_t> tried;
 			for(uint32_t fc : b.extra) {
 				auto fi = g_cards.find(fc);
 				if(!tried.insert(fc).second || fi == g_cards.end() || !(fi->second.type & TYPE_FUSION) || fi->second.ev.mats.empty()) continue;
 				const auto& mats = fi->second.ev.mats;
+				if(fz->fusionRace && !(fi->second.race & fz->fusionRace)) continue;
+				if(fz->fusionMinLv && (int)(fi->second.level & 0xff) < fz->fusionMinLv) continue;
 				if(!fz->fusionTag.empty()) { bool ok = false; for(const auto& m : mats) if(m.tag.find(fz->fusionTag) != std::string::npos) ok = true; if(!ok) continue; }
 				// Exact names first, then Fusion-only parts, then loose ones, so a loose part can't take what an exact one needs.
 				std::vector<const CardEval::Mat*> order; for(const auto& m : mats) order.push_back(&m);
@@ -2014,7 +2019,7 @@ int main(int argc, char** argv) {
 				out[std::to_string(c)] = {{"name", it->second.name}, {"field", e.field}, {"set", e.set}, {"hand", e.hand}, {"gy", e.gy}, {"lock", e.lock}, {"sturdy", e.sturdy}};
 				if(e.reviveAt) out[std::to_string(c)]["revive"] = {{"from", e.reviveAt}, {"tag", e.reviveTag}, {"maxLevel", e.reviveMaxLv}};
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
-				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}};
+				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}, {"race", e.fusionRace}, {"minLevel", e.fusionMinLv}};
 				if(e.bringAt) { json ts = json::array(); for(const auto& t : e.bringTags) ts.push_back(t.name + (t.exact ? "" : "*"));
 					out[std::to_string(c)]["brings"] = {{"at", e.bringAt}, {"from", e.bringFrom}, {"kinds", e.bringKinds}, {"tags", ts}, {"base", e.bringBase}}; }
 				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; }
