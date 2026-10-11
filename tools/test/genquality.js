@@ -32,6 +32,17 @@ const refFile = path.join(root, "tools/test/genquality-ref.json");
   await h.handlers["gen:start"](null, { deckId: "q", name: "q", deck: d.main, extra: d.extra, hands, sig: "x", targets: [] });
   while ((await h.handlers["gen:status"]()).running) await new Promise(r => setTimeout(r, 1000));
   const genSecs = (Date.now() - t0) / 1000;
+  // IMPROVE=<seconds>: let the background improver run that long (the app idle) before measuring
+  const wait = Number(process.env.IMPROVE || 0);
+  const measure = async (label) => {
+    let sum = 0, refSum = 0, worse = 0;
+    for (const hand of hands) {
+      const r = await h.handlers["combo:search"](null, { deck: d.main, extra: d.extra, hand, timeMs: 50, top: 1 });
+      const got = r.boards && r.boards[0] ? r.boards[0].score : 0, want = ref[hand.join(",")];
+      sum += got; refSum += want; if (got < want - 0.05) worse++;
+    }
+    console.log("%s: total %s vs reference %s (%s%%); %d of %d hands below", label, sum.toFixed(2), refSum.toFixed(2), (100 * sum / refSum).toFixed(1), worse, hands.length);
+  };
   const lines = JSON.parse(fs.readFileSync(path.join(h.userData, "generated", "q.json"), "utf8")).lines;
   // what generation found per hand: a near-zero search returns the remembered best line
   let sum = 0, refSum = 0, worse = 0;
@@ -42,5 +53,11 @@ const refFile = path.join(root, "tools/test/genquality-ref.json");
     console.log("%s  generation %s  reference %s%s", hand.join("+").padEnd(18), got.toFixed(2), want.toFixed(2), got < want - 0.05 ? "  <- below" : got > want + 0.05 ? "  (better)" : "");
   }
   console.log("\ngeneration took %ss, %d lines; total %s vs reference %s (%s%%); %d of %d hands below the reference", genSecs.toFixed(0), lines.length, sum.toFixed(2), refSum.toFixed(2), (100 * sum / refSum).toFixed(1), worse, hands.length);
+  if (wait) {
+    await new Promise(r => setTimeout(r, wait * 1000));
+    const improved = h.events.filter(e => e.name === "overlay-gen" && e.detail && e.detail.state === "improved").length;
+    console.log("background improver: %d improvements in %ds", improved, wait);
+    await measure("after background improving");
+  }
   process.exit(0);
 })().catch(e => { console.error(e); process.exit(1); });

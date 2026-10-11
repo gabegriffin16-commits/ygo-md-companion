@@ -226,6 +226,13 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
   Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), generic opponent's-turn summons (Incredible
   Ecclesia, Albion the Sanctifire: 1.5 but rarely stop anything), Kewl Tune Loudness War (copies a GY effect: text 0).
+- Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
+  statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
+  static read is too noisy to drive scoring (effects built by helper functions, e.g. Fusion.CreateSummonEff, are
+  invisible; whose summon a trigger reacts to is in Lua conditions). The right way, when needed: after a card's
+  initial_effect runs in a duel, read its registered effects from the core (type, code, category, range, count limit;
+  helpers included) via reset.cpp-style access to the core's card structures. Do it when feedback or a new deck shows
+  text misreads.
 - FOR THE UI SESSION (owner approved): a "This line is wrong" feedback button on suggested lines / end boards (Duel tab
   combo finder results and the Lines tab's generated lines). Small form: optional note "What's wrong / what would you do
   instead?". On send, insert into Supabase `line_feedback` (table + RLS at the bottom of `supabase/schema.sql`; the

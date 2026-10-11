@@ -693,8 +693,12 @@ struct Search {
 	std::vector<Bytes> bestPath;   // the line to the best board so far (the beam keeps the states along it)
 	mutable std::atomic<bool> stoppedStable{false};
 	double elapsed() const { return std::chrono::duration<double>(Clock::now() - t0).count(); }
+	// maxReplays: a work budget instead of the clock (reproducible tests: the same engine gives the same answer however
+	// busy the machine is).
+	uint64_t maxReplays = 0; size_t widthGrowth = 3;
 	bool out_of_time() const {
 		if(stop.load() || stoppedStable.load()) return true;
+		if(maxReplays && replays.load() >= maxReplays) return true;
 		double el = elapsed();
 		if(el > timeLimit) return true;
 		if(stableFrac > 0 && el >= stableMin && el - bestAt.load() >= stableFrac * el) { stoppedStable = true; return true; }
@@ -1222,7 +1226,7 @@ struct Search {
 	std::atomic<bool> capped{false};   // this pass skipped some card picks (so it didn't check every line)
 	int beamThreads = 1; bool beam_complete = false; size_t beam_width = 0; int beam_depth = 0;
 	void beam() {
-		for(size_t width = width0; !out_of_time(); width *= 3) {
+		for(size_t width = width0; !out_of_time(); width *= widthGrowth) {
 			{ std::lock_guard<std::mutex> lk(vmx); bvisited.clear(); }
 			{ std::lock_guard<std::mutex> lk(cmx); prevKids.swap(curKids); curKids.clear(); }   // reuse only the last pass's expansions
 			capped = false;
@@ -1309,13 +1313,28 @@ struct Search {
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
 			zone_opts(m, st, opts);
 			const Opt* pick = nullptr; for(auto& o : opts) if(o.label == labels[li]) { pick = &o; break; }
-			if(!pick) break;
+			if(!pick) {
+				if(getenv("MDC_SEEDLOG")) { std::string have; for(auto& o : opts) have += " [" + o.label + "]"; fprintf(stderr, "seed stops at label %zu of %zu: wanted [%s], prompt type %d offers%s\n", li, labels.size(), labels[li].c_str(), m.type, have.substr(0, 300).c_str()); }
+				break;
+			}
 			if(m.type == MSG_SELECT_IDLECMD) { record(*d, st); if(starts.size() < 64) starts.push_back(st); }
 			Opt o = *pick;
 			d->respond(o.resp); take(st, o);
 			if(o.main && m.type == MSG_SELECT_IDLECMD) st.actions++;
 			li++;
 			if(!d->run(m, retry)) return;
+		}
+		// The labels can end before the board is recorded: after "end turn" the End Phase and the opponent's Draw Phase
+		// still run (their prompts, our forced or single choices) until their Main Phase, where the board counts.
+		for(int guard = 0; guard < 200 && m.type != MSG_SELECT_IDLECMD; guard++) {
+			if(m.player == 1) { bool hn; Opt o = opp_choice(m, st, hn); d->respond(o.resp); st.path.push_back(o.resp); }
+			else {
+				std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
+				if(m.type == MSG_SELECT_CHAIN && !m.forced) { Opt o; o.label = "no chain"; o.resp = p32(-1); opts = {o}; }
+				if(opts.size() != 1) break;
+				d->respond(opts[0].resp); take(st, opts[0]);
+			}
+			bool rt; if(!d->run(m, rt)) return;
 		}
 		if(m.type == MSG_SELECT_IDLECMD) record(*d, st);
 	}
@@ -1889,6 +1908,8 @@ int main(int argc, char** argv) {
 			s->wantLabels = req.value("labels", false);
 			s->simOn = req.value("sim", false);
 			s->beamShare = std::min(1.0, std::max(0.0, req.value("beamShare", 0.5)));
+			s->maxReplays = req.value("maxReplays", (uint64_t)0);
+			s->widthGrowth = (size_t)std::max(2, std::min(6, req.value("growth", 3)));
 			if(req.contains("seeds") && req["seeds"].is_array()) for(auto& sd : req["seeds"]) if(sd.is_array()) { std::vector<std::string> v; for(auto& l : sd) if(l.is_string()) v.push_back(l.get<std::string>()); if(!v.empty()) s->seeds.push_back(v); }
 			s->mode = req.value("mode", std::string());
 			{

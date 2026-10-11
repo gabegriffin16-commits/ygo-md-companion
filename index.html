@@ -4066,7 +4066,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       rec.gen = g; MDC.put(rec);
       if (CF.bld && CF.bld.id === deckId) CF.bld.gen = g;
       if (deckId === PILOT_ID && !HEROMODE){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
-      toast("Lines ready for " + (rec.name || "your deck"));
+      if (!data.quiet) toast("Lines ready for " + (rec.name || "your deck"));   // quiet: background improvements to lines you already have
       return true;
     });
   }
@@ -4075,6 +4075,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     window.addEventListener("overlay-gen", function(e){
       var d = e.detail || {};
       if (d.state === "running") GEN.run = d;
+      else if (d.state === "improved") { genImport(d.deckId); return; }   // the app kept improving lines in the background
       else { GEN.run = null; if (d.state === "ready") genImport(d.deckId); else if (d.state === "error") toast("Couldn't generate lines: " + (d.note || "unknown error"), 4000); }
       genPaintAll();
     });
