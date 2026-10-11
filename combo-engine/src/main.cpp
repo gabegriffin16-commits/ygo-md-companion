@@ -786,7 +786,8 @@ struct Search {
 			std::vector<char> reach;
 			if(e->bringKinds & 0x2000) {
 				std::vector<int> lv; for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(c != self && it != g_cards.end() && !(it->second.type & (TYPE_XYZ | TYPE_LINK))) lv.push_back((int)(it->second.level & 0xff)); }
-				bool fromGyTuner = false; for(const auto& nd : e->needs) if(nd.where == 2 && (nd.m.kinds & 0x1000)) fromGyTuner = true;
+				bool fromGyTuner = e->bringGyTuner; for(const auto& nd : e->needs) if(nd.where == 2 && (nd.m.kinds & 0x1000)) fromGyTuner = true;
+				if(e->bringSelf) { auto it = g_cards.find(self); if(it != g_cards.end()) lv.push_back((int)(it->second.level & 0xff)); }   // it's a material too
 				std::vector<int> tun;
 				if(fromGyTuner) for(uint32_t c : b.grave) { auto it = g_cards.find(c); if(it != g_cards.end() && (it->second.type & TYPE_TUNER) && !(it->second.type & TYPE_SYNCHRO)) tun.push_back((int)(it->second.level & 0xff)); }
 				std::vector<char> any(64, 0), two(64, 0); any[0] = 1;   // any: sums of 1+ monsters (any[0]: none); two: sums of 2+
@@ -838,6 +839,11 @@ struct Search {
 			if(e->field > 0 && works && !(fuses && e->field <= 1.5f)) stops.push_back({e->field * need(e), nm(c), c});
 			if(works && e->reviveAt == CardEval::AT_FIELD) revivers.push_back(e);
 			if(works && e->bringAt == CardEval::AT_FIELD) bring(e, c, nm(c));
+			// Applies a GY card's "sent to the GY as Synchro Material" effect on their turn (Loudness War): the best one there.
+			if(works && e->copyMat) { double best = 0; uint32_t pick = 0;
+				for(uint32_t g : b.grave) { auto it = g_cards.find(g); if(it == g_cards.end() || (!e->copyTag.empty() && it->second.lname.find(e->copyTag) == std::string::npos)) continue;
+					if(it->second.ev.matHurt > best) { best = it->second.ev.matHurt; pick = g; } }
+				if(best > 0) stops.push_back({best, why ? nm(c) + " copies " + nm(pick) : "", c}); }
 			add(works ? e->lock : 0, why ? "lock: " + nm(c) : ""); add(e->sturdy, why ? "sturdy: " + nm(c) : "");
 		}
 		for(uint32_t c : b.szone) {
@@ -959,6 +965,8 @@ struct Search {
 				bool g = targets.count(fc) > 0;
 				if(v + (g ? 8 : 0) > best + (goal ? 8 : 0)) { best = v; goal = g; made = fc; }
 			}
+			// Using their monster as material (Super Polymerization) removes it whatever we make: at least a removal.
+			if(fz->fusionEither && best < 2.3) { best = 2.3; if(!made) { stops.push_back({best, why ? std::string("fusion with their monster") : "", fz->code}); continue; } }
 			if(best < 0) { add(0.3, "dead Fusion card (nothing to make)"); continue; }
 			stops.push_back({best, why ? "fusion into " + nm(made) : "", fz->code});
 			if(goal) add(8, why ? "goal via fusion: " + nm(made) : "");
@@ -1990,8 +1998,9 @@ int main(int argc, char** argv) {
 			emit({{"id", id}, {"ready", true}, {"cards", g_cards.size()}, {"scripts", g_zip_index.size()}});
 			continue;
 		}
-		if(cmd == "score") {   // score any board and say why: {"field":[..],"zones":[..],"backrow","hand","gy","banished","extra","targets"}
+		if(cmd == "score") {   // score any board and say why: {"field":[..],"zones":[..],"backrow","hand","gy","banished","extra","targets","deck"}
 			Search sc; for(uint32_t t : ids(req, "targets")) sc.targets.insert(t);
+			sc.setup.deck = ids(req, "deck");   // optional: the Main Deck, for cards that summon from it on their turn
 			Board b; b.mzone = ids(req, "field"); b.szone = ids(req, "backrow"); b.hand = ids(req, "hand");
 			b.grave = ids(req, "gy"); b.banished = ids(req, "banished"); b.extra = ids(req, "extra");
 			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) b.mslot.push_back(z.get<int>());

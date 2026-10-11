@@ -41,7 +41,7 @@ struct CardEval {
 	// Fusion on the opponent's turn from the Extra Deck (Favorite Contact). Used from: an AT_ value. fusionFrom: where
 	// its materials can come from (1 hand, 2 field, 4 GY, 8 banished). fusionTag: what the Fusion must mention ("hero").
 	uint8_t fusionAt = 0, fusionFrom = 0;
-	uint64_t fusionRace = 0; int fusionMinLv = 0;   // what the Fusion must be: "a Dragon or Spellcaster Fusion Monster", "Level 8 or higher"
+	uint64_t fusionRace = 0; int fusionMinLv = 0; bool fusionEither = false;   // what the Fusion must be: "a Dragon or Spellcaster Fusion Monster", "Level 8 or higher"
 	std::string fusionTag;
 	// A Fusion Monster's materials from its first line ("Elemental HERO Neos" + 1 "Wingman" Fusion Monster).
 	// Empty when a part has no quoted name (e.g. "2 monsters with different Attributes"): can't be checked.
@@ -61,7 +61,12 @@ struct CardEval {
 	// from the hand or Deck. bringAt: an AT_ value; bringFrom: 1 hand, 2 Deck, 16 Extra Deck; bringKinds: what an
 	// Extra Deck summon must be (Synchro 0x2000, Tuner 0x1000); bringBase: the generic share it replaces.
 	struct Tag { std::string name; bool exact = false; };
-	uint8_t bringAt = 0, bringFrom = 0; uint32_t bringKinds = 0; float bringBase = 0; int bringLvUp = 0;   // "increase its Level by 3" first (Elfnote Power Patron)
+	uint8_t bringAt = 0, bringFrom = 0; uint32_t bringKinds = 0; float bringBase = 0; int bringLvUp = 0;
+	bool bringSelf = false;    // it is one of the materials (Kewl Tune Clip: Special Summon this card, then Synchro Summon)
+	bool bringGyTuner = false; // a Tuner comes back from the GY first and can be a material (Remix, B2B)
+	// "If this card is sent to the GY as Synchro Material: ..." worth (Kewl Tune Mix: destroy a monster), and a card that
+	// applies such an effect from the GY on their turn (Kewl Tune Loudness War); copyTag: what it can banish to copy.
+	float matHurt = 0; bool copyMat = false; std::string copyTag;   // "increase its Level by 3" first (Elfnote Power Patron)
 	std::vector<Tag> bringTags;
 };
 
@@ -102,30 +107,43 @@ inline bool theirs(const std::string& e) {
 }
 inline float hurt(const std::string& e) {
 	float v = 0;
+	// What it does comes after the condition: "If a Fusion Monster you control is destroyed by an opponent's card effect,
+	// while this card is in your GY: ..." (Dracotail Pan) destroys nothing. Narrowing words (whose effects a negate
+	// answers) can still be in the condition, so the adjustments below read the whole text.
+	const std::string full = e; const size_t colon = full.find(':');
+	const std::string x = colon == std::string::npos ? full : full.substr(colon + 1);
+	{ const std::string& e = x;
 	if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
 	else if(has(e, "negate")) v = 3.0f;
 	// "Opponent's" means their cards, not "during your opponent's turn" (Rindbrumm reviving itself from the GY on their
 	// turn isn't removal). Banishing cards from their GY stops no play (Dracotail Sting).
-	else if(has(e, "banish") && !has(e, "your opponent controls") && !has(e, "on the field") && (has(e, "opponent's gy") || has(e, "any gy") || has(e, "either gy") || has(e, "opponent's graveyard"))) v = 0.3f;
-	else if(has(e, "banish") && (has(e, "your opponent controls") || has(e, "on the field") || theirs(e))) v = 2.5f;
+	// "banish" the verb, not "banished cards" (a place: Lubellion shuffles materials from "face-up banished cards").
+	else if((has(e, "banish ") || has(e, "banish,")) && !has(e, "your opponent controls") && !has(e, "on the field") && (has(e, "opponent's gy") || has(e, "any gy") || has(e, "either gy") || has(e, "opponent's graveyard"))) v = 0.3f;
+	else if((has(e, "banish ") || has(e, "banish,")) && has(e, "random card from your opponent's hand")) v = 2.0f;   // Tinia: a random card, back at the End Phase
+	else if((has(e, "banish ") || has(e, "banish,")) && has(e, "extra deck") && !has(e, "on the field") && !has(e, "your opponent controls")) v = 1.0f;   // from their Extra Deck (Crackle): no play stopped
+	else if((has(e, "banish ") || has(e, "banish,")) && (has(e, "your opponent controls") || has(e, "on the field") || theirs(e))) v = 2.5f;
 	else if(has(e, "destroy") && (has(e, "your opponent controls") || has(e, "on the field") || theirs(e) || has(e, "that card") || has(e, "that monster"))) v = 2.0f;
-	else if((has(e, "return") && has(e, "to the hand")) || has(e, "shuffle") || has(e, "to the extra deck")) v = has(e, "opponent") || has(e, "on the field") ? 2.0f : 0;
+	// Their cards, not ours: "shuffling Fusion Materials ... from your monsters on the field" (Lubellion) removes nothing.
+	else if((has(e, "return") && has(e, "to the hand")) || has(e, "shuffle") || has(e, "to the extra deck")) v = theirs(e) || has(e, "your opponent controls") || (has(e, "on the field") && !has(e, "your monsters on the field") && !has(e, "fusion material")) ? 2.0f : 0;
 	else if(has(e, "take control") || has(e, "gain control")) v = 2.5f;
 	else if(has(e, "tribute") && (has(e, "on the field") || has(e, "your opponent controls"))) v = 2.5f;
 	else if(has(e, "draw") && has(e, "opponent") && (has(e, "special summon") || has(e, "activates"))) v = 2.0f;   // Maxx "C" and friends
 	else if(has(e, "send") && has(e, "to the gy") && (has(e, "your opponent controls") || has(e, "opponent's"))) v = 2.0f;
 	else if(has(e, "change") && has(e, "face-down")) v = 1.5f;
+	else if(has(e, "cannot be added")) v = 2.0f;   // Droll & Lock Bird: no more searches this turn
 	else if(has(e, "cannot activate") && has(e, "opponent")) v = 1.5f;
 	else if(has(e, "loses") && has(e, "atk") && has(e, "opponent")) v = 0.5f;
+	}
 	// How broad a negate is: "a card or effect" (Baronne) beats one card kind (Crystal Wing: monster effects); one that
 	// only answers destruction (Stardust) is narrow.
-	if(v >= 3.0f && has(e, "a card or effect is activated") && !has(e, "would destroy")) v += 0.5f;
-	if(v >= 3.0f && has(e, "would destroy")) v -= 1.5f;
-	if(v >= 3.0f && has(e, "spell/trap") && !has(e, "monster")) v -= 0.7f;   // combos run on monster effects
-	if(v >= 3.0f && (has(e, "fusion, synchro, xyz, or link monster") || has(e, "extra deck monster's effect"))) v -= 0.7f;   // only Extra Deck monsters' effects (Rindbrumm)
-	if(v > 0 && has(e, "tribute this card")) v -= 0.5f;              // spends itself
-	if(v > 0 && !has(e, "target")) v += 0.3f;                       // non-targeting gets around protection
-	if(v > 0 && has(e, "and if you do, destroy")) v += 0.3f;
+	if(v >= 3.0f && has(full, "a card or effect is activated") && !has(full, "would destroy")) v += 0.5f;
+	if(v >= 3.0f && has(full, "would destroy")) v -= 1.5f;
+	if(v >= 3.0f && has(full, "spell/trap") && !has(full, "monster")) v -= 0.7f;   // combos run on monster effects
+	if(v >= 3.0f && has(full, "face-up spell") && !has(full, "monster") && !has(full, "trap")) v -= 1.5f;   // only a face-up Spell (Dracotail Flame): narrow
+	if(v >= 3.0f && (has(full, "fusion, synchro, xyz, or link monster") || has(full, "extra deck monster's effect"))) v -= 0.7f;   // only Extra Deck monsters' effects (Rindbrumm)
+	if(v > 0 && has(full, "tribute this card")) v -= 0.5f;              // spends itself
+	if(v > 0 && !has(full, "target")) v += 0.3f;                       // non-targeting gets around protection
+	if(v > 0 && has(full, "and if you do, destroy")) v += 0.3f;
 	return v;
 }
 // "from your hand, Deck, and GY" / "hand or GY" / "GY or banishment": a list of places that includes the GY.
@@ -152,7 +170,7 @@ inline bool revive_of(const std::string& e, std::string& tag, int& maxLv) {
 		if(has(tail.substr(0, 30), "this card")) continue;               // revives itself: that's a float, not a revival
 		size_t j = tail.find(" from your ");
 		if(j != std::string::npos && gy_source(tail.substr(j + 11))) seg = tail.substr(0, j);
-		else if(has(head, "in your gy") && (tail.compare(0, 17, "special summon it") == 0 || tail.compare(0, 19, "special summon that") == 0)) {
+		else if((has(head, "in your gy") || has(head, "in any gy") || has(head, "in either gy")) && (tail.compare(0, 17, "special summon it") == 0 || tail.compare(0, 19, "special summon that") == 0 || tail.compare(0, 19, "special summon both") == 0 || tail.compare(0, 19, "special summon them") == 0)) {
 			size_t t = head.rfind("target"); seg = t == std::string::npos ? head : head.substr(t);   // "target 1 "X" monster in your GY; Special Summon it"
 		} else continue;
 		if(has(seg, "this card")) continue;
@@ -227,7 +245,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		bool battleOnly = has(e, "attack is declared") || has(e, "declares an attack") || has(e, "during the battle phase");
 		float h = theirTurn && !laterBetter ? hurt(e) * (battleOnly ? 0.5f : 1.0f) : 0;
 		bool leaves = (has(e, "this card") || has(e, "this face-up card")) && (has(e, "leaves the field") || has(e, "is destroyed") || has(e, "sent from the field"));
-		if(!theirTurn && leaves && mon) { float d = hurt(e); if(d > 0) onField.push_back(d * 0.5f); }   // punishes removal (e.g. Absolute Zero)
+		// Punishes removal (Absolute Zero). From the GY when it's a GY effect (Aluber: "while this card is in your GY").
+		if(!theirTurn && leaves && mon) { float d = hurt(e); if(d > 0) (has(e, "while this card is in your gy") ? inGy : onField).push_back(d * 0.5f); }
 		// Playing on their turn: a set Trap / Quick-Play (or a Quick Effect) that summons something.
 		if(h == 0 && !laterBetter && hurt(e) == 0 && theirTurn && !fromGy && (has(e, "special summon") || has(e, "fusion summon") || has(e, "synchro summon") || has(e, "xyz summon") || has(e, "link summon"))
 			&& (trap || quickplay || has(e, "(quick effect)")) && !has(e, "special summon this card")) {   // summoning itself stops nothing
@@ -236,12 +255,13 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			std::string tg; int lv = 99;
 			bool rev = revive_of(e, tg, lv);
 			h = rev ? 0.5f : 1.5f;
+			if(has(e, "each field")) h = 0.3f;   // "Special Summon both, 1 to each field" (Albion the Sanctifire): hands them a monster too; what it revives counts (revival)
 			// Summoning several at once ("up to 1 ... each from your hand, Deck, and GY") is worth more.
 			// The GY part is scored by the revival pass (what's actually there to bring back), so only hand and Deck add here.
 			if(has(e, "each from")) { int n = has(e, "hand") + has(e, "deck"); h += 1.0f * std::max(0, n - 1); }
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
 			// One monster from the hand, Deck or Extra Deck (not a Fusion: those are judged as Fusions, below).
-			else if(!rev && !r.bringAt && !has(e, "fusion summon") && !has(e, "fusion monster")) {
+			else if((!rev || has(e, "synchro summon 1 ")) && !r.bringAt && !has(e, "fusion summon") && !has(e, "fusion monster")) {
 				size_t ss = e.find("special summon"); std::string tail = ss == std::string::npos ? std::string() : e.substr(ss);
 				uint8_t from = 0; uint32_t kinds = 0;
 				if(has(tail, "from your extra deck")) from |= 16;
@@ -261,6 +281,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 						r.bringTags.push_back(t); q = tail.find('"', q2 + 1);
 					}
 					r.bringFrom = from; r.bringKinds = kinds; r.bringBase = h;
+					r.bringGyTuner = has(e, "tuner in your gy") || has(e, "tuners in your gy");
 					size_t up = e.find("level by "); if(up != std::string::npos && has(e.substr(std::max<size_t>(up, 12) - 12, 12), "increase")) r.bringLvUp = std::atoi(e.c_str() + up + 9);
 					r.bringAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
 					// What it needs first: "choose / target N ... in your GY" (Remix: 2 non-Synchro Tuners).
@@ -278,7 +299,17 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			}
 		}
 		const bool bringOnly = r.bringAt && r.bringBase == h && h > 0;   // its value comes from what it brings (score_of)
-		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) r.handExtender = true;
+		bool typedLock = false;
+		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) {
+			r.handExtender = true;
+			// ...then Synchro Summons with itself as a material, on their turn (Kewl Tune Clip): worth the Synchro it can make.
+			size_t at = e.find("synchro summon 1 ");
+			if(at != std::string::npos && !r.bringAt) { r.bringAt = fromHand ? CardEval::AT_HAND : CardEval::AT_FIELD; r.bringFrom = 16; r.bringKinds = 0x2000 | (has(e.substr(at, 40), "tuner synchro") ? 0x1000 : 0); r.bringBase = 0.8f; r.bringSelf = true; }
+		}
+		if(has(e, "sent to the gy as synchro material") || has(e, "sent to the gy as material")) r.matHurt = std::max(r.matHurt, hurt(e));
+		if(theirTurn && has(e, "apply") && has(e, "sent to the gy as synchro material") && has(e, "banish")) {
+			r.copyMat = true; size_t q = e.find('"'), q2 = q == std::string::npos ? q : e.find('"', q + 1); if(q2 != std::string::npos) r.copyTag = e.substr(q + 1, q2 - q - 1);
+		}
 		// What an interruption needs (alternatives): "while / if you control a ... monster"; a GY cost before the ";".
 		if(h > 0 && r.needs.empty()) {
 			for(const char* lead : {"while you control ", "if you control "}) {
@@ -313,10 +344,13 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			}
 		}
 		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
-		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
+		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is synchro summoned") || has(e, "this card is xyz summoned") || has(e, "this card is link summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
 		// Summoned on their turn, it Fusion Summons using their monster as material (Fallen of Albaz): that's removal.
 		if(!theirTurn && mon && has(e, "this card is normal or special summoned") && has(e, "fusion summon") && has(e, "either field")) r.onSummon = std::max(r.onSummon, 2.0f);
-		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "special summon") || has(e, "fusion summon"))) {
+		// A Fusion it makes: "Fusion Summon 1 ...", not "except Fusion Monsters" (Branded Opening) or "return 1 Fusion Monster
+		// to the Extra Deck" as a cost (Branded Retribution, which is a negate).
+		if(theirTurn && !r.fusionAt && has(e, "fusion monster") && has(e, "extra deck") && (has(e, "fusion summon") || has(e, "fusion monster from your extra deck"))) {
+			r.fusionEither = has(e, "either field");   // Super Polymerization: their monster as material (it's gone)
 			r.fusionAt = fromGy ? CardEval::AT_GY : mon && fromHand ? CardEval::AT_HAND : (trap || quickplay) ? CardEval::AT_SET : CardEval::AT_FIELD;
 			r.fusionFrom = (has(e, "hand") ? 1 : 0) | (has(e, "field") || has(e, "you control") ? 2 : 0) | (has(e, " gy") ? 4 : 0) | (has(e, "banish") ? 8 : 0);
 			if(!r.fusionFrom) r.fusionFrom = 3;
@@ -345,9 +379,14 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			else onField.push_back(h);
 		}
 		// Lasting locks while face-up (no "you can": it's always on).
-		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only")))
-			r.lock = std::max(r.lock, has(e, "attack") && !has(e, "activate") && !has(e, "summon") ? 0.5f : 2.5f);   // an attack lock doesn't slow their combo
-		if(has(e, "cannot be destroyed by card effects") || has(e, "unaffected by") || has(e, "cannot be targeted")) r.sturdy += 0.6f;
+		// ("Your opponent cannot target this card" is protection, below, not a lock.) A lock on certain Types only (Secreterion:
+		// "Special Summoned Dragon or Spellcaster monsters") counts for less than one on everything.
+		if(!has(e, "you can") && !has(e, "in response") && !has(e, "return") && !has(e, "cannot target") && (has(e, "your opponent cannot") || has(e, "neither player can") || has(e, "your opponent can only"))) {
+			if(has(e, "or more atk")) typedLock = true;   // only strong monsters (TY-PHON: 3000 or more ATK)
+			bool typed = typedLock; for(const char* t : {"dragon", "spellcaster", "warrior", "fiend", "zombie", "machine", "fairy", "beast", "plant", "insect", "aqua", "pyro", "rock", "thunder", "reptile", "psychic", "wyrm", "cyberse", "dinosaur", "fish", "illusion"}) if(has(e, t)) typed = true;
+			r.lock = std::max(r.lock, has(e, "attack") && !has(e, "activate") && !has(e, "summon") ? 0.5f : typed ? 1.5f : 2.5f);   // an attack lock doesn't slow their combo
+		}
+		if(has(e, "cannot be destroyed by card effects") || has(e, "unaffected by") || has(e, "cannot be targeted") || has(e, "cannot target")) r.sturdy += 0.6f;
 		if(leaves || has(e, "if this card in its owner's")) r.sturdy += 0.4f;
 	}
 	auto best = [](std::vector<float>& v) { std::sort(v.rbegin(), v.rend()); float s = 0; for(size_t i = 0; i < v.size() && i < 2; i++) s += i ? v[i] * 0.6f : v[i]; return s; };

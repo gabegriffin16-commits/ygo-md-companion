@@ -210,7 +210,19 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   can make (Mirrorjade / Arthalion): fix in score_of's hand loop (fusers) + a race restriction ("Dragon or Spellcaster").
   Tool to-dos: merge credit of monsters made on their turn into the card that made them (shows as Mirrorjade
   "underrated" + Faimena "overrated"); the `score` cmd has no Deck, so bring-from-Deck cards show the generic 1.5 there.
-  Also per deck: read each card's text against `eval` output by hand (the guide-maker check).
+  Also per deck: read each card's text against `eval` output by hand (the guide-maker check; done for all five decks,
+  Oct 2026, HERO clean). Fixed from that review: trigger conditions no longer count as effects (Dracotail Pan, Wonder
+  Driver); "banished cards"/"banishment" as a place isn't banishing (Lubellion, Horn); shuffling/returning only counts
+  for their cards; face-up-Spell-only negates are narrow (Dracotail Flame 3.0 -> 1.5); "cannot target" is protection,
+  not a lock (Albion the Sanctifire, Loudness War); Type- or ATK-limited locks 1.5 (Secreterion, TY-PHON); "Fusion Summon"
+  wording required for Fusion cards (Branded Retribution is a negate again, Branded Opening isn't a Fusion card);
+  Faimena-type hand Fusions; Super Polymerization = removal; GY effects that punish removal count from the GY (Aluber);
+  Synchro/Xyz/Link-summoned effects count when they land on their turn (Junora, Black Rose); Extra Deck banish minor
+  (Crackle); Kewl Tune Clip / B2B bring the Synchro they can make; Loudness War copies the best "sent as Synchro
+  Material" effect in the GY (`matHurt`, `copyMat`); Albion the Sanctifire revives ("2 monsters in any GY"). Effect on
+  guide agreement (20s): Kewl Tune guide-better 2 -> 1; Dracotail exact matches 8 -> 5 (old matches partly came from
+  Albion's fake lock / Flame's overvalue); Branded guide boards now score higher (Retribution) and the search is
+  time-limited there (best found at 19-20s of 20). HERO / Elfnote: same boards (scores shift with Wonder Driver).
 
 - Rebrand (1.25.0): app data folder is now `%APPDATA%/Master Duel Companion` (moved from `Omni HERO Overlay` on first
   start); the page publishes `window.MDC_DECK` (OMNI_DECK kept as an alias for older apps); `MDC_SITE` env (OMNI_SITE still

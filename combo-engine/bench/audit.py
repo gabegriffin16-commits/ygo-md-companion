@@ -129,13 +129,28 @@ for v in res.values():
         if not s.get("ok"): continue
         qid += 1
         why = ask({"id": qid, "cmd": "score", "field": bb["field"], "zones": bb.get("zones", []), "backrow": bb["backrow"], "hand": bb["hand"], "gy": bb.get("gy", []),
-                   "banished": bb.get("banished", []), "extra": extra, "targets": targets})["score"]
+                   "banished": bb.get("banished", []), "extra": extra, "targets": targets, "deck": main})["score"]
         text = defaultdict(float)
         for st in why.get("stops", []):
             if st.get("code"): text[st["code"]] = max(text[st["code"]], st["value"])
+        # A monster made on their turn (Faimena's Mirrorjade, Ecclesia's Fallen of Albaz) is credited by the simulation as
+        # itself; the score counts it under the card that made it ("fusion into X", "... -> X"): credit that card.
+        onboard = set(bb["field"] + bb["backrow"] + bb["hand"] + bb.get("gy", []) + bb.get("banished", []))
+        maker = {}
+        for st in why.get("stops", []):
+            w = st.get("what", "")
+            for key in ("fusion into ", " -> "):
+                if key in w and st.get("code"): maker[w.split(key, 1)[1].strip().lower()] = st["code"]
         cred = defaultdict(float)
         for cr in s.get("credits", []) + s.get("breaker", {}).get("credits", []):
-            if cr.get("card"): cred[cr["card"]] = max(cred[cr["card"]], cr["value"])
+            c = cr.get("card")
+            if not c: continue
+            if c not in onboard:   # made during their turn: credit the card that made it (by name if the score made the same, else every maker)
+                if n(c).lower() in maker: c = maker[n(c).lower()]
+                elif maker:
+                    for mc in set(maker.values()): cred[mc] = max(cred[mc], cr["value"])
+                    continue
+            cred[c] = max(cred[c], cr["value"])
         unt = {u["card"]: u["value"] for u in s.get("untested", [])}
         for c, val in text.items():
             t = T[c]; t["boards"] += 1; t["text"] += val
