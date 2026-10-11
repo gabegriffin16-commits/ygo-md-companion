@@ -204,6 +204,14 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
+- GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
+  (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail
+  run: Faimena-type Fusions from the HAND on their turn (fusionAt AT_HAND) score a generic 1.5 instead of the Fusion they
+  can make (Mirrorjade / Arthalion): fix in score_of's hand loop (fusers) + a race restriction ("Dragon or Spellcaster").
+  Tool to-dos: merge credit of monsters made on their turn into the card that made them (shows as Mirrorjade
+  "underrated" + Faimena "overrated"); the `score` cmd has no Deck, so bring-from-Deck cards show the generic 1.5 there.
+  Also per deck: read each card's text against `eval` output by hand (the guide-maker check).
+
 - Rebrand (1.25.0): app data folder is now `%APPDATA%/Master Duel Companion` (moved from `Omni HERO Overlay` on first
   start); the page publishes `window.MDC_DECK` (OMNI_DECK kept as an alias for older apps); `MDC_SITE` env (OMNI_SITE still
   read). Local storage keys (`hbc-*`, `mdc-*`) are unchanged on purpose (renaming them would drop settings).
