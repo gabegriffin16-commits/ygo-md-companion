@@ -148,7 +148,10 @@ Key parts of `src/main.cpp`:
   expansions branch); now yes/no = yes until width 216, trigger order = first until 72 (Quick Effect windows: every
   option, Branded needs them), card picks ordered by the game's hint (add/Set: most valuable; costs: least) and 2 until
   72 (`MDC_NOEPCAP`, `MDC_NOEPCHAIN`, `MDC_NOEPPICK`). Timed (20s) guide hands: Dracotail +5.1 total, Branded +3.5,
-  Kewl Tune same; fixed-budget tune set and HERO/Elfnote unchanged. `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
+  Kewl Tune same; fixed-budget tune set and HERO/Elfnote unchanged. Capped card picks are tried best-guess first (then
+  the fixed scattered order): for materials / costs (the game's hint), cards that act when used as material (`matTrig`:
+  a Dracotail sent as Fusion material Sets a Trap), then Deck > GY > hand > field, cheaper first; for picks we take, their
+  cards then our most valuable (`MDC_NOPICKRANK` to compare). Timed 20s: Dracotail +0.5, Branded +1.0, Kewl Tune same. `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
   isn't used: on 6 physical cores it slows HERO's beam. `maxReplays` = work budget instead of the clock and `growth`
   = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible; GitHub runs it per
   configuration in parallel via `engine-tune.yml` when `bench/tune.json` changes; runner and PC totals match, e.g.

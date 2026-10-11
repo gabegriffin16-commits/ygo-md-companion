@@ -91,6 +91,7 @@ struct CardRow {
 	bool endPhase = false;     // it does something "during the End Phase"
 	bool backAtEnd = false;    // it banishes itself "until the End Phase": still ours once the turn ends
 	bool needsChain = false;   // it acts "in response to" an activation (Zalen) or "when you activate" one (Gulamel): used on top of our own
+	bool matTrig = false;      // it does something when used as material ("if this card is sent to the GY as material for a Fusion Summon")
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -123,6 +124,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
 		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos;
 			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos;
+			r.matTrig = ld.find("as material for a") != std::string::npos || ld.find("as fusion material") != std::string::npos || ld.find("as synchro material") != std::string::npos || ld.find("as xyz material") != std::string::npos || ld.find("as link material") != std::string::npos || ld.find("used as material") != std::string::npos;
 			r.needsChain = ld.find("in response to") != std::string::npos || ld.find("when you activate") != std::string::npos; } }
 		r.ev.code = id;
 		g_cards[id] = std::move(r);
@@ -285,6 +287,7 @@ struct Prompt {
 	std::vector<uint32_t> cards;         // SELECT_CARD / TRIBUTE / UNSELECT (select list) / SUM cards
 	std::vector<uint64_t> ckeys;         // UNSELECT: where each card is (for picking in a fixed order, see pick_order)
 	std::vector<uint8_t> ccon;           // SELECT_CARD / UNSELECT: who controls each card
+	std::vector<uint8_t> cloc;           // SELECT_CARD / UNSELECT: where each card is (LOCATION_*)
 	std::vector<uint32_t> cardParam;     // SUM: per-card value
 	std::vector<uint32_t> mustParam; uint32_t acc = 0;
 	std::vector<std::pair<uint32_t, uint64_t>> chains;
@@ -337,7 +340,7 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 		m.cancelable = r.u8(); m.mn = r.u32(); m.mx = r.u32();
 		uint32_t k = r.u32();
 		for(uint32_t i = 0; i < k; i++) {
-			if(t == MSG_SELECT_CARD) { m.cards.push_back(r.u32()); m.ccon.push_back(rloc(r).con); }
+			if(t == MSG_SELECT_CARD) { m.cards.push_back(r.u32()); Loc l = rloc(r); m.ccon.push_back(l.con); m.cloc.push_back((uint8_t)l.loc); }
 			else { m.cards.push_back(r.u32()); r.u8(); r.u8(); r.u32(); r.u8(); }
 		}
 		break;
@@ -345,7 +348,7 @@ static Prompt parse_prompt(int t, const uint8_t* body, size_t n) {
 	case MSG_SELECT_UNSELECT_CARD: {
 		m.finishable = r.u8(); m.cancelable = r.u8(); m.mn = r.u32(); m.mx = r.u32();
 		auto key = [](uint32_t c, const Loc& l) { return ((uint64_t)l.con << 56) | ((uint64_t)l.loc << 48) | ((uint64_t)(l.seq & 0xffff) << 32) | c; };
-		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); m.cards.push_back(c); m.ckeys.push_back(key(c, l)); m.ccon.push_back(l.con); }
+		uint32_t k = r.u32(); for(uint32_t i = 0; i < k; i++) { uint32_t c = r.u32(); Loc l = rloc(r); m.cards.push_back(c); m.ckeys.push_back(key(c, l)); m.ccon.push_back(l.con); m.cloc.push_back((uint8_t)l.loc); }
 		k = r.u32(); for(uint32_t i = 0; i < k; i++) { r.u32(); rloc(r); }
 		break;
 	}
@@ -1243,7 +1246,28 @@ struct Search {
 				auto h = [](const std::string& s) { uint64_t t = 1469598103934665603ull; for(char ch : s) t = (t ^ (unsigned char)ch) * 1099511628211ull; return t; };
 				std::vector<const Opt*> keep, rest;
 				for(auto* o : live) (o->label == "finish" ? keep : rest).push_back(o);
-				std::stable_sort(rest.begin(), rest.end(), [&](const Opt* a, const Opt* b) { return h(a->label) < h(b->label); });
+				// Best guesses first (then a fixed scattered order), so the few kept on narrow passes are the likely ones.
+				// What we give up (materials, costs: the game's hint): cards that act when used as material first (a Dracotail
+				// sent as Fusion material Sets a Trap), then Deck before GY / hand before the field (the field is our board),
+				// cheaper first. What we take or target: their cards, then our most valuable.
+				static const bool noRank = getenv("MDC_NOPICKRANK") != nullptr;
+				const uint64_t hint = m.hint;
+				const bool giveUp = hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519;
+				auto rank = [&](const Opt* o) {
+					if(noRank) return 0.0;
+					double v = 0;
+					for(uint32_t c : o->picks) {
+						size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
+						if(o->pkey) for(size_t q = 0; q < m.ckeys.size(); q++) if(m.ckeys[q] == o->pkey) { at = q; break; }
+						bool theirs = at < m.ccon.size() && m.ccon[at] == 1; uint8_t loc = at < m.cloc.size() ? m.cloc[at] : 0;
+						auto it = g_cards.find(c);
+						if(theirs) v += giveUp ? -5 : 10;
+						else if(giveUp) v += (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * card_value(c);
+						else v += card_value(c);
+					}
+					return v;
+				};
+				std::stable_sort(rest.begin(), rest.end(), [&](const Opt* a, const Opt* b) { double ra = rank(a), rb = rank(b); return ra != rb ? ra > rb : h(a->label) < h(b->label); });
 				for(auto* o : rest) { if(keep.size() >= pickCap) break; keep.push_back(o); }
 				live.swap(keep); capped = true; t_capped = true;
 			}
