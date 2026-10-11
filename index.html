@@ -1905,8 +1905,13 @@ var MDC = (function(){
     if (ok && hooks.put) hooks.put(deck);
     return ok;
   }
+  // Deleted decks are remembered until the account confirms the delete: deleting usually reloads the page right away,
+  // which cancels the request, and the next load would bring the deck back from the account.
+  function gone(){ return rd(key("mdc-gone"), []); }
+  function unGone(id){ wr(key("mdc-gone"), gone().filter(function(x){ return x !== id; })); }
   function remove(id){
     wr(KEY, list().filter(function(d){ return d.id !== id; }));
+    if (String(id).indexOf("tour-") !== 0 && gone().indexOf(id) < 0) wr(key("mdc-gone"), gone().concat([id]));
     if (rd(PILOT, null) === id) wr(PILOT, null);
     if (hooks.remove) hooks.remove(id);
   }
@@ -2005,7 +2010,7 @@ var MDC = (function(){
     });
     inp.click();
   }
-  return {scope:scope, on:on, lines:lines, setLines:setLines, replaceAll:replaceAll, isAdmin:isAdmin, key:key, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
+  return {scope:scope, on:on, lines:lines, setLines:setLines, replaceAll:replaceAll, isAdmin:isAdmin, key:key, gone:gone, unGone:unGone, list:list, get:get, put:put, remove:remove, pilot:pilot, setPilot:setPilot, newId:newId, isExtra:isExtra, playable:playable,
     toDeckData:toDeckData, toYdk:toYdk, fromYdk:fromYdk, download:download, pickFile:pickFile};
 })();
 
@@ -6569,6 +6574,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       }
       return CLOUD.myDecks();
     }).then(function(cloud){
+      var gone = MDC.gone();   // deleted here but not confirmed by the account yet: finish the delete
+      cloud = cloud.filter(function(d){ return gone.indexOf(d.id) < 0; });
+      gone.forEach(function(id){ CLOUD.deleteDeck(id).then(function(){ MDC.unGone(id); }).catch(function(){}); });
       var have = {}; cloud.forEach(function(d){ have[d.id] = true; });
       var waiting = MDC.list().filter(function(d){ return d.unsynced && !have[d.id] && !d.tour; });
       var tourDecks = MDC.list().filter(function(d){ return d.tour; });   // the tour's temporary deck lives only here
@@ -6576,7 +6584,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       waiting.forEach(function(d){ CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(){}); });
       MDC.on("put", function(d){ if (d.tour) return;   // the tour's temporary deck stays on this device
         CLOUD.pushDeck(d).then(function(){ markUnsynced(d.id, false); }).catch(function(e){ markUnsynced(d.id, true); notify("Saved on this device. Couldn't sync to your account yet (" + e.message + ")."); }); });
-      MDC.on("remove", function(id){ if (String(id).indexOf("tour-") === 0) return; CLOUD.deleteDeck(id).catch(function(e){ notify("Couldn't delete it from your account (" + e.message + ")."); }); });
+      MDC.on("remove", function(id){ if (String(id).indexOf("tour-") === 0) return; CLOUD.deleteDeck(id).then(function(){ MDC.unGone(id); }).catch(function(e){ notify("Couldn't delete it from your account (" + e.message + ")."); }); });
       document.documentElement.classList.add("cloud");
       boot();
     }).catch(function(e){ if (window.console) console.error(e); fail("Couldn't load your account (" + e.message + "). Check your connection and reload."); });
