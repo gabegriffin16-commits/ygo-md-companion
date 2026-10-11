@@ -73,7 +73,7 @@ struct CardRow {
 	bool centerAware = false;  // its text cares about the center Main Monster Zone
 	bool endPhase = false;     // it does something "during the End Phase"
 	bool backAtEnd = false;    // it banishes itself "until the End Phase": still ours once the turn ends
-	bool needsChain = false;   // it acts "in response to" an activation (Zalen): used on top of our own response
+	bool needsChain = false;   // it acts "in response to" an activation (Zalen) or "when you activate" one (Gulamel): used on top of our own
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	std::string desc;
@@ -106,7 +106,7 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		for(int i = 0; i < 16; i++) { const unsigned char* s = sqlite3_column_text(st, 10 + i); r.strs.push_back(s ? (const char*)s : ""); }
 		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos;
 			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos;
-			r.needsChain = ld.find("in response to") != std::string::npos; } }
+			r.needsChain = ld.find("in response to") != std::string::npos || ld.find("when you activate") != std::string::npos; } }
 		r.ev.code = id;
 		g_cards[id] = std::move(r);
 	}
@@ -709,19 +709,23 @@ struct Search {
 		// counts 30% without one: the condition might still be met on their turn (the simulation checks for real).
 		auto need = [&](const CardEval* e) -> double {
 			if(!e || e->needs.empty()) return 1.0;
-			for(uint32_t c : b.mzone) { auto it = g_cards.find(c); if(it == g_cards.end()) continue; const CardRow& pc = it->second;
-				for(const auto& m : e->needs) {
-					if(m.kinds && !(pc.type & m.kinds)) continue;
-					if(m.attr && !(pc.attribute & m.attr)) continue;
-					if(m.race && !(pc.race & m.race)) continue;
-					if(!m.tag.empty()) {
-						bool ok = false;
-						if(m.mentions) { for(const auto& pm : pc.ev.mats) if(pm.tag.find(m.tag) != std::string::npos) ok = true; if(!ok && evalx::lower(pc.desc).find("\"" + m.tag + "\"") != std::string::npos) ok = true; }
-						else ok = pc.lname.find(m.tag) != std::string::npos;
-						if(!ok) continue;
-					}
-					return 1.0;
-				} }
+			auto fits = [](const CardEval::Mat& m, const CardRow& pc) {
+				if(m.kinds && !(pc.type & m.kinds)) return false;
+				if(m.attr && !(pc.attribute & m.attr)) return false;
+				if(m.race && !(pc.race & m.race)) return false;
+				if(!m.tag.empty()) {
+					bool ok = false;
+					if(m.mentions) { for(const auto& pm : pc.ev.mats) if(pm.tag.find(m.tag) != std::string::npos) ok = true; if(!ok && evalx::lower(pc.desc).find("\"" + m.tag + "\"") != std::string::npos) ok = true; }
+					else ok = pc.lname.find(m.tag) != std::string::npos;
+					if(!ok) return false;
+				}
+				return true;
+			};
+			for(const auto& nd : e->needs) {   // alternatives: any one met will do
+				int have = 0;
+				for(uint32_t c : nd.where == 2 ? b.grave : b.mzone) { auto it = g_cards.find(c); if(it != g_cards.end() && fits(nd.m, it->second)) have++; }
+				if(have >= nd.n) return 1.0;
+			}
 			return 0.3;
 		};
 		bool centerTaken = std::find(b.mslot.begin(), b.mslot.end(), 2) != b.mslot.end();
@@ -1764,7 +1768,7 @@ int main(int argc, char** argv) {
 				if(e.onSummon > 0) out[std::to_string(c)]["onSummon"] = e.onSummon;
 				if(e.fusionAt) out[std::to_string(c)]["fusion"] = {{"from", e.fusionAt}, {"materialsFrom", e.fusionFrom}, {"tag", e.fusionTag}};
 				if(!e.mats.empty()) { json ms = json::array(); for(const auto& m : e.mats) ms.push_back({{"tag", m.tag}, {"exact", m.exact}, {"fusion", m.fusion}, {"n", m.n}}); out[std::to_string(c)]["materials"] = ms; }
-				if(!e.needs.empty()) { json ms = json::array(); for(const auto& m : e.needs) ms.push_back({{"tag", m.tag}, {"mentions", m.mentions}, {"kinds", m.kinds}, {"attr", m.attr}, {"race", m.race}}); out[std::to_string(c)]["needs"] = ms; } }
+				if(!e.needs.empty()) { json ms = json::array(); for(const auto& nd : e.needs) ms.push_back({{"where", nd.where == 2 ? "gy" : "field"}, {"n", nd.n}, {"tag", nd.m.tag}, {"mentions", nd.m.mentions}, {"kinds", nd.m.kinds}, {"attr", nd.m.attr}, {"race", nd.m.race}}); out[std::to_string(c)]["needs"] = ms; } }
 			emit({{"id", id}, {"eval", out}}); continue;
 		}
 		if(cmd == "search") {

@@ -47,9 +47,12 @@ struct CardEval {
 	// tag: a quoted name ("" = none); exact: the card itself rather than an archetype. Generic parts ("1 LIGHT
 	// Spellcaster monster", "1 Fusion, Synchro, Xyz, or Link Monster") set attr / race / kinds / effect / minAtk.
 	struct Mat { std::string tag; bool exact = false, fusion = false, effect = false, mentions = false; int n = 1; uint32_t attr = 0, kinds = 0; uint64_t race = 0; int minAtk = 0; };
-	// Its interruption needs us to control a certain monster ("while you control a Fusion Monster that mentions "Fallen
-	// of Albaz" as material": Tri-Brigade Mercourier). Checked against the board in score_of.
-	std::vector<Mat> needs;
+	// What its interruption needs, as alternatives (any one will do), checked against the board in score_of: a monster we
+	// control ("while you control a Fusion Monster that mentions "Fallen of Albaz"": Tri-Brigade Mercourier), or a cost
+	// paid from the GY ("banish 1 Tuner from your GY": Kewl Tune RS; "1 face-up Fusion Monster you control, or 2 Fusion
+	// Monsters in your GY, that mention "Fallen of Albaz"": Branded Retribution).
+	struct Need { int where = 1; int n = 1; Mat m; };   // where: 1 = we control it, 2 = in our GY
+	std::vector<Need> needs;
 	std::vector<Mat> mats;
 };
 
@@ -80,12 +83,23 @@ inline std::vector<Fx> effects(const std::string& text) {
 	return out;
 }
 // How much one effect hurts the opponent, if it can be used on their turn.
+// "Opponent's ..." that's about their cards (field, hand, monster...), not "opponent's turn / Main Phase / GY".
+inline bool theirs(const std::string& e) {
+	for(size_t i = e.find("opponent's"); i != std::string::npos; i = e.find("opponent's", i + 1)) {
+		std::string w = e.substr(i + 11, 12);
+		if(w.compare(0, 4, "turn") && w.compare(0, 4, "main") && w.compare(0, 6, "battle") && w.compare(0, 2, "gy") && w.compare(0, 5, "end p") && w.compare(0, 7, "standby")) return true;
+	}
+	return false;
+}
 inline float hurt(const std::string& e) {
 	float v = 0;
 	if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
 	else if(has(e, "negate")) v = 3.0f;
-	else if(has(e, "banish") && (has(e, "your opponent controls") || has(e, "on the field") || has(e, "opponent's"))) v = 2.5f;
-	else if(has(e, "destroy") && (has(e, "your opponent controls") || has(e, "on the field") || has(e, "opponent's") || has(e, "that card") || has(e, "that monster"))) v = 2.0f;
+	// "Opponent's" means their cards, not "during your opponent's turn" (Rindbrumm reviving itself from the GY on their
+	// turn isn't removal). Banishing cards from their GY stops no play (Dracotail Sting).
+	else if(has(e, "banish") && !has(e, "your opponent controls") && !has(e, "on the field") && (has(e, "opponent's gy") || has(e, "any gy") || has(e, "either gy") || has(e, "opponent's graveyard"))) v = 0.3f;
+	else if(has(e, "banish") && (has(e, "your opponent controls") || has(e, "on the field") || theirs(e))) v = 2.5f;
+	else if(has(e, "destroy") && (has(e, "your opponent controls") || has(e, "on the field") || theirs(e) || has(e, "that card") || has(e, "that monster"))) v = 2.0f;
 	else if((has(e, "return") && has(e, "to the hand")) || has(e, "shuffle") || has(e, "to the extra deck")) v = has(e, "opponent") || has(e, "on the field") ? 2.0f : 0;
 	else if(has(e, "take control") || has(e, "gain control")) v = 2.5f;
 	else if(has(e, "tribute") && (has(e, "on the field") || has(e, "your opponent controls"))) v = 2.5f;
@@ -99,6 +113,7 @@ inline float hurt(const std::string& e) {
 	if(v >= 3.0f && has(e, "a card or effect is activated") && !has(e, "would destroy")) v += 0.5f;
 	if(v >= 3.0f && has(e, "would destroy")) v -= 1.5f;
 	if(v >= 3.0f && has(e, "spell/trap") && !has(e, "monster")) v -= 0.7f;   // combos run on monster effects
+	if(v >= 3.0f && (has(e, "fusion, synchro, xyz, or link monster") || has(e, "extra deck monster's effect"))) v -= 0.7f;   // only Extra Deck monsters' effects (Rindbrumm)
 	if(v > 0 && has(e, "tribute this card")) v -= 0.5f;              // spends itself
 	if(v > 0 && !has(e, "target")) v += 0.3f;                       // non-targeting gets around protection
 	if(v > 0 && has(e, "and if you do, destroy")) v += 0.3f;
@@ -171,6 +186,7 @@ inline std::vector<CardEval::Mat> materials(const std::string& text) {
 		for(const auto& at : attrs) if(has(rest, at.first)) m.attr |= at.second;
 		static const std::pair<const char*, uint32_t> kinds[] = {{"fusion", 0x40}, {"synchro", 0x2000}, {"xyz", 0x800000}, {"link", 0x4000000}};
 		for(const auto& k : kinds) if(has(rest, k.first)) m.kinds |= k.second;
+		if(has(rest, "tuner") && !has(rest, "non-tuner")) m.kinds |= 0x1000;
 		m.fusion = m.kinds == 0x40;
 		m.effect = has(rest, "effect monster");
 		size_t atk = rest.find(" atk"); if(atk != std::string::npos && has(rest, "or more")) { size_t w = rest.rfind("with ", atk); if(w != std::string::npos) m.minAtk = std::atoi(rest.c_str() + w + 5); }
@@ -216,13 +232,38 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			else if(has(e, "up to 2")) h += 1.0f; else if(has(e, "up to 3")) h += 2.0f;
 		}
 		if(mon && theirTurn && has(e, "special summon this card") && (fromHand || has(e, "(quick effect)"))) r.handExtender = true;
-		// "While / if you control a ... monster" on an interruption: what it needs on our field.
-		if(h > 0 && r.needs.empty()) for(const char* lead : {"while you control ", "if you control "}) {
-			size_t at = e.find(lead); if(at == std::string::npos) continue;
-			size_t st = at + std::strlen(lead), en = e.find_first_of(":;(", st);
-			std::string phrase = e.substr(st, en == std::string::npos ? std::string::npos : en - st);
-			if(has(phrase, "monster") && !has(phrase, "no ") && !has(phrase, "or more") && phrase.find(" + ") == std::string::npos) r.needs = materials(phrase);
-			break;
+		// What an interruption needs (alternatives): "while / if you control a ... monster"; a GY cost before the ";".
+		if(h > 0 && r.needs.empty()) {
+			for(const char* lead : {"while you control ", "if you control "}) {
+				size_t at = e.find(lead); if(at == std::string::npos) continue;
+				size_t st = at + std::strlen(lead), en = e.find_first_of(":;(", st);
+				std::string phrase = e.substr(st, en == std::string::npos ? std::string::npos : en - st);
+				if(has(phrase, "monster") && !has(phrase, "no ") && !has(phrase, "or more") && phrase.find(" + ") == std::string::npos)
+					for(const auto& m : materials(phrase)) { CardEval::Need nd; nd.where = 1; nd.m = m; r.needs.push_back(nd); }
+				break;
+			}
+			std::string cost = e.substr(0, std::min(e.find(';'), e.size()));
+			auto num = [](const std::string& w) { return w == "a" || w == "an" ? 1 : std::max(1, std::atoi(w.c_str())); };
+			size_t o = cost.find(" you control, or ");
+			if(r.needs.empty() && o != std::string::npos && cost.find(" in your gy", o) != std::string::npos) {
+				// "N face-up X you control, or M X in your GY[, that mention "Y"]"
+				size_t a0 = cost.rfind(", ", o); a0 = a0 == std::string::npos ? 0 : a0 + 2;
+				std::string left = cost.substr(a0, o - a0), right = cost.substr(o + 17), tagPart;
+				size_t g = right.find(" in your gy"); tagPart = right.substr(g + 11); right = right.substr(0, g);
+				size_t sp1 = left.find(' '), sp2 = right.find(' ');
+				if(sp1 != std::string::npos && sp2 != std::string::npos) {
+					std::string mention = tagPart.find("mention") != std::string::npos ? tagPart : "";
+					auto ml = materials(left.substr(sp1 + 1) + " " + mention), mr = materials(right.substr(sp2 + 1) + " " + mention);
+					if(!ml.empty() && !mr.empty()) { CardEval::Need a; a.where = 1; a.n = num(left.substr(0, sp1)); a.m = ml[0]; CardEval::Need b; b.where = 2; b.n = num(right.substr(0, sp2)); b.m = mr[0]; r.needs = {a, b}; }
+				}
+			} else if(r.needs.empty()) {
+				size_t bz = cost.find("banish "), fg = cost.find(" from your gy");
+				if(bz != std::string::npos && fg != std::string::npos && fg > bz) {   // "banish 1 Tuner from your GY"
+					std::string ph = cost.substr(bz + 7, fg - bz - 7); size_t sp = ph.find(' ');
+					if(sp != std::string::npos) { auto ms = materials(ph.substr(sp + 1).find("monster") == std::string::npos ? ph.substr(sp + 1) + " monster" : ph.substr(sp + 1));
+						if(!ms.empty() && (ms[0].kinds || ms[0].race || ms[0].attr || !ms[0].tag.empty())) { CardEval::Need nd; nd.where = 2; nd.n = num(ph.substr(0, sp)); nd.m = ms[0]; r.needs.push_back(nd); } }
+				}
+			}
 		}
 		if(has(e, "from your deck to your hand") || (has(e, "add") && has(e, "from your deck") && !has(e, "from your deck to the gy"))) r.starter = true;
 		if(!theirTurn && (has(e, "this card is special summoned") || has(e, "this card is fusion summoned") || has(e, "this card is summoned"))) r.onSummon = std::max(r.onSummon, hurt(e));
