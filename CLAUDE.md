@@ -147,7 +147,7 @@ Key parts of `src/main.cpp`:
   every yes/no, trigger order and pick from every state was ~97% of all replays (`MDC_BRANCHLOG=1` prints where
   expansions branch); now yes/no = yes until width 216, trigger order = first until 72 (Quick Effect windows: every
   option, Branded needs them), card picks ordered by the game's hint (add/Set: most valuable; costs: least) and 2 until
-  72 (`MDC_NOEPCAP`, `MDC_NOEPCHAIN`, `MDC_NOEPPICK`). Timed (20s) guide hands: Dracotail +5.1 total, Branded +3.5,
+  72 (`MDC_NOEPCAP`, `MDC_NOEPCHAIN`, `MDC_NOEPPICK`). Each End Phase is first played on best guesses only (use the effects, ranked picks); turns whose board lands within 1.5 of the best so far get every End Phase choice after that beam level (`ep_deep`; `MDC_NOEPGREEDY`, `MDC_EPMARGIN`, `MDC_EPLOG`). Fixed with it (Oct 2026): the End Phase sort missed the "no chain" label, so below width 72 optional End Phase triggers were declined. Fixed budget (tune.py, 30000): 115.21 -> 118.68 (Dracotail Branded Fusion 9.93 -> 13.00, nothing lower); compare.py 20s: Dracotail +8.4 total, Kewl Tune same, Branded within noise (the depth-first workers find a hand's 13.17 board 1 run in 3). Walbaz + Lukias still ~10.5-11.3 at 60s (guide ~16). Timed (20s) guide hands: Dracotail +5.1 total, Branded +3.5,
   Kewl Tune same; fixed-budget tune set and HERO/Elfnote unchanged. Capped card picks are tried best-guess first (then
   the fixed scattered order): for materials / costs (the game's hint), cards that act when used as material (`matTrig`:
   a Dracotail sent as Fusion material Sets a Trap), then Deck > GY > hand > field, cheaper first; for picks we take, their

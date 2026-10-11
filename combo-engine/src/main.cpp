@@ -673,7 +673,7 @@ struct Search {
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
 	// ending: the turn was ended and the End Phase is being played out (see ep_worth).
-	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false; uint64_t lastPick = 0; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; std::vector<Bytes> mine; std::vector<int> mineType; };
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false, epDeep = false; uint64_t lastPick = 0; std::shared_ptr<const St> epRoot; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; std::vector<Bytes> mine; std::vector<int> mineType; };
 	// Is the End Phase worth playing out? Only when a card we have mentions it (Ecclesia / Cartesia adding themselves
 	// back, Branded searches): otherwise the board at "end turn" is already final and searches stay as fast as before.
 	static bool ep_worth(const Board& b) {
@@ -984,8 +984,8 @@ struct Search {
 		b.grave = d.cards(LOCATION_GRAVE); b.banished = d.cards(LOCATION_REMOVED); b.extra = d.cards(LOCATION_EXTRA); return b;
 	}
 	static std::string key_of(std::vector<uint32_t> v) { std::sort(v.begin(), v.end()); std::string s; for(uint32_t c : v) s += std::to_string(c) + ","; return s; }
-	void record(Duel& d, const St& st) {
-		if(interrupting() && !st.hit) return;
+	double record(Duel& d, const St& st) {
+		if(interrupting() && !st.hit) return -1e18;
 		const std::vector<Step>& steps = st.steps;
 		Board b; { ProfTimer pt(g_profBoard); b = read_board(d); }
 		std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand);
@@ -994,6 +994,7 @@ struct Search {
 		auto it = boards.find(k);
 		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; f.mine = st.mine; f.mineType = st.mineType; boards[k] = f; }
 		if(sc > bestScore + 1e-9) { bestScore = sc; bestAt = elapsed(); bestPath = st.path; }
+		return sc;
 	}
 	std::unique_ptr<Duel> replay(const std::vector<Bytes>& path, Prompt& m, bool& ok) {
 		std::unique_ptr<Duel> d;
@@ -1201,7 +1202,14 @@ struct Search {
 			if(out_of_time()) return;
 			prompts++;
 			bool retry;
-			if(st.ending && m.type == MSG_SELECT_IDLECMD) { record(*d, st); return; }   // the opponent's turn has started
+			if(st.ending && m.type == MSG_SELECT_IDLECMD) {   // the opponent's turn has started
+				double sc = record(*d, st);
+				if(st.epRoot && !st.epDeep) {   // a best-guess End Phase: worth trying every End Phase choice if it came close
+					std::lock_guard<std::mutex> lk(mx);
+					if(sc >= bestScore - epMargin && epSeen.insert(path_key(st.epRoot->path)).second) epQueue.push_back({sc, st.epRoot});
+				}
+				return;
+			}
 			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
 				bool hn; Opt o = opp_choice(m, st, hn);
 				d->respond(o.resp); st.path.push_back(o.resp);
@@ -1243,7 +1251,7 @@ struct Search {
 			if(!noMid && live.size() > 1 && m.type != MSG_SELECT_IDLECMD) {
 				Board b = read_board(*d);
 				std::vector<std::string> ls = st.labels; std::sort(ls.begin(), ls.end());
-				std::string k = "M" + std::to_string(m.type) + "|" + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
+				std::string k = (st.epDeep ? "DM" : "M") + std::to_string(m.type) + "|" + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto* o : live) k += o->label + ";";
 				k += "#"; for(auto& l : ls) k += l + ";";
 				std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return;
@@ -1292,7 +1300,7 @@ struct Search {
 			static const bool noEpChain = getenv("MDC_NOEPCHAIN") != nullptr, noEpPick = getenv("MDC_NOEPPICK") != nullptr;
 			if(!noEpCap && !noEpChain && st.ending && live.size() > 1 && (m.type == MSG_SELECT_EFFECTYN || m.type == MSG_SELECT_YESNO || (m.type == MSG_SELECT_CHAIN && m.trig))) {   // Quick Effect windows: every option
 				size_t cap = std::max<size_t>(1, beam_width / (m.type == MSG_SELECT_CHAIN ? 24 : 72));   // "no": from width 216; other orders: from 72
-				std::stable_sort(live.begin(), live.end(), [](const Opt* x, const Opt* y) { auto late = [](const Opt* o) { return o->label == "no" || o->label == "pass" || o->label == "finish"; }; return !late(x) && late(y); });
+				std::stable_sort(live.begin(), live.end(), [](const Opt* x, const Opt* y) { auto late = [](const Opt* o) { return o->label == "no" || o->label == "no chain" || o->label == "pass" || o->label == "finish"; }; return !late(x) && late(y); });
 				if(live.size() > cap) { live.resize(cap); t_capped = true; }
 			}
 			// End Phase card picks: best guess first by what the pick is for (the game's hint), like the opponent's-turn
@@ -1309,18 +1317,27 @@ struct Search {
 				if(live.size() > cap) { live.resize(cap); t_capped = true; }
 			}
 			if(m.type == MSG_SELECT_IDLECMD && st.actions >= maxActions) { live.clear(); for(auto& o : opts) if(o.end) live.push_back(&o); }
+			// First time through an End Phase: only the best guess at each choice (use End Phase effects; picks as ranked above).
+			// Turns whose best-guess board comes close to the best so far get every End Phase choice afterwards (ep_deep).
+			if(st.ending && st.epRoot && !st.epDeep && live.size() > 1) {
+				if(!pickPrompt && m.type != MSG_SELECT_OPTION) std::stable_sort(live.begin(), live.end(), [](const Opt* x, const Opt* y) { auto late = [](const Opt* o) { return o->label == "no" || o->label == "no chain" || o->label == "pass"; }; return !late(x) && late(y); });
+				if(getenv("MDC_EPLOG")) { std::string t; for(auto* o : live) t += " [" + o->label + "]"; fprintf(stderr, "ep greedy type %d hint %llu:%s\n", m.type, (unsigned long long)m.hint, t.substr(0, 400).c_str()); }
+				live.resize(1);
+			}
 			if(live.empty()) return;
 			if(g_branchLog && live.size() > 1) { std::lock_guard<std::mutex> lk(g_branchMx); auto& e = g_branch[std::string(st.ending ? "EP " : "") + std::to_string(m.type) + " " + (live[1]->step.card ? card_name(live[1]->step.card) : std::string("-"))]; e.first++; e.second += live.size() - 1; }
 			for(size_t i = 1; i < live.size(); i++) {
 				if(out_of_time()) return;
 				St s2 = st; take(s2, *live[i]);
 				if(live[i]->main && m.type == MSG_SELECT_IDLECMD) s2.actions++;
+				if(live[i]->end && epGreedy()) s2.epRoot = std::make_shared<const St>(s2);
 				Prompt mm; bool ok; auto dd = replay(s2.path, mm, ok);
 				if(ok) sub(std::move(dd), mm, std::move(s2), false, out, omx, par);
 			}
 			const Opt& o = *live[0];
 			d->respond(o.resp); take(st, o);
 			if(o.main && m.type == MSG_SELECT_IDLECMD) st.actions++;
+			if(o.end && epGreedy()) st.epRoot = std::make_shared<const St>(st);
 			atStart = false;
 			if(!d->run(m, retry)) return;
 		}
@@ -1364,6 +1381,30 @@ struct Search {
 		for(auto& t : ts) t.join();
 		return out;
 	}
+	// End Phases played on best guesses whose board came within epMargin of the best: each gets every End Phase choice
+	// (ep_deep) after the beam level that found it. MDC_NOEPGREEDY: every End Phase gets every choice right away.
+	double epMargin = getenv("MDC_EPMARGIN") ? atof(getenv("MDC_EPMARGIN")) : 1.5;
+	std::vector<std::pair<double, std::shared_ptr<const St>>> epQueue; std::unordered_set<uint64_t> epSeen;
+	bool epGreedy() const { static const bool off = getenv("MDC_NOEPGREEDY") != nullptr; return !off && !interrupting(); }
+	void ep_deep() {
+		std::vector<std::pair<double, std::shared_ptr<const St>>> q;
+		{ std::lock_guard<std::mutex> lk(mx); q.swap(epQueue); double cut = bestScore - epMargin; q.erase(std::remove_if(q.begin(), q.end(), [&](auto& e) { return e.first < cut; }), q.end()); }
+		std::sort(q.begin(), q.end(), [](auto& a, auto& b) { return a.first > b.first; });
+		std::atomic<size_t> next{0}; std::vector<Node> sink; std::mutex smx;
+		auto work = [&] {
+			for(;;) {
+				size_t i = next++; if(i >= q.size() || out_of_time()) return;
+				{ std::lock_guard<std::mutex> lk(mx); if(q[i].first < bestScore - epMargin) continue; }
+				St s = *q[i].second; s.epDeep = true;
+				Prompt m; bool ok; auto d = replay(s.path, m, ok);
+				if(ok) sub(std::move(d), m, std::move(s), false, sink, smx, 0);
+			}
+		};
+		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)q.size()));
+		for(int i = 0; i < n; i++) ts.emplace_back(work);
+		for(auto& t : ts) t.join();
+		if(getenv("MDC_BEAMLOG")) fprintf(stderr, "  ep_deep: %zu turns\n", q.size());
+	}
 	std::atomic<bool> capped{false};   // this pass skipped some card picks (so it didn't check every line)
 	int beamThreads = 1; bool beam_complete = false; size_t beam_width = 0; int beam_depth = 0;
 	void beam() {
@@ -1378,6 +1419,7 @@ struct Search {
 				beam_depth = depth;
 				auto tl = Clock::now(); uint64_t r0 = replays.load();
 				std::vector<Node> next = expand_level(level);
+				ep_deep();
 				if(getenv("MDC_BEAMLOG2") && next.size() > 200) { for(size_t q = 0; q < 12; q++) { std::string t; auto& lb = next[q * next.size() / 12].st.labels; for(size_t k = 0; k < lb.size(); k++) t += lb[k] + " | "; fprintf(stderr, "  %s\n", t.c_str()); } }
 				if(getenv("MDC_BEAMLOG")) fprintf(stderr, "width %zu depth %d: %zu nodes -> %zu children, %llu replays, %.1fs\n", width, depth, level.size(), next.size(), (unsigned long long)(replays.load() - r0), std::chrono::duration<double>(Clock::now() - tl).count());
 				// Ties are broken by a hash of the line, not by which thread finished first: the same search keeps the same
