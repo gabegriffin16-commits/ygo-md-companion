@@ -371,6 +371,19 @@ html.compact .lpcol{padding-left:8px}
 .ghost:disabled{opacity:.4; cursor:default}
 .primary:disabled{opacity:.45; cursor:default; filter:saturate(.6)}
 .nolines .nolgen{margin-top:10px}
+.cfacts{display:inline-flex; align-items:center; gap:6px; flex:none}
+.fbflag{display:inline-grid; place-items:center; width:26px; height:24px; padding:0; color:var(--muted)}
+.fbflag svg{display:block}
+.fbflag:hover, .fbflag[aria-expanded="true"]{color:var(--red); border-color:var(--red)}
+.fbflag.sent{color:var(--wind, #6CC39D); border-color:currentColor; opacity:1 !important}
+.genplan h3.hasfb{display:flex; align-items:center; justify-content:space-between; gap:8px}
+.genplan h3.hasfb > .planbtn{flex:1 1 auto; min-width:0}
+.fbform{margin:10px 0 2px; padding:10px 12px; border:1px solid color-mix(in srgb, var(--red) 40%, var(--line)); border-radius:10px; background:color-mix(in srgb, var(--red) 6%, var(--panel))}
+.fbform .fhead{display:block; margin-bottom:6px}
+.fbform textarea{width:100%; box-sizing:border-box; resize:vertical; min-height:52px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:8px; padding:7px 9px; font:400 .9rem var(--body)}
+.fbform textarea:focus{outline:2px solid var(--gold); outline-offset:1px}
+.fbbtns{display:flex; gap:8px; margin-top:8px}
+.fbbtns .primary, .fbbtns .ghost{padding:6px 14px; font-size:.86rem}
 #deckPane .syncst{display:flex; align-items:center; gap:6px; margin-top:-2px}
 #deckPane .syncst::before{content:""; width:7px; height:7px; border-radius:50%; background:var(--wind, #6CC39D); flex:none}
 #deckPane .syncst.local::before{background:var(--gold)}
@@ -1621,6 +1634,7 @@ button.cfmark.cf-droll[aria-expanded="true"]{color:var(--bg); background:var(--m
 .genalt{display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px}
 .genalt .hint{margin:0}
 .generr{color:var(--red)}
+.foldall + .generr{padding-right:110px; min-height:28px}   /* clear of the Collapse all button that floats beside it */
 .genbox .cftop{margin-top:4px}
 .gengoals{margin:4px 0 6px}
 .gengoalhead{display:flex; align-items:baseline; gap:10px; flex-wrap:wrap; margin-bottom:6px}
@@ -2192,10 +2206,15 @@ var CLOUD = (function(){
       return client().from("profiles").select("username").eq("id", r.data.owner).maybeSingle().then(function(p){ r.data.by = p.data ? p.data.username : "?"; return r.data; });
     });
   }
+  // "This line is wrong" reports (line_feedback table; readable by the writer and the people who fix the engine).
+  function sendFeedback(row){
+    return client().from("line_feedback").insert({owner:user.id, deck:row.deck, hand:row.hand, suggested:row.suggested, note:row.note || null})
+      .then(function(r){ if (r.error) throw err(r.error); });
+  }
   function benchPost(jobId, info, result){
     return client().from("bench_results").insert({owner:user.id, job_id:jobId, info:info, result:result}).then(function(r){ if (r.error) throw err(r.error); });
   }
-  return {configured:configured, start:start, signIn:signIn, signUp:signUp, signOut:signOut, loadProfile:loadProfile, benchJob:benchJob, benchPost:benchPost,
+  return {configured:configured, start:start, signIn:signIn, signUp:signUp, signOut:signOut, loadProfile:loadProfile, benchJob:benchJob, benchPost:benchPost, sendFeedback:sendFeedback,
     myDecks:myDecks, pushDeck:pushDeck, deleteDeck:deleteDeck, directory:directory,
     user:function(){ return user; }, profile:function(){ return profile; }, nameOk:function(n){ return NAME_RE.test(n); }};
 })();
@@ -3819,6 +3838,49 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       board:b.field.slice(), zones:(b.zones || []).slice(), backrow:(b.backrow || []).concat(sets), left:(b.hand || []).filter(function(c){ return sets.indexOf(c) < 0; }), steps:steps};
   }
   function cfBoardTitle(L){ return L.board.length ? L.board.map(function(c, i){ return cfName(c) + (L.zones && L.zones[i] === 2 ? " (center)" : ""); }).join(" · ") : "No monsters left on the field"; }
+  // "This line is wrong": a flag on each suggested line that opens a short note and sends it with the line and its end
+  // board, so the engine can be checked against it. Signed-in accounts only.
+  var FLAG_SVG = '<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4"/><path d="M5 4h11l-2 4 2 4H5"/></svg>';
+  function appVersion(){
+    var a = window.overlayApp;
+    if (a && a.getSettings) return a.getSettings().then(function(s){ return (s && s.version) || "app"; }, function(){ return "app"; });
+    return Promise.resolve("web");
+  }
+  function lineFeedback(card, payload){
+    if (!(window.CLOUD && CLOUD.user() && CLOUD.sendFeedback)) return null;
+    var b = nodes("button", "mini fbflag"); b.type = "button"; b.innerHTML = FLAG_SVG;
+    b.title = "This line is wrong"; b.setAttribute("aria-label", b.title); b.setAttribute("aria-expanded", "false");
+    var form = null;
+    b.addEventListener("click", function(e){
+      e.stopPropagation();
+      if (form){ form.remove(); form = null; b.setAttribute("aria-expanded", "false"); return; }
+      b.setAttribute("aria-expanded", "true");
+      form = nodes("div", "fbform");
+      form.appendChild(nodes("label", "fhead", "This line is wrong"));
+      var ta = nodes("textarea"); ta.rows = 2; ta.maxLength = 1000; ta.placeholder = "What's wrong, or what would you do instead? (optional)";
+      form.appendChild(ta);
+      var row = nodes("div", "fbbtns");
+      var send = nodes("button", "primary", "Send"), cancel = nodes("button", "ghost", "Cancel"); send.type = cancel.type = "button";
+      cancel.addEventListener("click", function(){ form.remove(); form = null; b.setAttribute("aria-expanded", "false"); });
+      send.addEventListener("click", function(){
+        send.disabled = true; send.textContent = "Sending…";
+        var p = payload();
+        appVersion().then(function(v){
+          p.suggested.version = v;
+          return CLOUD.sendFeedback({deck:p.deck, hand:p.hand, suggested:p.suggested, note:ta.value.trim()});
+        }).then(function(){
+          form.remove(); form = null; b.setAttribute("aria-expanded", "false");
+          b.disabled = true; b.classList.add("sent"); b.title = "Sent. Thanks!"; b.setAttribute("aria-label", b.title);
+          toast("Thanks, the line was sent for review");
+        }).catch(function(e){ send.disabled = false; send.textContent = "Send"; toast("Couldn't send: " + (e.message || e), 2600); });
+      });
+      row.appendChild(send); row.appendChild(cancel); form.appendChild(row);
+      card.appendChild(form);
+      ta.focus();
+    });
+    return b;
+  }
+  function fbDeck(){ return PILOT_NAME + " (" + (PILOT_ID || "none") + ")"; }
   function cfLineEl(L, actions){
     var w = nodes("div", "cfline");
     var hd = nodes("div", "cfhead"); hd.appendChild(nodes("b", null, cfBoardTitle(L))); if (actions) hd.appendChild(actions); w.appendChild(hd);
@@ -3906,7 +3968,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var L = cfLine(b, hand);
         var sv = nodes("button", "mini", "Save to Lines"); sv.type = "button";
         sv.addEventListener("click", function(){ if (o.save(L) === false){ toast("Couldn't save the line"); return; } sv.textContent = "Saved"; sv.disabled = true; paintSavedLines(); toast("Saved to the Lines tab"); });
-        wrap.appendChild(cfLineEl(L, sv));
+        var acts = nodes("span", "cfacts"); acts.appendChild(sv);
+        var el = cfLineEl(L, acts);
+        var fb = lineFeedback(el, function(){ return {deck:(o.deckName ? o.deckName() : fbDeck()), hand:hand.slice(), suggested:{source:o.key === "duel" ? "Duel tab combo finder" : "Draw simulator combo finder",
+          goal:st.goal || "", steps:L.steps.map(function(x){ return x.t; }), field:b.field, zones:b.zones || [], backrow:b.backrow || [], hand:b.hand || [],
+          gy:b.gy || [], banished:b.banished || [], score:b.score, complete:!!r.complete, raw:{steps:b.steps}}}; });
+        if (fb) acts.appendChild(fb);
+        wrap.appendChild(el);
       });
       var foot = nodes("div", "cffoot");
       if (boards.length > 4 && !st.more){ var mo = nodes("button", "ghost", "Show " + (Math.min(12, boards.length) - 4) + " more"); mo.type = "button"; mo.addEventListener("click", function(){ st.more = true; paint(); }); foot.appendChild(mo); }
@@ -4005,6 +4073,9 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       pb.addEventListener("click", function(){ var f = !card.classList.contains("folded"); if (f) planFold[key] = true; else delete planFold[key]; save("hbc-planfold", planFold); setFold(f); });
     } else h.textContent = title;
     card.appendChild(h);
+    var gfb = lineFeedback(card, function(){ return {deck:fbDeck(), hand:L.h.slice(), suggested:{source:"Generated line", steps:L.st.map(function(x){ return cfStepText(genStep(x)); }),
+      field:L.f || [], backrow:L.b || [], ends:genEnds(L), score:L.s, raw:{h:L.h, st:L.st, f:L.f, b:L.b, s:L.s}}}; });
+    if (gfb){ h.classList.add("hasfb"); h.appendChild(gfb); }
     card.appendChild(nodes("p", "cfmeta genends", genEnds(L)));
     var ol = nodes("ol", "gensteps");
     L.st.forEach(function(x, i){
@@ -5829,7 +5900,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var simOrder = "first", simHand = [], simRest = [];
     var simCF = null;
     function simFinder(){
-      if (!simCF) simCF = comboFinder({key:"sim:" + (deck.id || "new"),
+      if (!simCF) simCF = comboFinder({key:"sim:" + (deck.id || "new"), deckName:function(){ return (deck.name || "Untitled deck") + " (" + (deck.id || "new") + ")"; },
         hand:function(){ return simHand.map(function(id){ return +id; }); },
         deck:function(){ return {main:cfList(deck.main), extra:cfList(deck.extra || [])}; },
         extraOpts:function(){ return cfList(deck.extra || []); },

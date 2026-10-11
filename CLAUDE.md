@@ -241,13 +241,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   initial_effect runs in a duel, read its registered effects from the core (type, code, category, range, count limit;
   helpers included) via reset.cpp-style access to the core's card structures. Do it when feedback or a new deck shows
   text misreads.
-- FOR THE UI SESSION (owner approved): a "This line is wrong" feedback button on suggested lines / end boards (Duel tab
-  combo finder results and the Lines tab's generated lines). Small form: optional note "What's wrong / what would you do
-  instead?". On send, insert into Supabase `line_feedback` (table + RLS at the bottom of `supabase/schema.sql`, already
-  run by the owner): `deck` (deck name + id), `hand` (card codes), `suggested` (the line's steps and end
-  board as shown: field / backrow / hand / gy, score, and the app version), `note`. Readable only by the writer, the
-  admin and the enginetest account; Claude reads reports with `tools/feedback.py` and turns them into engine test
-  cases. Signed-in users only; nothing in the UI should mention admin. Check with the owner on placement/look.
+- "This line is wrong" feedback: DONE (UI session). A flag button on each Duel tab / Draw simulator combo finder result
+  (next to Save to Lines) and on each generated line (Lines tab and the Duel tab's best line) opens a short note and
+  inserts into `line_feedback`: `deck` "<name> (<id>)", `hand` codes, `note`, `suggested` = {source ("Duel tab combo
+  finder" / "Draw simulator combo finder" / "Generated line"), steps (as shown), field, zones, backrow, hand, gy,
+  banished, score, complete, goal, version (app version or "web"), raw (engine steps / the generated line)}.
+  Signed-in only (`CLOUD.sendFeedback`). Read with `tools/feedback.py`.
 - Search result wording (owner approved complete-vs-stable wording; adjusted): "every line checked" when complete,
   otherwise "from N lines tried (best found Xs in). Searching again can find a better one." The engine's `stable` turned
   out unreliable at short budgets (HERO Stratos + Faris is "stable" at 5-20 s on 8.93, 60 s finds 10.59), so the UI
