@@ -1657,6 +1657,7 @@ struct Search {
 			{"normal", s0}, {"breaker", {{"ok", brkOk}, {"stops", s1}, {"plays", brkOk ? plays(brk) : json::array()}, {"credits", bcredits}}}};
 	}
 	bool simOn = false;
+	double beamShare = 0.5;
 
 	json run(int id) {
 		t0 = Clock::now();
@@ -1664,7 +1665,10 @@ struct Search {
 		bool useBeam = !interrupting() && mode != "dfs";
 		// Normal searches run both: a widening beam (fair to every early choice) and depth-first workers
 		// (quick to find long lines). They share what they find.
-		int dfsThreads = !useBeam ? std::max(1, threads) : mode == "beam" ? 0 : std::max(1, threads / 2);
+		// beamShare: the beam's share of the threads (default half). Which split is best depends on the deck: beam-only
+		// finds HERO's best boards twice as fast (Stratos + Faris 10.59 at 19 s vs 38 s), depth-first workers find some
+		// long Fallen of the White Dragon lines; in-between splits weren't better than either. The app alternates.
+		int dfsThreads = !useBeam ? std::max(1, threads) : mode == "beam" ? 0 : std::max(1, (int)std::lround(threads * (1.0 - beamShare)));
 		beamThreads = std::max(1, threads - dfsThreads);
 		if(useBeam) ts.emplace_back([this] { beam(); });
 		// Seeds (the best lines earlier searches found for this hand) are replayed first: their boards are recorded (so this
@@ -1823,6 +1827,7 @@ int main(int argc, char** argv) {
 			s->setup.oppHand = ids(req, "oppHand");
 			s->wantLabels = req.value("labels", false);
 			s->simOn = req.value("sim", false);
+			s->beamShare = std::min(1.0, std::max(0.0, req.value("beamShare", 0.5)));
 			if(req.contains("seeds") && req["seeds"].is_array()) for(auto& sd : req["seeds"]) if(sd.is_array()) { std::vector<std::string> v; for(auto& l : sd) if(l.is_string()) v.push_back(l.get<std::string>()); if(!v.empty()) s->seeds.push_back(v); }
 			s->mode = req.value("mode", std::string());
 			{

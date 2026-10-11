@@ -495,7 +495,10 @@ ipcMain.handle("combo:search", async (e, q) => {
     const threads = Math.max(1, Math.min(8, require("os").cpus().length - 1));
     const key = seedKey(q.deck, q.extra, q.hand, q.targets), seed = seedGet(key);
     const r = await comboRequest({ id, cmd: "search", deck: q.deck || [], extra: q.extra || [], hand: q.hand || [],
-      targets: q.targets || [], maxActions: q.maxActions || 16, timeMs: q.timeMs || 20000, top: q.top || 12, threads, labels: true, ...(seed ? { seeds: [seed.l] } : {}) });
+      targets: q.targets || [], maxActions: q.maxActions || 16, timeMs: q.timeMs || 20000, top: q.top || 12, threads, labels: true,
+      // The two search methods take turns: a hand's first search is beam-only (finds most decks' best boards far
+      // sooner), later ones start from that line with depth-first workers too (they find some long lines the beam misses).
+      mode: seed ? "" : "beam", ...(seed ? { seeds: [seed.l] } : {}) });
     if (r && r.boards && r.boards[0]) seedPut(key, r.boards[0]);
     return r;
   } catch (err) {
@@ -576,30 +579,44 @@ async function genRun(job) {
     await comboEnsureData(0);
     await comboStart();
     g.phase = "lines"; g.total = job.hands.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
-    const best = {}, found = [];
-    // Pass 1: every hand, quickly, each starting from the best line found for it before (search memory).
-    for (const hand of job.hands) {
+    const best = {}, found = [], single = {};
+    // Seeds for a hand: the best line remembered for it, the best line of each of its cards alone (still a legal line
+    // with the other card left in hand), and the best lines found so far for any other hand: different hands often end
+    // on the same board, and a line that opens with a card this hand has replays until its first step that doesn't
+    // fit (replaying is cheap; a mismatch costs nothing).
+    const seedsFor = (hand, key) => {
+      const out = [], m = seedGet(key); if (m) out.push(m.l);
+      if (hand.length > 1) hand.forEach(c => { const x = single[c]; if (x && x.r.boards && x.r.boards[0] && x.r.boards[0].labels) out.push(x.r.boards[0].labels); });
+      found.filter(x => x.r.boards && x.r.boards[0] && x.r.boards[0].labels && x.hand.some(c => hand.includes(c)))
+        .sort((a, b) => b.r.boards[0].score - a.r.boards[0].score).slice(0, 10).forEach(x => out.push(x.r.boards[0].labels));
+      return out;
+    };
+    // Pass 1: every hand, single cards first (their lines seed the two-card hands).
+    for (const hand of job.hands.slice().sort((a, b) => a.length - b.length)) {
       if (g.cancel) break;
       // Same amount of searching per hand on any PC: more cores, less waiting.
       const per = Math.max(4000, Math.min(10000, 40000 / genThreads()));
-      const key = seedKey(job.deck, job.extra, hand, job.targets), seed = seedGet(key);
-      const r = await send({ hand, timeMs: Math.round(hand.length > 1 ? per : per * 0.8), maxActions: 16, labels: true, ...(seed ? { seeds: [seed.l] } : {}) });
+      const key = seedKey(job.deck, job.extra, hand, job.targets), seeds = seedsFor(hand, key);
+      const r = await send({ hand, timeMs: Math.round(hand.length > 1 ? per : per * 0.8), maxActions: 16, labels: true, ...(seeds.length ? { seeds } : {}) });
       if (r.boards && r.boards[0]) seedPut(key, r.boards[0]);
-      found.push({ hand, key, r });
+      const x = { hand, key, r }; found.push(x); if (hand.length === 1) single[hand[0]] = x;
       g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
     }
-    // Pass 2: hands not fully checked get more time, starting from their best line; best hands first, within a fixed
-    // budget so generation doesn't run on for long. (Not only "unstable" ones: a 5 s search often settles on a board
-    // that a longer one beats, e.g. Stratos + Faris 8.93 -> 10.59.)
+    // Pass 2: hands not fully checked get more time, starting from their best lines and everyone else's; best hands
+    // first, within a fixed budget. (Not only "unstable" ones: a 5 s search often settles on a board a longer one
+    // beats, e.g. Stratos + Faris 8.93 -> 10.59. No early stop: a seeded search records the seed's board at once, so
+    // "hasn't improved lately" would end it before it searched at all.)
     const unsettled = found.filter(x => x.r.boards && x.r.boards[0] && !x.r.complete).sort((a, b) => b.r.boards[0].score - a.r.boards[0].score);
     g.phase = "refine"; g.total = unsettled.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
     const refineEnd = Date.now() + 5 * 60 * 1000;
     for (const x of unsettled) {
       if (g.cancel || Date.now() > refineEnd) break;
-      const r = await send({ hand: x.hand, timeMs: 15000, maxActions: 16, labels: true, seeds: [x.r.boards[0].labels] });
+      const seeds = seedsFor(x.hand, x.key); seeds.unshift(x.r.boards[0].labels);
+      const r = await send({ hand: x.hand, timeMs: 15000, maxActions: 16, labels: true, seeds });
       if (r.boards && r.boards[0] && r.boards[0].score > x.r.boards[0].score) { x.r = r; seedPut(x.key, r.boards[0]); }
       g.done++; genEvent(Object.assign({ state: "running" }, genInfo()));
     }
+    found.sort((a, b) => job.hands.indexOf(a.hand) - job.hands.indexOf(b.hand));   // back to the page's order for the lines
     for (const { hand, r } of found) {
       const b = r.boards && r.boards[0];
       // Skip "lines" that are just a Normal Summon.
