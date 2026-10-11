@@ -2329,7 +2329,10 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   var PLAYRULES = !DECKDATA.custom || !!DECKDATA.playRules;
   var PILOT_ID = DECKDATA.custom ? DECKDATA.deckId : "hero";
   var PREC = null, PGEN = null;   // the piloted deck's record and its generated lines
-  if (!PLAYRULES){ PREC = MDC.get(PILOT_ID); PGEN = genOf(PREC); }
+  if (DECKDATA.custom){ PREC = MDC.get(PILOT_ID); PGEN = genOf(PREC); }
+  // WRITTEN: show the hand-written lines, checkpoints, best line and counter tips. Only for a play-rules deck without
+  // generated lines: once Omni HERO has generated lines, it shows them like every other deck (its play-rule trackers stay).
+  var WRITTEN = PLAYRULES && !PGEN;
   var PILOT_NAME = DECKDATA.name || "Omni HERO";
   // The Users tab only exists with accounts on.
   if (!(window.CLOUD && CLOUD.user())){ ["t-users", "tab-users"].forEach(function(id){ var el = document.getElementById(id); if (el) el.remove(); }); }
@@ -3006,7 +3009,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     genEvaluate();
     var out = document.getElementById("result");
     out.innerHTML = "";
-    if (!PLAYRULES) return;
+    if (!WRITTEN) return;
     var total = Object.keys(hand).reduce(function(a,k){ return a + (hand[k]||0); }, 0);
     if (!total){
       var e = document.createElement("div"); e.className = "empty";
@@ -3287,7 +3290,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     box.appendChild(wrap);
     return A;
   }
-  if (!PLAYRULES){
+  if (!WRITTEN){
     var myDeck = MDC.get(PILOT_ID), myNotes = myDeck && (myDeck.notes || "").trim(), canGen = !!(window.overlayApp && overlayApp.genStart);
     var esc = function(t){ return String(t).replace(/[<>&]/g, ""); };
     var noDeckBox = '<div class="dbox nolines"><h3>No deck yet</h3><p class="hint">Build, import or copy a deck and its starters, odds and handtrap checkpoints show up here.</p></div>';
@@ -3701,7 +3704,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var h = document.createElement("h2"); h.textContent = d.name; card.appendChild(h);
     if (d.note){ var n = document.createElement("p"); n.className = "hint"; n.textContent = d.note; card.appendChild(n); }
     d.sections.forEach(function(s){
-      if (!PLAYRULES && s[0] === "Your board") return;      // written for Omni HERO
+      if (!WRITTEN && s[0] === "Your board") return;      // written for Omni HERO
       var box = document.createElement("div"); box.className = "cg-sec cg-" + s[0].toLowerCase().replace(/[^a-z]+/g, "").replace("maxxcfuwalos","maxxc");
       var t = document.createElement("h3"); t.textContent = s[0]; box.appendChild(t);
       var ul = document.createElement("ul"); ul.className = "notes";
@@ -3879,7 +3882,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     box.appendChild(hb);
     var body = nodes("div", "vsbody");
     d.sections.forEach(function(s){
-      if (!PLAYRULES && s[0] === "Your board") return;      // written for Omni HERO
+      if (!WRITTEN && s[0] === "Your board") return;      // written for Omni HERO
       if (!/^(Ash this|Don't Ash|Imperm|Maxx)/.test(s[0])) return;
       body.appendChild(nodes("h4", /^Ash/.test(s[0]) ? "ash" : null, s[0]));
       var ul = nodes("ul"); s[1].forEach(function(x){ ul.appendChild(nodes("li", null, x)); }); body.appendChild(ul);
@@ -4302,7 +4305,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var g = {sig:data.sig, at:data.at, v:data.v, goals:data.goals || [], lines:data.lines};
       rec.gen = g; MDC.put(rec);
       if (CF.bld && CF.bld.id === deckId) CF.bld.gen = g;
-      if (deckId === PILOT_ID && !PLAYRULES){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
+      if (deckId === PILOT_ID && WRITTEN){ toast("Lines ready for " + (rec.name || "your deck")); setTimeout(function(){ location.reload(); }, 1500); return true; }   // Omni HERO's first generated lines: switch over to them
+      if (deckId === PILOT_ID){ PREC = MDC.get(PILOT_ID); PGEN = g; paintGen(); if (typeof renderBody === "function" && document.getElementById("genResult") === null) try { renderBody(); } catch (e) {} genEvaluate(); }
       if (!data.quiet) toast("Lines ready for " + (rec.name || "your deck"));   // quiet: background improvements to lines you already have
       return true;
     });
@@ -4436,7 +4440,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     var w = null; (L.fb || []).forEach(function(f){ var d = L.s - f.s; if (!w || d > w.d) w = {d:d, f:f}; }); return w;
   }
   function paintGen(){
-    if (PLAYRULES || !PGEN) return;
+    if (!PGEN) return;
     var stale = PREC && PGEN.sig !== genSig(PREC);
     var singles = PGEN.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
     var pairs = PGEN.lines.filter(function(L){ return L.h.length > 1; }).sort(function(a, b){ return b.s - a.s; });
@@ -4523,7 +4527,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     b.appendChild(document.getElementById("chipArea"));
     b.appendChild(document.getElementById("clearHand").parentNode);
     updateOpeningCount();
-    if (PLAYRULES){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
+    if (WRITTEN){ var r = box("Best line for this hand"); r.appendChild(document.getElementById("result")); }
     else if (PGEN){ var rg = box("Best line for this hand"), gr = nodes("div", "result"); gr.id = "genResult"; rg.appendChild(gr); }
     if (CF_OK) box("Find combos").appendChild(duelFinder());
     paintChips(); evaluate();
@@ -5219,7 +5223,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function renderMain(){
     B(); syncZones();
     renderPlays();
-    if (PLAYRULES){
+    if (WRITTEN){
       var r = box(null);
       var det = nodes("details", "planfold"); det.open = D.n === 1 && !D.acts.length;
       det.appendChild(nodes("summary", null, "Best line for your current hand"));

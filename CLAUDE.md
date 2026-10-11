@@ -51,7 +51,9 @@ Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it check
 - `MDC`: decks in localStorage, scoped per account (`MDC.scope(uid, isAdmin)`; `MDC.isAdmin()` is the admin flag; `MDC.key(name)` = per-account localStorage key).
   No built-in deck any more: Omni HERO is a regular shared deck on the owner's account (`omni:true`, `base:"hero"`), made
   once from deck.json by `ensureOmni()` at boot (moves old device-saved `mdc-herolines` onto it; stored pilot "hero" maps to it).
-  `PLAYRULES` (was HEROMODE) = the deck has hand-written play rules (base "hero").
+  `PLAYRULES` (was HEROMODE) = the deck has hand-written play rules (base "hero"). `WRITTEN` = PLAYRULES and no generated
+  lines: once Omni HERO has `deck.gen` it shows generated Lines / Checkpoints / Counter Guide / best line like every other
+  deck (owner's choice); its play-rule trackers (stop box, once-per-turns, locks) stay.
   Decks: `{id, name, main:[{id,n}], extra, notes, starters, lines, goals, gen, shared}`. `MDC.lines/setLines` = saved lines.
 - `MDA`: card-text analyzer (roles: starter/extender/handtrap/engine; Ash/Imperm/Droll tags; opening odds).
 - `CLOUD`: Supabase (project `hopdbvllzumhywaxerno`, publishable key in the file). Usernames map to
