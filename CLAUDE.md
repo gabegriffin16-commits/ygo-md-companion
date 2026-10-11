@@ -292,6 +292,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   field (Tri-Brigade Mercourier, Ghost Ogre). tune.py 118.68 -> 120.20. `bench/fxdiag.py` = the report (script-only
   negates too). Limits: categories don't say whose cards a removal hits, and modal cards (The Fallen & The Virtuous) set
   categories only on activation, so the text still decides *what* an effect is worth; the script decides *where/when*.
+  Script-only negates over 2500 random cards found: old "Graveyard" wording wasn't read as "GY" (now normalized in
+  effects()), "this card from your hand or GY" (Rikka Princess) counts from both; also attack-only negates are 0.5 (Necro
+  Gardna, Magic Cylinder) and milling their Deck / their LP isn't removal (Light of Destruction, Cubic Karma).
+  Wide check helpers: random 2500-card samples through `eval` before/after (19 cards changed, all checked by hand).
   Next: count limits (two uses of a card per turn?), Quick Effect vs ignition from the script, and conditions.
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the

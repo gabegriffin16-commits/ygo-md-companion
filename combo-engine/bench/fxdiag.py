@@ -12,6 +12,7 @@ Disagreements:
                cards a removal hits, so only negates are listed)
 """
 import json, sqlite3, subprocess, sys
+sys.stdout.reconfigure(encoding="utf-8")
 args = [a for a in sys.argv[1:] if a != "-v"]; verbose = "-v" in sys.argv
 exe, cdb, zipf = args[:3]; decks = args[3:]
 db = sqlite3.connect(cdb)
@@ -72,10 +73,9 @@ for c in cards:
     text = {"field": max(e.get("field", 0), e.get("onSummon", 0) * 0), "set": e.get("set", 0), "hand": e.get("hand", 0), "gy": e.get("gy", 0)}
     for q, tv in text.items():
         have = by.get(q, set()) | (by.get("summon", set()) if q == "field" else set())
-        if tv >= 1.0 and not have: textOnly.append((name(c), q, tv))
         if tv < 0.5 and have & NEG: scriptOnly.append((name(c), q, ",".join(sorted(have - {"any"}))))
 p.stdin.write(json.dumps({"cmd": "quit"}) + "\n"); p.stdin.flush()
 print("TEXT-ONLY (text credits an interruption from there; the script has no opponent's-turn effect from there):")
-for n_, q, v in sorted(textOnly, key=lambda x: -x[2]): print("  %-44s %-5s %s" % (n_[:44], q, "text %.2f" % v if v else "(dropped by the engine's script check)"))
+for n_, q, v in textOnly: print("  %-44s %-5s (dropped by the engine's script check)" % (n_[:44], q))
 print("\nSCRIPT-ONLY (the script negates from there on their turn; the text model gives < 0.5):")
 for n_, q, k in scriptOnly: print("  %-44s %-5s %s" % (n_[:44], q, k))

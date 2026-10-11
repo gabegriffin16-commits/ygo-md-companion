@@ -82,6 +82,8 @@ inline std::vector<Fx> effects(const std::string& text) {
 	auto flush = [&] {
 		if(cur.find_first_not_of(" \r\n\t") != std::string::npos) {
 			std::string e = lower(cur);
+			// Older cards say "Graveyard": read it as the "GY" every rule here looks for (Superheavy Samurai Flutist).
+			for(size_t at; (at = e.find("graveyard")) != std::string::npos;) e.replace(at, 9, "gy");
 			if(inBullet) out.push_back({header + " " + e, group}); else { out.push_back({e, ++group}); header = e; }
 		}
 		cur.clear();
@@ -101,7 +103,7 @@ inline std::vector<Fx> effects(const std::string& text) {
 inline bool theirs(const std::string& e) {
 	for(size_t i = e.find("opponent's"); i != std::string::npos; i = e.find("opponent's", i + 1)) {
 		std::string w = e.substr(i + 11, 12);
-		if(w.compare(0, 4, "turn") && w.compare(0, 4, "main") && w.compare(0, 6, "battle") && w.compare(0, 2, "gy") && w.compare(0, 5, "end p") && w.compare(0, 7, "standby")) return true;
+		if(w.compare(0, 4, "turn") && w.compare(0, 4, "main") && w.compare(0, 6, "battle") && w.compare(0, 2, "gy") && w.compare(0, 5, "end p") && w.compare(0, 7, "standby") && w.compare(0, 2, "lp") && w.compare(0, 4, "life") && w.compare(0, 4, "deck")) return true;   // their LP / Deck aren't their cards on the field
 	}
 	return false;
 }
@@ -113,7 +115,8 @@ inline float hurt(const std::string& e) {
 	const std::string full = e; const size_t colon = full.find(':');
 	const std::string x = colon == std::string::npos ? full : full.substr(colon + 1);
 	{ const std::string& e = x;
-	if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
+	if((has(e, "negate the attack") || has(e, "negate the next attack") || has(e, "negate an attack")) && !has(e, "activation")) v = 0.5f;   // battle only (Necro Gardna): no play stopped
+	else if(has(e, "negate the activation") || has(e, "negate the summon") || has(e, "negate that summon") || has(e, "negate the normal or special summon") || has(e, "negate the special summon")) v = 3.5f;
 	else if(has(e, "negate")) v = 3.0f;
 	// "Opponent's" means their cards, not "during your opponent's turn" (Rindbrumm reviving itself from the GY on their
 	// turn isn't removal). Banishing cards from their GY stops no play (Dracotail Sting).
@@ -128,7 +131,7 @@ inline float hurt(const std::string& e) {
 	else if(has(e, "take control") || has(e, "gain control")) v = 2.5f;
 	else if(has(e, "tribute") && (has(e, "on the field") || has(e, "your opponent controls"))) v = 2.5f;
 	else if(has(e, "draw") && has(e, "opponent") && (has(e, "special summon") || has(e, "activates"))) v = 2.0f;   // Maxx "C" and friends
-	else if(has(e, "send") && has(e, "to the gy") && (has(e, "your opponent controls") || has(e, "opponent's"))) v = 2.0f;
+	else if(has(e, "send") && has(e, "to the gy") && (has(e, "your opponent controls") || theirs(e)) && !has(e, "their deck") && !has(e, "top card")) v = 2.0f;   // milling their Deck (Light of Destruction) stops nothing
 	else if(has(e, "change") && has(e, "face-down")) v = 1.5f;
 	else if(has(e, "cannot be added")) v = 2.0f;   // Droll & Lock Bird: no more searches this turn
 	else if(has(e, "cannot activate") && has(e, "opponent")) v = 1.5f;
@@ -239,7 +242,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 		for(size_t fj = 0; fj < fxs.size(); fj++) if(fj != fi && fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) > hurt(e)) laterBetter = true;
 		for(size_t fj = 0; fj < fi; fj++) if(fxs[fj].group == fxs[fi].group && hurt(fxs[fj].text) == hurt(e)) laterBetter = true;
 		// Where the effect is used from is about *this card*: "a monster from your hand" is just a summon source.
-		bool fromGy = has(e, "this card is in your gy") || has(e, "this card from your gy") || has(e, "this card in your gy") || has(e, "this card is in your graveyard");
+		bool fromGy = has(e, "this card is in your gy") || has(e, "this card from your gy") || has(e, "this card in your gy") || has(e, "this card from your hand or gy") || has(e, "this card from your hand, deck, or gy");
 		bool fromHand = has(e, "discard this card") || has(e, "this card from your hand") || has(e, "this card in your hand") || has(e, "this card is in your hand") || has(e, "reveal this card");
 		bool theirTurn = on_their_turn(e, (trap || quickplay) && !fromGy);
 		bool battleOnly = has(e, "attack is declared") || has(e, "declares an attack") || has(e, "during the battle phase");
@@ -373,7 +376,7 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 			}
 		}
 		if(h > 0 && !bringOnly) {
-			if(fromGy) inGy.push_back(h);
+			if(fromGy) { inGy.push_back(h); if(mon && fromHand && (has(e, "from your hand or gy") || has(e, "from your hand, deck, or gy"))) inHand.push_back(h); }   // Rikka Princess: either place
 			else if(mon && fromHand) {
 				inHand.push_back(h);
 				// "send this card from your hand or face-up field": it works from the field too (Tri-Brigade Mercourier)
