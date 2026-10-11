@@ -1,0 +1,58 @@
+# Search tuning on GitHub runners: one runner per configuration, in parallel. Each runs bench/tune.py (a fixed hand
+# set across the reference decks, beam-only, on a work budget: maxReplays, so results don't depend on runner speed)
+# and posts its total as an annotation (readable without logging in, see CLAUDE.md).
+# Runs when combo-engine/bench/tune.json changes: {"replays": 30000, "configs": [{}, {"width": 16}, ...]}.
+name: Combo engine search tuning
+
+on:
+  push:
+    branches: [main]
+    paths: ["combo-engine/bench/tune.json"]
+  workflow_dispatch:
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      configs: ${{ steps.read.outputs.configs }}
+      replays: ${{ steps.read.outputs.replays }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: read
+        run: |
+          python3 -c "import json; t=json.load(open('combo-engine/bench/tune.json')); print('configs=' + json.dumps([json.dumps(c) for c in t['configs']])); print('replays=%d' % t.get('replays', 30000))" >> "$GITHUB_OUTPUT"
+  tune:
+    needs: plan
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        config: ${{ fromJSON(needs.plan.outputs.configs) }}
+    name: ${{ matrix.config }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch sources and data
+        run: |
+          set -e
+          sudo apt-get install -y -qq ninja-build >/dev/null
+          mkdir -p src deps/miniz deps/sqlite
+          git clone --quiet https://github.com/edo9300/ygopro-core src/ygopro-core
+          git -C src/ygopro-core checkout --quiet 38d04c9feb1a26617407091380634c87262fe3f8
+          git -C src/ygopro-core submodule update --init --quiet
+          git clone --quiet --depth 1 --branch v2.1.7 https://github.com/microsoft/mimalloc src/mimalloc
+          curl -fsSL -o deps/json.hpp https://github.com/nlohmann/json/releases/download/v3.11.3/json.hpp
+          curl -fsSL -o miniz.zip https://github.com/richgel999/miniz/releases/download/3.0.2/miniz-3.0.2.zip && unzip -q -o miniz.zip -d deps/miniz
+          curl -fsSL -o sqlite.zip https://www.sqlite.org/2024/sqlite-amalgamation-3460100.zip && unzip -q -j -o sqlite.zip '*/sqlite3.c' '*/sqlite3.h' -d deps/sqlite
+          curl -fsSL -o scripts.zip https://codeload.github.com/ProjectIgnis/CardScripts/zip/refs/heads/master
+          curl -fsSL -o cards.cdb https://raw.githubusercontent.com/ProjectIgnis/BabelCDB/master/cards.cdb
+      - name: Build
+        run: |
+          cmake -S combo-engine -B build -G Ninja -DOCGCORE_DIR=$PWD/src/ygopro-core -DDEPS_DIR=$PWD/deps -DMIMALLOC_DIR=$PWD/src/mimalloc >/dev/null
+          cmake --build build >/dev/null
+      - name: Tune
+        env:
+          THREADS: "4"
+        run: |
+          out=$(python3 -u combo-engine/bench/tune.py build/combo-engine cards.cdb scripts.zip "${{ needs.plan.outputs.replays }}" '${{ matrix.config }}')
+          echo "$out"
+          echo "::notice title=${{ matrix.config }}::$(echo "$out" | tail -1)"

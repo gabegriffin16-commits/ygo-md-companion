@@ -124,7 +124,12 @@ Key parts of `src/main.cpp`:
 - **Search output**: `complete` (every line checked), `stable` (complete, or the best board stopped improving in the
   last 40% of the time), `stats.bestAt` (seconds). Request `stable`: 0..1 enables the early stop (`stableMinMs`, default 5000).
   Bench: `STABLE=0.4`.
-- **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc.
+- **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc; link-time
+  optimization (+4.5%). Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
+  (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
+  `MDC_NOREUSE` to compare). `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
+  isn't used: on 6 physical cores it slows HERO's beam. `maxReplays` = work budget instead of the clock and `growth`
+  = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible).
 - Known limits: opponent never acts except the tested handtrap; Spell/Trap zones always first free; revival reads
   only the quoted name and Level cap (not Type/Attribute) and ignores once-per-turn names; scoring is generic, so goals
   matter for long combos.
@@ -244,12 +249,18 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   otherwise "from N lines tried (best found Xs in). Searching again can find a better one." The engine's `stable` turned
   out unreliable at short budgets (HERO Stratos + Faris is "stable" at 5-20 s on 8.93, 60 s finds 10.59), so the UI
   doesn't claim "likely the best".
-- Search memory (1.23.0): `app/main.js` keeps the best line per deck + goals + hand in userData `combo-seeds.json`
-  (newest 3000). Every combo finder search and generated-line search sends it as the engine's `seeds` (choice labels,
-  replayed first: results can't get worse; the best becomes the beam's kept line and the depth-first workers start
-  from points along it) and saves anything better. Line generation: pass 1 as before (seeded), pass 2 ("Improving
-  lines") gives not-fully-checked hands 15 s more each from their best line, best hands first, 5-minute budget; lines
-  and handtrap backups are built after. Engine: request `"seeds": [[labels...]]`.
+- Search memory + generation (1.23.0 / 1.24.0): `app/main.js` keeps the best line per deck + goals + hand in userData
+  `combo-seeds.json` (newest 3000). Every combo finder / generation search sends it as the engine's `seeds` (choice
+  labels replayed first, then played on through the End Phase to the opponent's Main Phase; results can't get worse)
+  and saves anything better. Combo finder: a hand's first search is beam-only (`mode:"beam"`), later ones the default
+  half-and-half. Generation: single cards 4 s, two-card hands up to 20 s beam-first (they share ~10 min), seeded with
+  memory + their cards' single-card lines + the 10 best lines of other hands sharing a card; then the 10 best hands
+  30 s more in the default mode; then backups. Then a background improver (`improverStart`): when idle (no search for
+  30 s, no generation / engine test), two rounds over the lines, 30 s each, half the threads, below-normal priority;
+  improved lines get new backups and the page imports them quietly (`state:"improved"`, file `quiet:true`).
+  Generation uses cores-1 threads (max 15) at below-normal priority; the combo finder keeps min(8, cores-1).
+  `tools/test/genquality.js` measures generation vs a 60 s-per-hand reference through the real app code (HERO set:
+  98.2% first generation, 99.0% after 8 idle minutes).
 - PINNED (owner): guide "vs <handtrap>" lines (vs Ash / Imperm / Veiler / Droll) are the reference for the app's handtrap
   backup lines, not for normal lines: compare them with the engine's interrupting search (oppHand + hitCard at the step
   the guide got hit, found from the guide's steps), and use MDM's per-combo vsHandTraps list to check that engine lines
