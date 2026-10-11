@@ -307,6 +307,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   negated" is a drawback on our summon, not a negate (`negates()` in evaluate.h; 36 cards of 14121, e.g. Elder Entity
   Norden, Synchro Call; Forbidden Chalice keeps its negate). Whole-database before/after diffs of `eval` are the check for
   every text rule now (scratchpad alldiff-style: eval all 14121 cards with two builds, read every changed card).
+  `negates()` also: "negate its effects" / "its effects are negated" right after the effect Special Summons or takes control
+  of its own pick is a drawback (a following sentence "Its effects are negated." is merged into its effect), and "cannot be
+  negated" isn't a negate (101 cards changed of 14121, reviewed; Ash / Veiler / Imperm / Solemn / Baronne / Chalice
+  unchanged). `bench/negscan.py` = whole-database scan for text negates the scripts don't back.
   Next: conditions an effect needs (script `cond`).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the

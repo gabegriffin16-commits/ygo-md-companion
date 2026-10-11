@@ -85,7 +85,11 @@ inline std::vector<Fx> effects(const std::string& text) {
 			std::string e = lower(cur);
 			// Older cards say "Graveyard": read it as the "GY" every rule here looks for (Superheavy Samurai Flutist).
 			for(size_t at; (at = e.find("graveyard")) != std::string::npos;) e.replace(at, 9, "gy");
-			if(inBullet) out.push_back({header + " " + e, group}); else { out.push_back({e, ++group}); header = e; }
+			// "Special Summon it. Its effects are negated." is one effect: the 2nd sentence is about the 1st one's monster.
+			const bool cont = !out.empty() && !inBullet && (e.rfind("its effects are negated", 0) == 0 || e.rfind("their effects are negated", 0) == 0 || e.rfind("negate its effects", 0) == 0 ||
+				e.rfind("negate the effects of that monster", 0) == 0 || e.rfind("negate their effects", 0) == 0);
+			if(cont) { out.back().text += " " + e; header = out.back().text; }
+			else if(inBullet) out.push_back({header + " " + e, group}); else { out.push_back({e, ++group}); header = e; }
 		}
 		cur.clear();
 	};
@@ -108,13 +112,25 @@ inline bool theirs(const std::string& e) {
 	}
 	return false;
 }
-// A real negate: "negate" the verb, or "negated" that isn't a drawback on our own summon ("Special Summon it, but it has its
-// effects negated" / "with its effects negated": Crystron Quan, Speedroid Wheel).
+// A real negate: "negate" the verb, or "negated" that isn't a drawback of what the effect does to its own pick: a monster
+// it Special Summons ("Special Summon it, but its effects are negated": Crystron Quan, Wicked Rebirth) or takes control
+// of (Fabled Levilazebul). Only the action part counts (after the colon): "If this card is Special Summoned: ... its
+// effects are negated" (Holding Arms) and "gains 400 ATK, but its effects are negated" (Forbidden Chalice) are negates.
 inline bool negates(const std::string& e) {
+	const size_t colon = e.find(':'); const size_t act = colon == std::string::npos ? 0 : colon + 1;
 	for(size_t i = e.find("negate"); i != std::string::npos; i = e.find("negate", i + 1)) {
-		if(i + 6 >= e.size() || e[i + 6] != 'd') return true;
-		const std::string before = e.substr(i > 40 ? i - 40 : 0, i > 40 ? 40 : i);
-		if((before.find("but ") == std::string::npos && before.find("with ") == std::string::npos) || e.find("summon") == std::string::npos) return true;   // Forbidden Chalice: "but its effects are negated" on their monster
+		const std::string pre = e.substr(i >= 10 ? i - 10 : 0, i >= 10 ? 10 : i);
+		if(pre.find("cannot be ") != std::string::npos || pre.find("can't be ") != std::string::npos) continue;   // "this card's activation cannot be negated"
+		const std::string before = i > act ? e.substr(act, i - act) : std::string();
+		size_t own = std::string::npos; for(const char* w : {"special summon", "take control", "gain control"}) { size_t at = before.rfind(w); if(at != std::string::npos && (own == std::string::npos || at > own)) own = at; }
+		const bool ownPick = own != std::string::npos && before.find("opponent controls", own) == std::string::npos && before.find("opponent's", own) == std::string::npos;
+		if(i + 6 >= e.size() || e[i + 6] != 'd') {   // the verb: "negate its effects" right after summoning it (Purrely Sharely!?, Fossil Excavation) is a drawback too
+			const std::string after = e.substr(i + 6, 30);
+			const bool pronoun = after.rfind(" its effects", 0) == 0 || after.rfind(" their effects", 0) == 0 || after.rfind(" the effects of that monster", 0) == 0;
+			if(!(pronoun && ownPick)) return true;
+			continue;
+		}
+		if(!ownPick) return true;
 	}
 	return false;
 }
