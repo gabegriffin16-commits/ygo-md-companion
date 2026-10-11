@@ -176,8 +176,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   once the best hasn't improved for that share of the time (off by default: runs vary, e.g. HERO's best came at 155s of
   180 once, and a 180s Elfnote run settled on a worse board than a 120s one). Beam ties are now broken by a hash of the
   line (reproducible beam runs). Zone decks key positions by center/side of center-aware monsters only (keying every
-  monster's zone blew up HERO, which counts as a zone deck). The best line is now kept across beam passes. Left: UI
-  wording for complete vs stable (ask the owner). Elfnote stays noisy run to run (13.9-15.0 at 20s; same engine).
+  monster's zone blew up HERO, which counts as a zone deck). The best line is now kept across beam passes. UI wording
+  for complete vs stable: done (see below). Elfnote stays noisy run to run (13.9-15.0 at 20s; same engine).
 - Opponent's-turn simulation (opt-in, `"sim":true`, off in the app for now): fixes real misreads (Kewl Tune Mix 1-card:
   Remix 5.15 over RS 3.80, as the guide; HERO: Destroyer Phoenix + Favorite Contact ranks first, FC credited only when
   its Fusion actually lands; Elfnote: Baronne/Crystal Wing/Rhapsodia/Tinia each credited on a different play). Since
@@ -226,6 +226,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   same model (30s searches vary), too noisy to grade single rules; judge each fix by the card text + the regression set.
   Remaining diag leads: Zalen / Gulamel need our own chain (sim limit), generic opponent's-turn summons (Incredible
   Ecclesia, Albion the Sanctifire: 1.5 but rarely stop anything), Kewl Tune Loudness War (copies a GY effect: text 0).
+- FOR THE UI SESSION (owner approved): a "This line is wrong" feedback button on suggested lines / end boards (Duel tab
+  combo finder results and the Lines tab's generated lines). Small form: optional note "What's wrong / what would you do
+  instead?". On send, insert into Supabase `line_feedback` (table + RLS at the bottom of `supabase/schema.sql`; the
+  owner must run that part first): `deck` (deck name + id), `hand` (card codes), `suggested` (the line's steps and end
+  board as shown: field / backrow / hand / gy, score, and the app version), `note`. Readable only by the writer, the
+  admin and the enginetest account; Claude reads reports with `tools/feedback.py` and turns them into engine test
+  cases. Signed-in users only; nothing in the UI should mention admin. Check with the owner on placement/look.
+- Search result wording (owner approved): the combo finder's summary now says "every line checked" (complete), "...
+  The best one stopped improving early, so it's likely the best." (stable) or "... It was still improving when time
+  ran out." (neither), from the engine's `complete` / `stable`.
 - PINNED (owner): guide "vs <handtrap>" lines (vs Ash / Imperm / Veiler / Droll) are the reference for the app's handtrap
   backup lines, not for normal lines: compare them with the engine's interrupting search (oppHand + hitCard at the step
   the guide got hit, found from the guide's steps), and use MDM's per-combo vsHandTraps list to check that engine lines

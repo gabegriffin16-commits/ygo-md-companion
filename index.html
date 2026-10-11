@@ -3895,7 +3895,11 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (r.missing && r.missing.length) wrap.appendChild(nodes("p", "hint", "Not scripted in the engine yet, so treated as blanks: " + r.missing.map(cfName).join(", ") + "."));
       var boards = (r.boards || []).filter(function(b){ return b.steps.length; });
       if (!boards.length){ wrap.appendChild(nodes("p", "hint", "No plays found for this hand.")); return; }
-      wrap.appendChild(nodes("p", "hint cfsum", boards.length + " end board" + (boards.length > 1 ? "s" : "") + (r.complete ? ", every line checked." : " from " + (r.stats && r.stats.replays ? r.stats.replays.toLocaleString() + " lines tried" : "the time allowed") + ".")));
+      // complete: every line was checked; stable: the best board stopped improving well before time ran out (likely the
+      // best there is); otherwise it was still improving when time ran out.
+      var tried = r.stats && r.stats.replays ? r.stats.replays.toLocaleString() + " lines tried" : "the time allowed";
+      wrap.appendChild(nodes("p", "hint cfsum", boards.length + " end board" + (boards.length > 1 ? "s" : "") + (r.complete ? ", every line checked." :
+        " from " + tried + (r.stable ? ". The best one stopped improving early, so it's likely the best." : ". It was still improving when time ran out."))));
       boards.slice(0, st.more ? 12 : 4).forEach(function(b){
         var L = cfLine(b, hand);
         var sv = nodes("button", "mini", "Save to Lines"); sv.type = "button";

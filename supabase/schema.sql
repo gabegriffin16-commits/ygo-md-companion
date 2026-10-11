@@ -92,3 +92,26 @@ drop policy if exists "bench results readable" on public.bench_results;
 create policy "bench results readable" on public.bench_results for select to authenticated using (true);
 drop policy if exists "bench results insert own" on public.bench_results;
 create policy "bench results insert own" on public.bench_results for insert to authenticated with check (owner = auth.uid());
+
+-- ===== Line feedback (added later: run this part if you ran the file before) =====
+-- "This line is wrong" reports from the app: the hand, the line / board the engine suggested, and what the player
+-- would do instead. Each row is written by its owner; Claude reads them (with the "enginetest" account) to turn them
+-- into engine test cases.
+create table if not exists public.line_feedback (
+  id bigint generated always as identity primary key,
+  owner uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  created_at timestamptz not null default now(),
+  deck text,                -- deck name / id
+  hand jsonb,               -- card codes of the starting hand
+  suggested jsonb,          -- the line and end board shown (steps, field, backrow, hand, gy, score, engine version)
+  note text                 -- what's wrong / what they'd do instead
+);
+alter table public.line_feedback enable row level security;
+drop policy if exists "line feedback readable" on public.line_feedback;
+-- Readable by whoever wrote it, the admin, and the "enginetest" account Claude reads reports with.
+create policy "line feedback readable" on public.line_feedback for select to authenticated
+  using (owner = auth.uid() or public.is_admin() or exists (select 1 from public.profiles where id = auth.uid() and lower(username) = 'enginetest'));
+drop policy if exists "line feedback insert own" on public.line_feedback;
+create policy "line feedback insert own" on public.line_feedback for insert to authenticated with check (owner = auth.uid());
+drop policy if exists "line feedback delete own" on public.line_feedback;
+create policy "line feedback delete own" on public.line_feedback for delete to authenticated using (owner = auth.uid());
