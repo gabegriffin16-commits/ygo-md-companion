@@ -1298,10 +1298,7 @@ html.fadebg .bldbtns .bldshare, html.fadebg .uacts .ushare{background:var(--pane
 .utile .uart{position:relative; display:block; border:1px solid var(--line); border-radius:8px; overflow:hidden; background:var(--panel); aspect-ratio:421/614}
 .utile img{display:block; width:100%; height:100%; object-fit:cover}
 .utile:hover .uart{border-color:var(--gold)}
-.utile .uname{display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; font:500 .72rem/1.25 var(--body); color:var(--ink); min-height:2.5em}
-.utile:hover .uname{color:var(--gold)}
 .ucopies{position:absolute; right:4px; bottom:4px; font:700 .7rem var(--display); color:#fff; background:rgba(0,0,0,.65); border-radius:999px; padding:1px 7px}
-html.compact .utile .uname{font-size:.68rem}
 .unotes h3.cd-sec{margin:0}
 /* ---- account + Users buttons ---- */
 .acctbtn{display:inline-flex; align-items:center; gap:6px; cursor:pointer; white-space:nowrap}
@@ -5556,7 +5553,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       export:'<path d="M12 15V5M8 8.5l4-4 4 4"/><path d="M5 15.5V19h14v-3.5"/>',
       del:'<path d="M5 7.5h14M10 7.5V5h4v2.5M7 7.5l.8 11.5h8.4L17 7.5"/>',
       deck:'<g transform="translate(0.8 0)"><rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/></g>',
-      builder:'<g transform="translate(1.1 0)"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v4"/><rect x="5.5" y="5.5" width="6" height="5" rx="1"/><path d="M5.5 13.5h3"/><path d="M18.5 11.5l2.5 2.5-6.5 6.5H12V18z"/></g>'};
+      builder:'<rect x="5.5" y="3" width="13" height="18" rx="2.2"/><path d="M14.6 6.4l2.2 2.2-6 6-2.9.7.7-2.9z"/><path d="M12.8 8.2l2.2 2.2"/><path d="M8.5 17.8h7"/>'};
     var o = {}; Object.keys(p).forEach(function(k){ o[k] = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p[k] + '</svg>'; });
     return o;
   })();
@@ -6346,7 +6343,6 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       paintDbCard(id);
     }
     function tiles(rows, label, all){
-      var SN = MDC.shortNames((all || rows).map(function(r){ return CARD_BY_ID[r.id] && CARD_BY_ID[r.id].n; }).filter(Boolean));
       var wrap = nodes("div", "udeckzone"); wrap.appendChild(nodes("div", "fhead", label + " (" + count(rows) + ")"));
       var g = nodes("div", "ugrid");
       rows.forEach(function(r){
@@ -6355,7 +6351,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         var art = nodes("span", "uart");
         var im = document.createElement("img"); im.loading = "lazy"; im.alt = c.n; im.src = (window.ART_BASE || "") + c.id + ".avif"; art.appendChild(im);
         if (r.n > 1) art.appendChild(nodes("span", "ucopies", "×" + r.n));
-        t.appendChild(art); t.appendChild(nodes("span", "uname", SN[c.n] || c.n));   // the name under the art, so cards read without knowing the art
+        t.appendChild(art); t.setAttribute("aria-label", c.n + (r.n > 1 ? " \u00D7" + r.n : ""));
         t.addEventListener("click", function(){ showCard(c.id); });
         g.appendChild(t);
       });
@@ -6435,11 +6431,13 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     function fitTiles(){
       var grids = [].slice.call(view.querySelectorAll(".ugrid")); if (!grids.length || !grids[0].offsetParent) return;
       var W = grids[0].clientWidth, gap = 8, top = grids[0].getBoundingClientRect().top, H = window.innerHeight - top - 28;
-      var zones = grids.map(function(g){ return g.children.length; }), head = 34, best = 78;
-      for (var w = 168; w >= 78; w -= 4){
-        var cols = Math.max(1, Math.floor((W + gap) / (w + gap))), rowH = w * 614 / 421 + 34 + gap, h = 0;
+      // Fewest columns (biggest cards, filling the row) that still fit the whole deck on screen; 168px at most, 70px at least.
+      var zones = grids.map(function(g){ return g.children.length; }), head = 34, best = 70;
+      for (var cols = Math.max(1, Math.ceil((W + gap) / (168 + gap))); cols <= 30; cols++){
+        var w = Math.floor((W - gap * (cols - 1)) / cols); if (w < 70) break;
+        var rowH = w * 614 / 421 + gap, h = 0;
         zones.forEach(function(n, i){ h += Math.ceil(n / cols) * rowH + (i ? head : 0); });
-        if (h <= H){ best = w; break; }
+        best = w; if (h <= H) break;
       }
       grids.forEach(function(g){ g.style.setProperty("--tw", best + "px"); });
     }
