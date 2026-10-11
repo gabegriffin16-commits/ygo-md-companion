@@ -913,6 +913,8 @@ html.deckopen .deckpick, html.findopen .deckpick{padding-right:84px}
 .bldviews{display:none; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px}
 .bldviews button{flex:1; border:0; background:none; color:var(--muted); font:600 .82rem var(--display); padding:6px; border-radius:999px; cursor:pointer}
 .bldviews button[aria-selected="true"]{background:var(--gold); color:#1B1640}
+.bldviews .vs{display:none}
+@media (max-width:760px){ .bldviews .vl{display:none} .bldviews .vs{display:inline} }
 .bldbody{display:grid !important; grid-template-columns:minmax(0,1.15fr) minmax(0,1fr) !important; grid-template-rows:minmax(0,1fr) !important; gap:12px; flex:1; min-height:0}
 .bldbrowse, .blddeck{position:relative; min-height:0; display:flex; flex-direction:column; gap:8px; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:10px}
 .blddeck{overflow:auto; display:block}
@@ -1589,6 +1591,20 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .bldana{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
 .bld[data-view="ana"] .bldbody{display:none !important}
 .bld[data-view="ana"] .bldana{display:block}
+.bldlines{display:none; flex:1; min-height:0; overflow:auto; background:var(--panel); border:1px solid var(--line); border-radius:12px; padding:14px 16px}
+.bld[data-view="lines"] .bldbody{display:none !important}
+.bld[data-view="lines"] .bldlines{display:block}
+.bldlines .dlines{max-width:980px; margin:0 auto}
+.bldlines .dlhead{max-width:980px; margin:0 auto 4px}
+.bldlines .dlhead .hint:empty{display:none}
+.dlines h2{margin:14px 0 10px} .dlines h2:first-child{margin-top:2px}
+.dlines .plan{background:var(--bg)}
+.dlines .savedlines{margin-top:14px}
+.dlempty{margin:4px 0}
+.useg{display:inline-flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px; margin:2px 0 12px}
+.useg button{border:0; background:none; color:var(--muted); font:600 .82rem var(--display); padding:5px 16px; border-radius:999px; cursor:pointer}
+.useg button[aria-selected="true"]{background:var(--gold); color:#1B1640}
+.ulines{max-width:100%}
 .ana{display:flex; flex-direction:column; gap:12px}
 .anastats{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
 .anastat{display:flex; flex-direction:column; gap:2px; padding:10px 12px; border-radius:12px; border:1px solid var(--line); background:color-mix(in srgb, var(--bg) 55%, transparent)}
@@ -4138,7 +4154,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function genTitle(L){ return L.h.map(cfName).join(" + "); }
   function genHits(L){ var by = {}; (L.fb || []).forEach(function(f){ (by[f.i] = by[f.i] || []).push(f); }); return by; }
   // One line as a plan card. Tags on a step open what to do if that handtrap lands there.
-  function genLineEl(L, fold){
+  function genLineEl(L, fold, fbName){
     var card = nodes("div", "plan genplan"), h = nodes("h3"), hits = genHits(L);
     var title = genTitle(L);
     if (fold){
@@ -4149,7 +4165,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       pb.addEventListener("click", function(){ var f = !card.classList.contains("folded"); if (f) planFold[key] = true; else delete planFold[key]; save("hbc-planfold", planFold); setFold(f); });
     } else h.textContent = title;
     card.appendChild(h);
-    var gfb = lineFeedback(card, function(){ return {deck:fbDeck(), hand:L.h.slice(), suggested:{source:"Generated line", steps:L.st.map(function(x){ return cfStepText(genStep(x)); }),
+    var gfb = lineFeedback(card, function(){ return {deck:fbName || fbDeck(), hand:L.h.slice(), suggested:{source:"Generated line", steps:L.st.map(function(x){ return cfStepText(genStep(x)); }),
       field:L.f || [], backrow:L.b || [], ends:genEnds(L), score:L.s, raw:{h:L.h, st:L.st, f:L.f, b:L.b, s:L.s}}}; });
     if (gfb){ h.classList.add("hasfb"); h.appendChild(gfb); }
     card.appendChild(nodes("p", "cfmeta genends", genEnds(L)));
@@ -4182,6 +4198,28 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     card.appendChild(ol);
     return card;
   }
+  // A deck's lines, read-only: generated lines (singles, then two-card starts) and saved combo finder lines.
+  // Used by the builder's Lines view and the Users deck view. o = {stale, empty}
+  function deckLinesEl(d, o){
+    o = o || {};
+    var w = nodes("div", "dlines"), G = genOf(d), saved = (d.lines || []).filter(function(L){ return L && Array.isArray(L.board) && Array.isArray(L.steps); });
+    var fb = (d.name || "Untitled deck") + " (" + (d.id || "none") + ")";
+    if (!G && !saved.length){ w.appendChild(nodes("p", "hint dlempty", o.empty || "No lines for this deck yet.")); return w; }
+    if (G){
+      if (o.stale) w.appendChild(nodes("p", "hint generr", o.stale));
+      var singles = G.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
+      var pairs = G.lines.filter(function(L){ return L.h.length > 1; }).sort(function(a, b){ return b.s - a.s; });
+      if (singles.length){ w.appendChild(nodes("h2", null, "How to start")); singles.forEach(function(L){ w.appendChild(genLineEl(L, true, fb)); }); }
+      if (pairs.length){ w.appendChild(nodes("h2", null, "Two-card starts")); pairs.forEach(function(L){ w.appendChild(genLineEl(L, true, fb)); }); }
+    }
+    if (saved.length){
+      var sb = nodes("div", "dbox savedlines"); sb.appendChild(nodes("h3", null, "Found combo lines"));
+      saved.forEach(function(L){ sb.appendChild(cfLineEl(L)); }); w.appendChild(sb);
+    }
+    if (G) w.appendChild(nodes("p", "hint cffine", "Played out in the EDOPro rules engine with the ProjectIgnis card scripts. Tap a handtrap tag on a step for the backup line."));
+    return w;
+  }
+  function deckLineCount(d){ var G = genOf(d); return (G ? G.lines.length : 0) + (d.lines || []).filter(function(L){ return L && Array.isArray(L.board) && Array.isArray(L.steps); }).length; }
   // Lines that start from cards in this hand, best first.
   function genMatches(G, codes){
     var have = {}; codes.forEach(function(c){ have[c] = (have[c] || 0) + 1; });
@@ -5505,7 +5543,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       import:'<path d="M12 4v10M8 10.5l4 4 4-4"/><path d="M5 15.5V19h14v-3.5"/>',
       export:'<path d="M12 15V5M8 8.5l4-4 4 4"/><path d="M5 15.5V19h14v-3.5"/>',
       del:'<path d="M5 7.5h14M10 7.5V5h4v2.5M7 7.5l.8 11.5h8.4L17 7.5"/>',
-      deck:'<rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/>'};
+      deck:'<rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/>',
+      builder:'<rect x="4" y="4" width="6.5" height="8.5" rx="1.3"/><rect x="13.5" y="4" width="6.5" height="8.5" rx="1.3"/><rect x="4" y="15.5" width="6.5" height="4.5" rx="1.3"/><rect x="13.5" y="15.5" width="6.5" height="4.5" rx="1.3"/>'};
     var o = {}; Object.keys(p).forEach(function(k){ o[k] = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p[k] + '</svg>'; });
     return o;
   })();
@@ -5528,7 +5567,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     });
     deckMenu.appendChild(nodes("div", "dmsep"));
     menuItem("Build a new deck", "act", function(){ closeDeckMenu(); openBuilder({id:MDC.newId(), name:"", main:[], extra:[]}, true); }, "add");
-    if (DECKDATA.custom && !DECKDATA.none) menuItem("Edit this deck", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); }, "edit");
+    if (DECKDATA.custom && !DECKDATA.none) menuItem("View in Deck Builder", "act", function(){ closeDeckMenu(); openBuilder(JSON.parse(JSON.stringify(MDC.get(PILOT_ID))), false); }, "builder");
     else if (!DECKDATA.none) menuItem("Copy this deck to edit", "act", function(){ closeDeckMenu(); var c = currentAsBuilt(); c.id = MDC.newId(); c.name = PILOT_NAME + " (copy)"; openBuilder(c, true); }, "copy");
     menuItem("Import a .ydk file", "act", function(){ closeDeckMenu(); importYdk(); }, "import");
     if (!DECKDATA.none) menuItem("Export this deck (.ydk)", "act", function(){ closeDeckMenu(); MDC.download(fileName(PILOT_NAME) + ".ydk", MDC.toYdk(currentAsBuilt())); }, "export");
@@ -5585,7 +5624,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         '<div class="bldbtns"><button type="button" class="fadeitem fadetog bldshare" role="switch" title="Shared decks show in the Users tab for other players. Unlisted decks don\u2019t."><span>Shared</span><span class="sw" aria-hidden="true"></span></button><button type="button" class="ghost bldimp">Import .ydk</button><button type="button" class="ghost bldexp">Export</button><button type="button" class="ghost bldcancel">Close</button><button type="button" class="primary bldsave">Save</button></div>' +
       '</div>' +
       '<div class="bldbar"><div class="bldstat"></div>' +
-      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true">Browse cards</button><button type="button" data-v="deck" aria-selected="false">Your deck</button><button type="button" data-v="sim" aria-selected="false">Draw simulator</button><button type="button" data-v="ana" aria-selected="false">Analysis</button></div></div>' +
+      '<div class="bldviews" role="tablist"><button type="button" data-v="build" aria-selected="true">Build</button><button type="button" data-v="browse" aria-selected="true"><span class="vl">Browse cards</span><span class="vs">Browse</span></button><button type="button" data-v="deck" aria-selected="false"><span class="vl">Your deck</span><span class="vs">Deck</span></button><button type="button" data-v="sim" aria-selected="false"><span class="vl">Draw simulator</span><span class="vs">Draw sim</span></button><button type="button" data-v="ana" aria-selected="false">Analysis</button><button type="button" data-v="lines" aria-selected="false">Lines</button></div></div>' +
       '<div class="bldbody">' +
         '<section class="bldbrowse">' +
           '<div class="bldtools">' +
@@ -5602,6 +5641,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       '</div>' +
       '<section class="bldsim"></section>' +
       '<section class="bldana"></section>' +
+      '<section class="bldlines"></section>' +
       '<div class="bldinfo" hidden></div>';
     document.body.appendChild(root);
     document.documentElement.classList.add("building");
@@ -5894,7 +5934,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       ["UR","SR","R","N"].forEach(function(r){ if (rar[r]) stat.appendChild(nodes("span", "bldrar r-" + r, rar[r] + " " + r)); });
       if (warn.length) stat.appendChild(nodes("span", "bldwarn", warn.join(" · ")));
       else stat.appendChild(nodes("span", "bldgood", "Legal for Master Duel"));
-      var dv = root.querySelector('.bldviews [data-v="deck"]'); if (dv) dv.textContent = "Your deck (" + (m + x) + ")";
+      var dv = root.querySelector('.bldviews [data-v="deck"]'); if (dv) dv.innerHTML = '<span class="vl">Your deck (' + (m + x) + ')</span><span class="vs">Deck (' + (m + x) + ')</span>';
     }
     // Shrink the deck's cards until both sections fit without scrolling (down to a readable minimum).
     function fitDeck(){
@@ -6104,10 +6144,25 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         });
         if (view === "sim"){ if (!simHand.length && mainPile().length >= 5) newHand(); else paintSim(); }
         else if (view === "ana") paintAna();
+        else if (view === "lines") paintLinesView();
         else { paintGrid(); if (list.offsetParent) fitDeck(); }
       });
     });
     root.dataset.view = "browse";
+    // Lines view: what this deck's lines look like, without leaving the builder.
+    function paintLinesView(){
+      var bx = $(".bldlines"); if (!bx) return;
+      var keep = bx.scrollTop; bx.innerHTML = "";
+      var G = genOf(deck), run = GEN.run && GEN.run.deckId === deck.id;
+      var top = nodes("div", "dlhead");
+      top.appendChild(nodes("span", "hint", run ? "Generating new lines\u2026 these update when it's done." : G ? G.lines.length + " generated line" + (G.lines.length === 1 ? "" : "s") + " from " + new Date(G.at).toLocaleDateString() : ""));
+      bx.appendChild(top);
+      bx.appendChild(deckLinesEl(deck, {
+        stale: G && G.sig !== genSig(deck) ? "The deck changed since these lines were generated. Regenerate them to match." : "",
+        empty: GEN_OK ? "No lines for this deck yet. Generate lines plays every starter through the rules engine; they show up here when it's done." : "No lines for this deck yet. Generate them in the desktop app."}));
+      bx.scrollTop = keep;
+    }
+    GEN.paints.push(function(){ if (!root.isConnected) return false; if (view === "lines") paintLinesView(); return true; });
     // Generate lines, next to the view switcher: shows progress while it runs; tapping it opens Analysis (and starts it).
     if (GEN_OK){
       var gbtn = nodes("button", "bldgen"); gbtn.type = "button";
@@ -6340,7 +6395,19 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (d.notes){ var nb = nodes("section", "card unotes"); nb.appendChild(nodes("h3", "cd-sec", "Deck notes")); nb.appendChild(nodes("p", "unotetext", d.notes)); view.appendChild(nb); }
       var st = (d.starters || []).map(function(id){ return CARD_BY_ID[id]; }).filter(Boolean);
       if (st.length){ var sb = nodes("div", "umeta ustarters"); sb.appendChild(nodes("span", "fhead", "Starters")); st.forEach(function(c){ sb.appendChild(nodes("span", "pill", c.n)); }); view.appendChild(sb); }
-      var allRows = (d.main || []).concat(d.extra || []);
+      var allRows = (d.main || []).concat(d.extra || []), nLines = deckLineCount(d);
+      if (nLines){
+        // Cards | Lines: see how the owner plays it before copying it.
+        var seg = nodes("div", "useg"); seg.setAttribute("role", "tablist");
+        [["cards", "Cards"], ["lines", "Lines (" + nLines + ")"]].forEach(function(o){
+          var b = nodes("button", null, o[1]); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.k = o[0];
+          b.setAttribute("aria-selected", (at.show || "cards") === o[0] ? "true" : "false");
+          b.addEventListener("click", function(){ if ((at.show || "cards") === o[0]) return; at.show = o[0]; paint(); });
+          seg.appendChild(b);
+        });
+        view.appendChild(seg);
+      }
+      if (nLines && at.show === "lines"){ var ul = deckLinesEl(d); ul.classList.add("ulines"); view.appendChild(ul); return; }
       view.appendChild(tiles(d.main || [], "Main Deck", allRows));
       if ((d.extra || []).length) view.appendChild(tiles(d.extra, "Extra Deck", allRows));
       requestAnimationFrame(fitTiles);
@@ -6464,6 +6531,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
         text:["Draw test hands and see how often you open a starter.", "Tap cards in the table to mark them as starters."].concat(CF_OK ? ["Find combos plays a hand out and shows the boards it can reach."] : [])});
       S.push({seg:"deck", sel:".bld .bldana", place:"inside", before:function(){ openBld(); bldView("ana"); }, title:"Analysis",
         text:["Your starters, handtraps and opening odds.", "What Ash, Imperm and Droll can stop.", "Generate lines" + (GEN_OK ? "" : " (desktop app)") + " fills in the Lines, Checkpoints and Counter Guide tabs."]});
+      S.push({seg:"deck", sel:".bld .bldlines", place:"inside", before:function(){ openBld(); bldView("lines"); }, title:"Lines",
+        text:["Generated lines show up here too, so you can check them without leaving the builder.", "Tap a handtrap tag on a step for its backup line."]});
       S.push({seg:"deck", sel:".bld .bldbtns", before:function(){ openBld(); bldView(cpt ? "browse" : "build"); }, title:"Save and share",
         text:["Save your deck.", "Import or export a .ydk file.", "Set it to Shared or Unlisted. Shared decks appear in the Users tab."]});
       // ---- Duel tab, shown the way auto tracking looks ----
@@ -6482,7 +6551,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       S.push({seg:"deck", sel:"#t-counter", before:function(){ closeAll(); tab("counter"); }, title:"Counter Guide",
         text:["Pick your opponent's deck.", "See what to hit with handtraps and what to watch out for."]});
       S.push({seg:"deck", sel:["#ovUsers", "#t-users"], before:duel, title:"Users",
-        text:["Browse other players' shared decks.", "Copy any of them to your own."]});
+        text:["Browse other players' shared decks.", "See their lines before you copy one.", "Copy any of them to your own."]});
       S.push({seg:"deck", sel:cpt ? "#cFind" : "#cardPane .cdsearch", before:duel, title:"Card lookup",
         text:["Search for any card to see its art, stats and effects."]});
       if (app){

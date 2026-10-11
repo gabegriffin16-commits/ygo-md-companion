@@ -63,7 +63,9 @@ Site: GitHub Pages from `main`. App: portable exe from GitHub Releases; it check
   (id `tour-…`, Omni HERO list, local only: never pushed to the cloud), pilots it to show the deck tools, then deletes it
   and switches back. Deck switches reload, so the tour resumes from sessionStorage `mdc-tour-run`; a leftover tour deck
   is removed on the next load. Steps have segments pre / deck / post. Add a step when a main feature is added.
-- Generated lines: `genBox` (builder > Analysis: goals chips + Generate), `paintGen` (Lines / Checkpoints / Counter Guide
+- Lines outside the Lines tab: `deckLinesEl(deck)` renders a deck's generated + saved lines read-only; used by the builder's
+  Lines view (`.bldlines`, data-v "lines") and the Users deck view's Cards | Lines toggle (shown when the deck has lines).
+- Generated lines: `genBox` (builder > Analysis: "Set end-board goals" fold + Generate; also the `.bldgen` button by the view tabs), `paintGen` (Lines / Checkpoints / Counter Guide
   for decks with `deck.gen`), `genEvaluate` (Duel tab best line from the read hand). `deckGoals/goalSuggest` = end-board goals.
 
 ### App (app/main.js)
