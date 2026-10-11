@@ -822,6 +822,7 @@ struct Search {
 			for(const auto& nd : e->needs) {   // alternatives: any one met will do
 				int have = 0;
 				for(uint32_t c : nd.where == 2 ? b.grave : b.mzone) { auto it = g_cards.find(c); if(it != g_cards.end() && fits(nd.m, it->second)) have++; }
+				if(nd.where == 1 && nd.m.exact && !nd.m.kinds) for(uint32_t c : b.szone) { auto it = g_cards.find(c); if(it != g_cards.end() && fits(nd.m, it->second)) have++; }   // a named Spell/Trap
 				if(have >= nd.n) return 1.0;
 			}
 			return 0.3;

@@ -351,7 +351,8 @@ inline CardEval evaluate(const std::string& text, uint32_t type) {
 				size_t at = e.find(lead); if(at == std::string::npos) continue;
 				size_t st = at + std::strlen(lead), en = e.find_first_of(":;(", st);
 				std::string phrase = e.substr(st, en == std::string::npos ? std::string::npos : en - st);
-				if(has(phrase, "monster") && !has(phrase, "no ") && !has(phrase, "or more") && phrase.find(" + ") == std::string::npos)
+				// ...or a named card: "if you control \"Mementoal Tecuhtlica - Combined Creation\"" (Mementotlan Mace)
+				if((has(phrase, "monster") || (!phrase.empty() && phrase[0] == '"')) && !has(phrase, "no ") && !has(phrase, "or more") && phrase.find(" + ") == std::string::npos)
 					for(const auto& m : materials(phrase)) { CardEval::Need nd; nd.where = 1; nd.m = m; r.needs.push_back(nd); }
 				break;
 			}

@@ -322,7 +322,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   their monster as material = removal (Unchained Soul of Rage, W:P Fancy Ball); "3 or more attacks declared" effects never
   happen on their turn (Sangenpai); Battle Phase / Damage Step-only locks 0.5 (Mementomictlan, Ancient Gear, Utopia the
   Lightning). Known gaps left: Fire King High Avatar Garunix (revives in their Standby Phase and wipes), quoted-name
-  conditions ("if you control \"Mementoal Tecuhtlica\"") aren't `needs` yet.
+  conditions ("if you control \"Mementoal Tecuhtlica\"") are `needs` now (26 cards; a named Spell counts from the
+  Spell & Trap Zone: Toon World, Macro Cosmos).
   Next: conditions an effect needs (script `cond`).
 - Card scripts as the source of truth (item "3a", deferred with evidence): `bench/scriptdiag.py` reads scripts
   statically and compares with the text model. On the five test decks the text model now agrees almost everywhere; the
