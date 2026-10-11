@@ -1607,7 +1607,7 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .bldlines .dlhead{max-width:980px; margin:0 auto 4px}
 .bldlines .dlhead .hint:empty{display:none}
 .dlines h2{margin:14px 0 10px} .dlines h2:first-child{margin-top:2px}
-.dlines .plan{background:var(--bg)}
+.bldlines .dlines .plan, .bldlines .dlines .savedlines{background:var(--bg)}   /* the builder pane is already panel-colored; elsewhere plans keep the panel fill */
 .dlines .savedlines{margin-top:14px}
 .dlempty{margin:4px 0}
 .useg{display:inline-flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px; margin:2px 0 12px}
@@ -5553,7 +5553,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       export:'<path d="M12 15V5M8 8.5l4-4 4 4"/><path d="M5 15.5V19h14v-3.5"/>',
       del:'<path d="M5 7.5h14M10 7.5V5h4v2.5M7 7.5l.8 11.5h8.4L17 7.5"/>',
       deck:'<g transform="translate(0.8 0)"><rect x="7" y="4" width="11" height="15" rx="2"/><path d="M5 7v11.5A1.5 1.5 0 0 0 6.5 20H14"/></g>',
-      builder:'<rect x="5.5" y="3" width="13" height="18" rx="2.2"/><path d="M14.6 6.4l2.2 2.2-6 6-2.9.7.7-2.9z"/><path d="M12.8 8.2l2.2 2.2"/><path d="M8.5 17.8h7"/>'};
+      builder:'<path d="M5.5 10.5h13v9a1.5 1.5 0 0 1-1.5 1.5H7a1.5 1.5 0 0 1-1.5-1.5z"/><path d="M5.5 10.5L4 4h16l-1.5 6.5"/><path d="M8.5 10.5V7.5h7v3"/><path d="M10 15h4"/>'};
     var o = {}; Object.keys(p).forEach(function(k){ o[k] = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + p[k] + '</svg>'; });
     return o;
   })();
