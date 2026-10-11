@@ -368,6 +368,8 @@ html.compact .lpcol{padding-left:8px}
 .stepper li.skip{opacity:.45; text-decoration:line-through}
 .stepnav{display:flex; justify-content:space-between; align-items:center; margin:14px 0 6px}
 .primary{background:var(--gold); color:#1B1640; border:0; border-radius:10px; padding:10px 24px; font:700 .95rem var(--display); cursor:pointer}
+.primary:hover:not(:disabled){filter:brightness(1.1); box-shadow:0 0 0 2px color-mix(in srgb, var(--gold) 35%, transparent)}
+.ghost:hover:not(:disabled){border-color:var(--gold); color:var(--ink); background-color:color-mix(in srgb, var(--gold) 12%, transparent)}
 .ghost:disabled{opacity:.4; cursor:default}
 .primary:disabled{opacity:.45; cursor:default; filter:saturate(.6)}
 .nolines .nolgen{margin-top:10px}
@@ -1270,7 +1272,7 @@ html.in-overlay #authScreen{top:16px}
 .uacts .ushare{border-radius:12px; padding:0 12px 0 18px}
 .bldbtns .bldshare .sw, .uacts .ushare .sw{width:30px; height:17px} .bldbtns .bldshare .sw::after, .uacts .ushare .sw::after{width:13px; height:13px}
 .bldbtns .bldshare[aria-checked="true"] .sw::after, .uacts .ushare[aria-checked="true"] .sw::after{transform:translateX(13px)}
-.bldbtns .bldshare:hover, .uacts .ushare:hover{background:none; border-color:var(--gold)}
+.bldbtns .bldshare:hover, .uacts .ushare:hover{background:color-mix(in srgb, var(--gold) 12%, transparent); border-color:var(--gold); color:var(--ink)}
 html.fadebg .bldbtns .bldshare, html.fadebg .uacts .ushare{background:var(--panel2) !important; color:var(--ink)}
 .usub{margin:0 0 12px}
 .ulist{display:flex; flex-direction:column; border:1px solid var(--line); border-radius:12px; background:var(--panel); overflow:hidden}
@@ -1630,9 +1632,6 @@ html.in-overlay:not(.compact) .side.left, html.in-overlay:not(.compact) .side.ri
 .bldlines .dlines .plan, .bldlines .dlines .savedlines{background:var(--bg)}   /* the builder pane is already panel-colored; elsewhere plans keep the panel fill */
 .dlines .savedlines{margin-top:14px}
 .dlempty{margin:4px 0}
-.useg{display:inline-flex; gap:4px; background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:3px; margin:2px 0 12px}
-.useg button{border:0; background:none; color:var(--muted); font:600 .82rem var(--display); padding:5px 16px; border-radius:999px; cursor:pointer}
-.useg button[aria-selected="true"]{background:var(--gold); color:#1B1640}
 .ulines{max-width:100%}
 .ana{display:flex; flex-direction:column; gap:12px}
 .anastats{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:8px}
@@ -2953,19 +2952,29 @@ function startCompanion(DECKDATA, RULES, CARDDB){
 
   // Plan cards fold: tap the title to collapse or expand. Remembered per card title.
   var planFold = load("hbc-planfold", {});
-  function planHTML(title, steps, cls){
+  // Long sequences start collapsed; tapping a title remembers open or closed either way.
+  var PLAN_LONG = 6;
+  function planStartFolded(key, nSteps){ return planFold[key] !== undefined ? !!planFold[key] : nSteps > PLAN_LONG; }
+  function planHTML(title, steps, cls, open){
     var h = '<div class="plan' + (cls ? " " + cls : "") + '"><h3><button type="button" class="planbtn" aria-expanded="true"></button></h3><ol></ol></div>';
     var d = document.createElement("div"); d.innerHTML = h;
     var pbtn = d.querySelector(".planbtn"), card = d.firstChild;
     pbtn.textContent = title;
     function setFold(f){ card.classList.toggle("folded", f); pbtn.setAttribute("aria-expanded", f ? "false" : "true"); }
-    setFold(!!planFold[title]);
-    pbtn.addEventListener("click", function(){ var f = !card.classList.contains("folded"); planFold[title] = f; if (!f) delete planFold[title]; save("hbc-planfold", planFold); setFold(f); });
+    setFold(open ? !!planFold[title] : planStartFolded(title, steps.length));
+    pbtn.addEventListener("click", function(){ var f = !card.classList.contains("folded"); planFold[title] = f; save("hbc-planfold", planFold); setFold(f); });
     var ol = d.querySelector("ol");
     steps.forEach(function(s){ var li = document.createElement("li"); li.textContent = s; ol.appendChild(li); });
     return d.firstChild;
   }
 
+  // The Lines tab's Collapse all / Expand all reads what's open (long lines start collapsed).
+  function syncFoldAll(){
+    var tl = document.getElementById("tab-lines"); if (!tl) return;
+    var open = [].some.call(tl.querySelectorAll(".plan"), function(c){ return !c.classList.contains("folded") && c.querySelector(".planbtn"); });
+    tl.querySelectorAll(".foldall button").forEach(function(b){ b.textContent = open ? "Collapse all" : "Expand all"; });
+  }
+  document.getElementById("tab-lines").addEventListener("click", function(e){ if (e.target.closest && e.target.closest(".planbtn")) setTimeout(syncFoldAll, 0); });
   document.getElementById("foldAll").addEventListener("click", function(){
     var cards = document.querySelectorAll("#tab-lines .plan"), anyOpen = [].some.call(cards, function(c){ return !c.classList.contains("folded"); });
     cards.forEach(function(c){ if (c.classList.contains("folded") !== anyOpen) c.querySelector(".planbtn").click(); });
@@ -2974,6 +2983,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   // static lines tab
   var el = document.getElementById("entryLines");
   ENTRIES.forEach(function(e){ el.appendChild(planHTML(e.t, e.s)); });
+  setTimeout(syncFoldAll, 0);
   document.getElementById("coreLine").appendChild(planHTML("Faris \u2192 Increase \u2192 Vyon \u2192 Fusions", CORE));
   document.getElementById("attrLine").appendChild(planHTML("Your engine is DARK. You need one non-DARK HERO", [
     "Keep Stratos: Normal Summon Stratos, Special Summon Faris, tribute Faris for Increase. Stratos (WIND) + Increase into Sunrise.",
@@ -3091,7 +3101,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     if (n("maxx")) notes.push("Maxx \u201CC\u201D: chain it when they start special summoning. Best on their turn 1 if you're going second.");
     if (n("fc") && turn === "first") notes.push("Favorite Contact: set it now and flip it on their turn, after they commit monsters.");
 
-    plans.forEach(function(p){ out.appendChild(planHTML(p.t, p.s, p.cls)); });
+    plans.forEach(function(p){ out.appendChild(planHTML(p.t, p.s, p.cls, true)); });   // the answer for this hand: never auto-collapsed
     if (notes.length){
       var box = document.createElement("div"); box.className = "card";
       var h = document.createElement("h3"); h.textContent = "Notes for this hand"; h.style.marginBottom = "4px";
@@ -4184,15 +4194,15 @@ function startCompanion(DECKDATA, RULES, CARDDB){
   function genTitle(L){ return L.h.map(cfName).join(" + "); }
   function genHits(L){ var by = {}; (L.fb || []).forEach(function(f){ (by[f.i] = by[f.i] || []).push(f); }); return by; }
   // One line as a plan card. Tags on a step open what to do if that handtrap lands there.
-  function genLineEl(L, fold, fbName){
+  function genLineEl(L, fold, fbName, startFolded){
     var card = nodes("div", "plan genplan"), h = nodes("h3"), hits = genHits(L);
     var title = genTitle(L);
     if (fold){
       var pb = nodes("button", "planbtn", title); pb.type = "button"; h.appendChild(pb);
       var key = "gen:" + title;
       var setFold = function(f){ card.classList.toggle("folded", f); pb.setAttribute("aria-expanded", f ? "false" : "true"); };
-      setFold(!!planFold[key]);
-      pb.addEventListener("click", function(){ var f = !card.classList.contains("folded"); if (f) planFold[key] = true; else delete planFold[key]; save("hbc-planfold", planFold); setFold(f); });
+      setFold(startFolded || planStartFolded(key, L.st.length));
+      pb.addEventListener("click", function(){ var f = !card.classList.contains("folded"); planFold[key] = f; save("hbc-planfold", planFold); setFold(f); });
     } else h.textContent = title;
     card.appendChild(h);
     var gfb = lineFeedback(card, function(){ return {deck:fbName || fbDeck(), hand:L.h.slice(), suggested:{source:"Generated line", steps:L.st.map(function(x){ return cfStepText(genStep(x)); }),
@@ -4251,8 +4261,8 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       if (o.stale) w.appendChild(nodes("p", "hint generr", o.stale));
       var singles = G.lines.filter(function(L){ return L.h.length === 1; }).sort(function(a, b){ return b.s - a.s; });
       var pairs = G.lines.filter(function(L){ return L.h.length > 1; }).sort(function(a, b){ return b.s - a.s; });
-      if (singles.length){ w.appendChild(nodes("h2", null, "How to start")); singles.forEach(function(L){ w.appendChild(genLineEl(L, true, fb)); }); }
-      if (pairs.length){ w.appendChild(nodes("h2", null, "Two-card starts")); pairs.forEach(function(L){ w.appendChild(genLineEl(L, true, fb)); }); }
+      if (singles.length){ w.appendChild(nodes("h2", null, "How to start")); singles.forEach(function(L){ w.appendChild(genLineEl(L, true, fb, o.folded)); }); }
+      if (pairs.length){ w.appendChild(nodes("h2", null, "Two-card starts")); pairs.forEach(function(L){ w.appendChild(genLineEl(L, true, fb, o.folded)); }); }
     }
     if (saved.length){
       var sb = nodes("div", "dbox savedlines"); sb.appendChild(nodes("h3", null, "Found combo lines"));
@@ -4445,7 +4455,7 @@ function startCompanion(DECKDATA, RULES, CARDDB){
     else tl.appendChild(nodes("p", "hint", "No card in this deck makes a play on its own."));
     if (pairs.length){ tl.appendChild(nodes("h2", null, "Two-card starts")); pairs.forEach(function(L){ tl.appendChild(genLineEl(L, true)); }); }
     tl.appendChild(nodes("p", "hint cffine", "Played out in the EDOPro rules engine with the ProjectIgnis card scripts. Tap a handtrap tag on a step for the backup line."));
-    paintSavedLines();
+    paintSavedLines(); syncFoldAll();
     // Checkpoints tab: where each start can be stopped, above the card-text analysis.
     var tc = document.getElementById("tab-check"), cp = document.getElementById("genCheck");
     if (cp) cp.remove();
@@ -6543,23 +6553,14 @@ function startCompanion(DECKDATA, RULES, CARDDB){
       var st = (d.starters || []).map(function(id){ return CARD_BY_ID[id]; }).filter(Boolean);
       if (st.length){ var sb = nodes("div", "umeta ustarters"); sb.appendChild(nodes("span", "fhead", "Starters")); st.forEach(function(c){ sb.appendChild(nodes("span", "pill", c.n)); }); view.appendChild(sb); }
       var allRows = (d.main || []).concat(d.extra || []), nLines = deckLineCount(d);
-      if (nLines){
-        // Cards | Lines: see how the owner plays it before copying it.
-        var seg = nodes("div", "useg"); seg.setAttribute("role", "tablist");
-        [["cards", "Cards"], ["lines", "Lines (" + nLines + ")"]].forEach(function(o){
-          var b = nodes("button", null, o[1]); b.type = "button"; b.setAttribute("role", "tab"); b.dataset.k = o[0];
-          b.setAttribute("aria-selected", (at.show || "cards") === o[0] ? "true" : "false");
-          b.addEventListener("click", function(){ if ((at.show || "cards") === o[0]) return; at.show = o[0]; paint(); });
-          seg.appendChild(b);
-        });
-        view.appendChild(seg);
-      }
-      if (nLines && at.show === "lines"){ var ul = deckLinesEl(d); ul.classList.add("ulines"); view.appendChild(ul); return; }
       view.appendChild(tiles(d.main || [], "Main Deck", allRows));
       if ((d.extra || []).length) view.appendChild(tiles(d.extra, "Extra Deck", allRows));
+      if (nLines){
+        // The deck's lines under the cards, collapsed to their titles: tap one to read it.
+        var lz = nodes("div", "udeckzone ulinezone"); lz.appendChild(nodes("div", "fhead", "Lines (" + nLines + ")"));
+        var ul = deckLinesEl(d, {folded:true}); ul.classList.add("ulines"); lz.appendChild(ul); view.appendChild(lz);
+      }
     }
-    // Card tiles as large as the space allows: the biggest size that shows the whole deck without scrolling (between a
-    // readable minimum and a cap), so a 40-card deck usually fits on one screen.
     tabBtn.addEventListener("click", function(){ load(false); });
     if (!document.getElementById("tab-users").hidden) load(false);
   })();
