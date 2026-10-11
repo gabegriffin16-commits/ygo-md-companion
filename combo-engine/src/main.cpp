@@ -379,7 +379,8 @@ static Bytes r_position(const Prompt& m) {
 }
 
 // ------------------------------------------------------------------ duel
-struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExtra; };   // oppDeck/oppExtra: the opponent's-turn simulation
+struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExtra;   // oppDeck/oppExtra: the opponent's-turn simulation
+	std::vector<uint32_t> preField, preBack, preGy, preBanished; std::vector<int> preZones; };   // a board set straight onto the field (simboard)
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
 void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
@@ -421,6 +422,18 @@ struct Duel {
 		for(int i = 0; i < BLANKS; i++) add(0, BLANK, LOCATION_DECK);
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
 		for(uint32_t c : s.hand) add(0, c, LOCATION_HAND);
+		// A preset board (scoring a guide's end board): monsters face-up (center first, unless zones are given), Traps /
+		// Quick-Play / Normal Spells Set, Continuous and Field Spells face-up.
+		{ static const int order[5] = {2, 1, 3, 0, 4};
+		  for(size_t i = 0; i < s.preField.size() && i < 5; i++) { int z = i < s.preZones.size() && s.preZones[i] >= 0 && s.preZones[i] < 5 ? s.preZones[i] : order[i];
+			OCG_NewCardInfo ci{0, 0, s.preField[i], 0, LOCATION_MZONE, (uint32_t)z, POS_FACEUP_ATTACK}; OCG_DuelNewCard(h, &ci); }
+		  uint32_t seq = 0;
+		  for(uint32_t c : s.preBack) { auto it = g_cards.find(c); uint32_t t = it == g_cards.end() ? 0 : it->second.type;
+			bool fieldSpell = (t & TYPE_SPELL) && (t & TYPE_FIELD), faceUp = (t & TYPE_SPELL) && (t & (TYPE_CONTINUOUS | TYPE_FIELD | TYPE_EQUIP));
+			if(!fieldSpell && seq >= 5) continue;
+			OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_SZONE, fieldSpell ? 5u : seq++, faceUp ? (uint32_t)POS_FACEUP : (uint32_t)POS_FACEDOWN}; OCG_DuelNewCard(h, &ci); }
+		  for(uint32_t c : s.preGy) add(0, c, LOCATION_GRAVE);
+		  for(uint32_t c : s.preBanished) { OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_REMOVED, 0, POS_FACEUP}; OCG_DuelNewCard(h, &ci); } }
 		if(s.oppDeck.empty()) for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
 		for(uint32_t c : s.oppDeck) add(1, c, LOCATION_DECK);
 		for(uint32_t c : s.oppExtra) add(1, c, LOCATION_EXTRA);
@@ -1449,12 +1462,18 @@ struct Search {
 					Opt y; y.resp = p32(1); Opt n; n.resp = p32(0);
 					opts = {y, n}; actCode = {m.code, 0}; actAt = {m.codeAt, 0};
 				} else if(m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_OPTION || m.type == MSG_SELECT_SUM || m.type == MSG_SELECT_TRIBUTE) {
-					// Targets / materials / options for our effects: their cards first (what's being stopped), then what's
-					// worth most (the Fusion with the best effect); the search tries the top three.
+					// Targets / materials / options for our effects; the search tries the top three. Their cards first (what's
+					// being stopped). Our own cards by what the pick is for (the game's hint): what we summon / add / Set, the
+					// most valuable (the Fusion with the best effect); what we give up (materials, costs, Tributes, discards,
+					// sending / banishing / destroying our own), the least valuable, so a Quick Fusion on their turn doesn't
+					// eat the board's best monsters.
 					opts = choices(m);
+					const uint64_t hint = m.hint;
+					const bool giveUp = hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519;
 					auto rank = [&](const Opt& o) { double v = 0; for(uint32_t c : o.picks) { size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
-						bool theirs = at < m.ccon.size() && m.ccon[at] == 1; v += theirs ? 10 : 0; if(!theirs) { auto it = g_cards.find(c); if(it != g_cards.end()) v += std::max({(double)it->second.ev.field, (double)it->second.ev.onSummon, 0.0}) * 0.1; } }
-						return o.label == "finish" ? -1.0 : v; };
+						bool theirs = at < m.ccon.size() && m.ccon[at] == 1;
+						if(theirs) v += 10; else v += (giveUp ? -1 : 1) * 0.1 * card_value(c); }
+						return o.label == "finish" ? (giveUp ? 100.0 : -100.0) : v; };   // giving up cards: stop as soon as allowed
 					std::stable_sort(opts.begin(), opts.end(), [&](const Opt& a, const Opt& b) { return rank(a) > rank(b); });
 					if(getenv("MDC_SIMLOG") && opts.size() > 3) { std::string all; for(auto& o : opts) all += " [" + o.label + "]"; fprintf(stderr, "  (all %zu picks:%s)\n", opts.size(), all.substr(0, 400).c_str()); }
 					if(opts.size() > 3) opts.resize(3);
@@ -1498,7 +1517,7 @@ struct Search {
 	// nothing count 0.
 	json simulate(const Found& f, double& out) const {
 		const Setup s = sim_setup();
-		static const int budget = getenv("MDC_SIMRUNS") ? atoi(getenv("MDC_SIMRUNS")) : 48;
+		static const int budget = getenv("MDC_SIMRUNS") ? atoi(getenv("MDC_SIMRUNS")) : 150;
 		std::set<uint32_t> offered;
 		// Our choices on their turn, by local search: start from "use everything as soon as it can be used", then try
 		// changing one decision at a time (pass instead, another card, another target), replaying the rest greedily, and
@@ -1677,6 +1696,21 @@ int main(int argc, char** argv) {
 			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) b.mslot.push_back(z.get<int>());
 			json why = json::object(); sc.score_of(b, &why);
 			emit({{"id", id}, {"score", why}}); continue;
+		}
+		if(cmd == "simboard") {   // play the opponent's turn against a given board: {deck, extra, field, zones, backrow, hand, gy, banished, targets}
+			if(!ready) { emit({{"id", id}, {"error", "not initialized"}}); continue; }
+			Search sc; for(uint32_t t : ids(req, "targets")) sc.targets.insert(t);
+			Board b; b.mzone = ids(req, "field"); b.szone = ids(req, "backrow"); b.hand = ids(req, "hand"); b.grave = ids(req, "gy"); b.banished = ids(req, "banished");
+			std::vector<uint32_t> deck = ids(req, "deck"), extra = ids(req, "extra");
+			auto take = [](std::vector<uint32_t>& from, uint32_t c) { auto it = std::find(from.begin(), from.end(), c); if(it != from.end()) { from.erase(it); return true; } return false; };
+			for(const auto* v : {&b.mzone, &b.szone, &b.hand, &b.grave, &b.banished}) for(uint32_t c : *v) if(!take(deck, c)) take(extra, c);   // the board's cards come out of the Deck / Extra Deck
+			b.extra = extra;
+			if(req.contains("zones") && req["zones"].is_array()) for(auto& z : req["zones"]) { b.mslot.push_back(z.get<int>()); sc.setup.preZones.push_back(z.get<int>()); }
+			sc.setup.deck = deck; sc.setup.extra = extra; sc.setup.hand = b.hand;
+			sc.setup.preField = b.mzone; sc.setup.preBack = b.szone; sc.setup.preGy = b.grave; sc.setup.preBanished = b.banished;
+			Found f; f.board = b; f.score = sc.score_of(b);
+			double v = f.score; json j = sc.simulate(f, v); j["textScore"] = f.score;
+			emit({{"id", id}, {"score", v}, {"sim", j}}); continue;
 		}
 		if(cmd == "eval") {   // what the board evaluator reads from each card (for checking src/evaluate.h)
 			json out = json::object();

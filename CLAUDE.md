@@ -107,7 +107,7 @@ Key parts of `src/main.cpp`:
   assumes). A board whose line still doesn't replay keeps its text score scaled by the search's median sim/text ratio. A play counts as stopped only if tried and its result
   didn't happen (checked on the field/hand); plays that never came because an earlier one was stopped give no credit.
   Our choices on their turn: local search (start greedy, remove wasted Quick Effects all at once, then single-decision
-  changes with a greedy replay of the rest; budget `MDC_SIMRUNS`, default 48 play-throughs). One Quick Effect of ours per
+  changes with a greedy replay of the rest; budget `MDC_SIMRUNS`, default 150 play-throughs). One Quick Effect of ours per
   opponent play; triggers (told apart by the engine's 0x7f trigger prompt) always allowed. Our own picks default to
   their cards first, then the most valuable monster. Credit: one per interruption at its card's text value; a card
   that came out during their turn (Favorite Contact's Wingman) merges with what brought it on the same play (copies
@@ -197,7 +197,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   interruptions count 0 unless their interruption waits for something the probes never do (destruction, targeting,
   banishing, GY revival, 5+ summons, Standby/Draw Phase, damage step). Latest A/B: text 13 vs sim 8. The text model
   also checks "while / if you control a ... monster" conditions on interruptions now (CardEval.needs: Mercourier,
-  Rhapsodia), 30% when unmet. A better yardstick than the guide's field is needed before deciding (owner's call).
+  Rhapsodia), 30% when unmet. Yardstick now (owner chose "c"): `{"cmd":"simboard", deck, extra, field, zones, backrow,
+  hand, gy, banished, targets}` plays the opponent's turn against any board set straight onto the field (monsters face-up,
+  Traps/Quick-Plays Set), so compare.py SIM=1 scores the guide's own board the same way and reports which judge (text
+  or sim) rates the guide board at/near the top of guide + engine boards. First run: text 15 vs sim 15 of 59 (Dracotail
+  6/2, Branded 5/5, Kewl Tune 4/8); engine matches or beats the guide by sim on 47/59. Dracotail traced: our picks used
+  "most valuable" for everything, feeding the best monsters into Quick Fusions; picks now follow the game's hint (what we
+  summon / add: most valuable; materials, costs, Tributes, discards: least valuable; stop early when giving cards up),
+  and the decision budget is 150 play-throughs (48 missed The Fallen & The Virtuous on the guide board). Still open:
+  material choice keeps eating Faimena (a hand interruption of its own) as Fusion material.
   When it goes on: line generation asks for top 1,
   so it needs top 8 + sim there (app/main.js genRun), the Duel tab search already asks for 12.
 - Reference suite (`bench/mdm.py`, `bench/compare.py`, decklists + `bench/refs/`), 45s per hand: Dracotail engine

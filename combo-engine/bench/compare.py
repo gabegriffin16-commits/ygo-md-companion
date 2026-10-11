@@ -70,7 +70,7 @@ def ask(o):
         if r.get("id") == o["id"] and (r.get("done") or r.get("error") or r.get("ready") or "score" in r): return r
 ask({"id": 1, "cmd": "init", "cdb": cdb, "scripts": scripts})
 threads = int(os.environ.get("THREADS") or os.cpu_count()); acts = int(os.environ.get("ACTS") or 40)
-SIM = bool(os.environ.get("SIM")); tally = {"hands": 0, "text": 0, "sim": 0}
+SIM = bool(os.environ.get("SIM")); tally = {"hands": 0, "text": 0, "sim": 0, "tjudge": 0, "sjudge": 0, "beat": 0}
 qid = 10
 for b in refs["boards"]:
     if only and only not in b["name"].lower(): continue
@@ -107,6 +107,18 @@ for b in refs["boards"]:
         if b.get("guessed"): verdict += "  [placement guessed: %s]" % ", ".join(b["guessed"])
         print("   -> %s" % verdict)
         if SIM and r["boards"]:
+            # The guide's own board, played against the same opponent's turn (simboard): guide and engine on equal terms.
+            qid += 1
+            sq = {"id": qid, "cmd": "simboard", "deck": deck["main"], "extra": deck["extra"]}
+            for k in ("field", "backrow", "hand", "gy", "banished"): sq[k] = [code(x) for x in b.get(k, []) if code(x)]
+            gsim = ask(sq)
+            gs = gsim.get("score", 0) if gsim.get("sim", {}).get("ok") else None
+            topText = max(bb.get("sim", {}).get("textScore", bb["score"]) for bb in r["boards"]); topSim = r["boards"][0]["score"]
+            # Which judge agrees with the guide (its board at or near the top of guide + the engine's boards)?
+            tj = g.get("total", 0) >= topText - 0.3; sj = gs is not None and gs >= topSim - 0.3
+            tally["tjudge"] += tj; tally["sjudge"] += sj; tally["beat"] += gs is not None and topSim >= gs - 0.3
+            print("   guide by sim %s vs engine's best by sim %.2f%s | judges rate the guide board top: text %s, sim %s" % ("%.2f" % gs if gs is not None else "failed", topSim,
+                  "" if gs is None else ("  (engine better)" if topSim > gs + 0.3 else "  (guide better)" if gs > topSim + 0.3 else "  (even)"), "yes" if tj else "no", "yes" if sj else "no"))
             has = lambda bb: all(c in bb["field"] for c in gf)
             tb = max(r["boards"], key=lambda bb: bb.get("sim", {}).get("textScore", bb["score"]))
             sb = r["boards"][0]
@@ -117,5 +129,7 @@ for b in refs["boards"]:
     else: print("   engine: no boards (%s)" % r.get("error", ""))
     if os.environ.get("WHY"):
         for x in g.get("stops", []): print("      guide stop %5.2f  %s" % (x["value"], x["what"]))
-if SIM: print("\n#1 holds the guide's field: text %d / sim %d of %d hands (simulations failed: %d of %d boards)" % (tally["text"], tally["sim"], tally["hands"], tally.get("failed", 0), tally.get("boards", 0)))
+if SIM:
+    print("\n#1 holds the guide's field: text %d / sim %d of %d hands (simulations failed: %d of %d boards)" % (tally["text"], tally["sim"], tally["hands"], tally.get("failed", 0), tally.get("boards", 0)))
+    print("guide board rated at/near the top: text judge %d / sim judge %d of %d hands; engine matches or beats the guide by sim: %d" % (tally["tjudge"], tally["sjudge"], tally["hands"], tally["beat"]))
 p.stdin.write(json.dumps({"cmd": "quit"}) + "\n"); p.stdin.flush()
