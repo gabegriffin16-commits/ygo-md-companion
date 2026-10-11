@@ -137,6 +137,7 @@ inline bool negates(const std::string& e) {
 inline float hurt(const std::string& e) {
 	float v = 0;
 	if(has(e, "3 or more attacks have been declared")) return 0;   // only after our own attacks (Sangenpai): never on their turn
+	if(has(e, "this card that was special summoned this turn") || has(e, "this card that was summoned this turn")) return 0.3f;   // only the turn it was summoned: ours (W:P Fancy Ball)
 	// What it does comes after the condition: "If a Fusion Monster you control is destroyed by an opponent's card effect,
 	// while this card is in your GY: ..." (Dracotail Pan) destroys nothing. Narrowing words (whose effects a negate
 	// answers) can still be in the condition, so the adjustments below read the whole text.
