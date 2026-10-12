@@ -249,6 +249,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   data model + a proposed page structure). Engine roadmap, in order: unseen-archetype guide comparison (`bench/unseen`,
   `refs/<deck>.json`, `bench/guidetally.py`) + hand coverage; handtrap backups vs guides' "vs handtrap" lines; resilience in
   the score; play-around (safer) lines; step explanations (UI mockup to the owner first); guide data model for the UI.
+  Unseen-archetype comparison (Oct 2026, 20s/hand, decks = current top list + the cards each guide uses): 78 comparable
+  hands of 97 (19 handtrap/OTK lines set aside): found the guide's exact field 3, engine better by score 41, even 4, missed
+  30. Misses cluster in long resource-building combos: Memento 7/7 (guide boss Mementoal Tecuhtlica - Combined Creation
+  needs 5 different Mementos; reachable as a goal in 15 s but the plain search drops the line at beam level 5, rank
+  3287/10221, and 120 s doesn't help), Yubel Fiendsmith 9/11 (Fiendsmith/Unchained into Desirae / Varudras / Caesar), D/D/D
+  2/3; Rikka's 5 are guessed placements. Many "engine better" are partial imports (Dragonmaid guide boards = Sheou +
+  Hieratic Seal only). Auto-picked boss goals (`bench/steer.py`) don't help (Memento 60.65 -> 61.41). Coverage: guide
+  hands are 59% one named card, 31% two, 8% three+; generation covers every analyzer-tagged single card, starter x card
+  pairs up to 60, no 3-card hands; its maxActions 16 doesn't limit anything (same boards at 40).
 
 - GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
   (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail
