@@ -258,6 +258,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   Hieratic Seal only). Auto-picked boss goals (`bench/steer.py`) don't help (Memento 60.65 -> 61.41). Coverage: guide
   hands are 59% one named card, 31% two, 8% three+; generation covers every analyzer-tagged single card, starter x card
   pairs up to 60, no 3-card hands; its maxActions 16 doesn't limit anything (same boards at 40).
+  Handtrap backups vs guides (`bench/vsguide.py`; hands via `bench/guidehand.py`, compare.py's slot rules): for each guide
+  "into / vs / through <handtrap>" line, the engine's main line is hit at every legal step (interrupting search) and its
+  backup compared with the guide's board after the hit. 14 lines: engine backup >= guide at the first legal hit 8/14,
+  at the worst step 7/14. Strong: D/D/D 4/4, Phantom Knights, Kewl Tune vs Ash / Belle. Weak: Branded "Walbaz through
+  Droll" (13.61 vs 8.16), Kewl Tune Rotary vs Droll, all Yubel Fiendsmith Droll / Nibiru lines (guide 11-16, engine 4-10,
+  1.10 at Nibiru's worst step). MDM combos carry `vsHandTraps` (what the line is said to play through: Nibiru 29, Droll
+  21, Fuwalos 11, Purulia 6, Maxx 5, Ash 4 of 105) and `condition.branches` (alternate routes) in the cached combos.
+  Mulcharmy / Maxx lines are left out (the score doesn't count their draws: they need their own goal). The app's backups
+  (`genBackups`) cover Ash / Imperm / Veiler / Droll only (no Nibiru, the handtrap guides plan around most), 2.5 s and 6
+  actions each.
 
 - GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
   (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail
