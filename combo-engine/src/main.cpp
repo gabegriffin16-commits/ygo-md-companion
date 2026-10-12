@@ -450,7 +450,7 @@ static const int BLANKS = 12;
 static std::atomic<bool> g_zones{false};
 
 // MDC_PROF=1: where search time goes (summed over threads, printed after each search).
-static std::atomic<uint64_t> g_profNew{0}, g_profReplay{0}, g_profBoard{0}, g_profScore{0}, g_profExpand{0}, g_profSnap{0}, g_profSnapN{0}, g_profSnapBytes{0};
+static std::atomic<uint64_t> g_profNew{0}, g_profReplay{0}, g_profBoard{0}, g_profScore{0}, g_profExpand{0}, g_profSnap{0}, g_profSnapN{0}, g_profSnapBytes{0}, g_profEpDeep{0}, g_profLevel{0};
 static const bool g_prof = getenv("MDC_PROF") != nullptr;
 struct ProfTimer { std::atomic<uint64_t>& acc; std::chrono::steady_clock::time_point t0;
 	explicit ProfTimer(std::atomic<uint64_t>& a) : acc(a), t0(g_prof ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
@@ -1523,9 +1523,20 @@ struct Search {
 	double epMargin = getenv("MDC_EPMARGIN") ? atof(getenv("MDC_EPMARGIN")) : 1.5;
 	std::vector<std::pair<double, std::shared_ptr<const St>>> epQueue; std::unordered_set<uint64_t> epSeen;
 	bool epGreedy() const { static const bool off = getenv("MDC_NOEPGREEDY") != nullptr; return !off && !interrupting(); }
+	// The deep passes run in the background while the beam goes on to its next level (MDC_EPSYNC: wait for them, as
+	// before): a pass often has only a few turns, each a long single-threaded job, and waiting for them left most
+	// threads idle (Dracotail: 8.4 of 10 s). They only record boards (thread-safe, as for the beam's own threads).
+	std::mutex epThMx; std::vector<std::thread> epThreads;
+	void ep_join() { std::vector<std::thread> ts; { std::lock_guard<std::mutex> lk(epThMx); ts.swap(epThreads); } for(auto& t : ts) t.join(); }
 	void ep_deep() {
 		std::vector<std::pair<double, std::shared_ptr<const St>>> q;
 		{ std::lock_guard<std::mutex> lk(mx); q.swap(epQueue); double cut = bestScore - epMargin; q.erase(std::remove_if(q.begin(), q.end(), [&](auto& e) { return e.first < cut; }), q.end()); }
+		if(q.empty()) return;
+		static const bool sync = getenv("MDC_EPSYNC") != nullptr;
+		if(!sync) { std::lock_guard<std::mutex> lk(epThMx); epThreads.emplace_back([this, q]() mutable { ep_run(q); }); return; }
+		ep_run(q);
+	}
+	void ep_run(std::vector<std::pair<double, std::shared_ptr<const St>>>& q) {
 		std::sort(q.begin(), q.end(), [](auto& a, auto& b) { return a.first > b.first; });
 		std::atomic<size_t> next{0}; std::vector<Node> sink; std::mutex smx;
 		auto work = [&] {
@@ -1555,8 +1566,8 @@ struct Search {
 			for(int depth = 0; depth <= maxActions * 4 && !level.empty() && !out_of_time(); depth++) {
 				beam_depth = depth;
 				auto tl = Clock::now(); uint64_t r0 = replays.load();
-				std::vector<Node> next = expand_level(level);
-				ep_deep();
+				std::vector<Node> next; { ProfTimer pt(g_profLevel); next = expand_level(level); }
+				{ ProfTimer pt(g_profEpDeep); ep_deep(); }
 				if(getenv("MDC_BEAMLOG2") && next.size() > 200) { for(size_t q = 0; q < 12; q++) { std::string t; auto& lb = next[q * next.size() / 12].st.labels; for(size_t k = 0; k < lb.size(); k++) t += lb[k] + " | "; fprintf(stderr, "  %s\n", t.c_str()); } }
 				if(getenv("MDC_BEAMLOG")) fprintf(stderr, "width %zu depth %d: %zu nodes -> %zu children, %llu replays, %.1fs\n", width, depth, level.size(), next.size(), (unsigned long long)(replays.load() - r0), std::chrono::duration<double>(Clock::now() - tl).count());
 				// Ties are broken by a hash of the line, not by which thread finished first: the same search keeps the same
@@ -2065,7 +2076,7 @@ struct Search {
 		// the CPU the beam leaves free (narrow beam levels leave most threads idle).
 		const bool adaptive = mode == "adaptive";
 		if(adaptive) { beamThreads = std::max(1, threads); dfsThreads = std::max(1, threads); }
-		if(useBeam) ts.emplace_back([this] { beam(); });
+		if(useBeam) ts.emplace_back([this] { beam(); ep_join(); });
 		// Seeds (the best lines earlier searches found for this hand) are replayed first: their boards are recorded (so this
 		// search can't end worse), the best one becomes the beam's kept line, and the depth-first workers also start from
 		// points along them.
@@ -2088,6 +2099,7 @@ struct Search {
 		if(g_prof) { auto f = [](std::atomic<uint64_t>& a) { double v = a.load() / 1e9; a = 0; return v; };
 			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand), sn = f(g_profSnap);
 			uint64_t snN = g_profSnapN.exchange(0), snB = g_profSnapBytes.exchange(0);
+			{ double lv = f(g_profLevel), ed = f(g_profEpDeep); fprintf(stderr, "prof: beam levels %.1fs wall, End Phase deep passes %.1fs wall%c", lv, ed, 10); }
 			{ char buf[400] = ""; mdc_snap_stats(buf, sizeof buf); fprintf(stderr, "prof: %s%c", buf, 10); }
 			fprintf(stderr, "prof: saves+restores %.1f thread-s, %llu saves, avg region %.2f MB\n", sn, (unsigned long long)snN, snN ? snB / 1048576.0 / snN : 0.0);
 			fprintf(stderr, "prof: %.1fs wall x %d threads = %.1f thread-s | new/reset duel %.1f | replay %.1f | read board %.1f | score %.1f | beam expansions %.1f | replays %llu\n",

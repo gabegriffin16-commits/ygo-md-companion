@@ -169,7 +169,11 @@ Key parts of `src/main.cpp`:
   Clean machine, 10s default mode, old replays (`MDC_NOSNAP`) -> now: Snake-Eye Ash + Marshmao 12.3k -> 56.6k branches
   (4.6x, best 13.00 -> 15.25), Dracotail Walbaz + Lukias 15.9k -> 114.5k (7.2x), HERO Stratos + Faris 22.1k -> 107.1k
   (4.8x, 8.20 -> 9.87 = the Sunrise x2 reference board). (Check for leftover engine processes before timing: a hung test
-  once skewed these.) `MDC_PROF` prints save/restore counts, pages copied / shared and
+  once skewed these.) End Phase deep passes now run in the background while the beam goes on (`ep_deep` / `ep_join`; `MDC_EPSYNC` =
+  wait, as before): on Dracotail they took 8.4 of 10 s with only 1-4 turns each (most threads idle). Beam mode 36k -> 76k
+  branches in 10 s on Walbaz + Lukias, best 10.65 -> 12.39 (guide 12.70). compare.py 20s: Dracotail 201.67 -> 205.36
+  (guide better 2 -> 1), Branded 175.96 -> 175.27 (noise); tune.py 15k: std 113.89 -> 114.02, guideless 95.06 -> 93.33 (one
+  Snake-Eye hand that swings 14.6-16.8 under many settings). Search order is timing-dependent with it on. `MDC_PROF` prints save/restore counts, pages copied / shared and
   write-watch time. Next: each beam state is still replayed once before it's expanded. Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
