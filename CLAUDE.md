@@ -150,7 +150,18 @@ Key parts of `src/main.cpp`:
   last 40% of the time), `stats.bestAt` (seconds). Request `stable`: 0..1 enables the early stop (`stableMinMs`, default 5000).
   Bench: `STABLE=0.4`.
 - **Speed**: finished duels are reset and reused (`src/reset.cpp`, ~2x); bytecode stripped; mimalloc; link-time
-  optimization (+4.5%). Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
+  optimization (+4.5%). **Saved games (Oct 2026)**: each duel's memory (its C++ objects and Lua state) lives in its own region
+  (`src/arena.cpp`: a slice of reserved address space whose allocator bookkeeping is inside the slice; the region is current
+  on a thread only during calls into the core, see `ArenaScope`; our own code's memory must stay outside: `script_reader`
+  and reset.cpp's tables switch it off). A game in progress is saved by copying the region's used bytes and restored by
+  copying them back to the same addresses (`Duel::save/load`). The beam (`sub`) and the depth-first workers (`dfs`) save at a
+  branch point and restore for each alternative instead of replaying the line from the start. Proven identical single-
+  threaded (tune.py 3000: 110.25 on all 11 hands with plain / regions / restores; dfs at a fixed budget: same boards on 3
+  hands); 2.6-3x more branches per second in the default mode (Snake-Eye 11.8k -> 31.2k in 10s, Dracotail 15.6k -> 46.4k,
+  HERO 19.9k -> 51.1k); fixed-budget wall time 2.3x shorter (beam); peak memory 482 -> 547 MB; compare.py 20s: Dracotail
+  188.30 -> 200.66, Branded 161.08 -> 171.55 (guide better 4 -> 2), Kewl Tune 221.02 -> 225.33. On by default;
+  `MDC_NOSNAP` = the old replays, `MDC_ARENA` = regions only, `MDC_ARENACHECK` = fill freed blocks and check on reuse,
+  `MDC_ARENALOG` = report region exhaustion. Each beam state is still replayed once before it's expanded (next speedup). Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
   cut mid-action (`MDC_NOMIDDEDUP`). End Phase: on decks with several End Phase effects (Dracotail / Branded) trying

@@ -1,6 +1,6 @@
 """Search one hand and print the best line step by step, with the end board (for reading lines like a guide).
   python3 line.py <engine> <cards.cdb> <scripts.zip> <deck.json> <secs> "<card name>;<card name>..." ["<goal name>;..."]
-Env: THREADS (default 12), ACTS (max actions, 40), TOP (boards to print, 1), MODE (beam / dfs), LABELS=<file> (save the best line's labels)."""
+Env: THREADS (default 12), ACTS (max actions, 40), TOP (boards to print, 1), MODE (beam / dfs), BUDGET (replays instead of the clock: reproducible), LABELS=<file> (save the best line's labels)."""
 import json, os, sqlite3, subprocess, sys
 sys.stdout.reconfigure(encoding="utf-8")
 exe, cdb, zipf, dk, secs, hand_s = sys.argv[1:7]; goal_s = sys.argv[7] if len(sys.argv) > 7 else ""
@@ -22,7 +22,7 @@ def ask(o):
 ask({"id": 1, "cmd": "init", "cdb": cdb, "scripts": zipf})
 r = ask({"id": 2, "cmd": "search", "deck": deck, "extra": d["extra"], "hand": hand, "timeMs": int(float(secs) * 1000), "threads": int(os.environ.get("THREADS") or 12),
          "top": int(os.environ.get("TOP") or 1), "maxActions": int(os.environ.get("ACTS") or 40), "targets": goals, "labels": True,
-         **({"mode": os.environ["MODE"]} if os.environ.get("MODE") else {})})
+         **({"mode": os.environ["MODE"]} if os.environ.get("MODE") else {}), **({"maxReplays": int(os.environ["BUDGET"]), "timeMs": 3600000} if os.environ.get("BUDGET") else {})})
 print("hand:", ", ".join(map(nm, hand)), "| best found %.0fs of %ss%s" % (r["stats"]["bestAt"], secs, ", every line checked" if r.get("complete") else ""))
 for b in r.get("boards", []):
     print("\nSCORE %.2f" % b["score"])

@@ -418,8 +418,11 @@ int mdc_arena_new(); void mdc_arena_release(int a); size_t mdc_arena_used(int a)
 void mdc_arena_save(int a, std::vector<char>& out); void mdc_arena_load(int a, const std::vector<char>& in);
 struct ArenaScope { int prev; explicit ArenaScope(int a) : prev(mdc_arena_swap(a)) {} ~ArenaScope() { mdc_arena_swap(prev); } };
 #ifdef MDC_MIMALLOC
-static const bool g_arenas = getenv("MDC_ARENA") != nullptr || getenv("MDC_SNAP") != nullptr;
-static const bool g_snap = getenv("MDC_SNAP") != nullptr;   // restore saved games at branch points instead of replaying (src/arena.cpp)
+// On by default (MDC_NOSNAP: replay from the start at every branch, as before; MDC_ARENA with it: regions without restores).
+// Identical results single-threaded (beam: tune.py, all 11 hands; depth-first: 3 hands at a fixed budget), 2.6-3x more
+// branches per second in the default mode, ~65 MB more memory at peak.
+static const bool g_snap = getenv("MDC_NOSNAP") == nullptr;
+static const bool g_arenas = g_snap || getenv("MDC_ARENA") != nullptr;
 #else
 static const bool g_snap = false;
 static const bool g_arenas = false;   // regions need src/arena.cpp (built with mimalloc)
@@ -1204,7 +1207,8 @@ struct Search {
 		opts.swap(keep);
 	}
 	// Explore from a live duel `d` sitting at prompt m. Hands extra branches to idle workers.
-	void dfs(std::unique_ptr<Duel> d, Prompt m, St st) {
+	void dfs(Duel& dref, Prompt m, St st) {
+		Duel* d = &dref;   // not ours (the caller may restore it after this returns)
 		for(;;) {
 			if(out_of_time()) return;
 			prompts++;
@@ -1260,6 +1264,7 @@ struct Search {
 			}
 			// first branch continues on this duel; the rest are replayed (or handed to idle threads)
 			bool first = true;
+			std::unique_ptr<Duel::Saved> saved;   // MDC_SNAP: this moment, saved at the first branch explored here (then restored per branch)
 			for(const Opt& o : opts) {
 				if(o.end && !epOK) continue;
 				if(first) { first = false; continue; }   // handled last, below
@@ -1270,9 +1275,17 @@ struct Search {
 					if((int)queue.size() < threads * 2) { queue.push_back(std::move(s2)); cv.notify_one(); continue; }
 				}
 				if(out_of_time()) return;
+				if(g_snap && d->arena >= 0) {
+					if(!saved) { saved = std::make_unique<Duel::Saved>(); d->save(*saved); } else d->load(*saved);
+					replays++;
+					d->respond(o.resp); Prompt mm; bool rt;
+					if(d->run(mm, rt)) dfs(*d, mm, std::move(s2));
+					continue;
+				}
 				Prompt mm; bool ok; auto dd = replay(s2.path, mm, ok);
-				if(ok) dfs(std::move(dd), mm, std::move(s2));
+				if(ok) dfs(*dd, mm, std::move(s2));
 			}
+			if(saved) d->load(*saved);
 			// the first non-end option, on the live duel
 			bool moved = false;
 			for(const Opt& o : opts) {
@@ -1596,7 +1609,7 @@ struct Search {
 				t = std::move(queue.front()); queue.pop_front(); busy++;
 			}
 			Prompt m; bool ok; auto d = replay(t.path, m, ok);
-			if(ok) dfs(std::move(d), m, std::move(t));
+			if(ok) dfs(*d, m, std::move(t));
 			{ std::lock_guard<std::mutex> lk(mx); busy--; }
 			cv.notify_all();
 		}
