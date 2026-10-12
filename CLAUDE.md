@@ -244,6 +244,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
 
 ## Open items / ideas
 
+- GUIDE CRAFTER (owner, Oct 2026): the app becomes a guide crafter on par with Master Duel Meta guides, not a lines
+  generator; a UI restructure will follow (structure to be decided with the owner; the engine session prepares the guide
+  data model + a proposed page structure). Engine roadmap, in order: unseen-archetype guide comparison (`bench/unseen`,
+  `refs/<deck>.json`, `bench/guidetally.py`) + hand coverage; handtrap backups vs guides' "vs handtrap" lines; resilience in
+  the score; play-around (safer) lines; step explanations (UI mockup to the owner first); guide data model for the UI.
+
 - GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
   (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail
   run: Faimena-type Fusions from the HAND on their turn (fusionAt AT_HAND) score a generic 1.5 instead of the Fusion they
