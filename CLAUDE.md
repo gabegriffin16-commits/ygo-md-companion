@@ -281,6 +281,10 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   6/14); e.g. Yubel Samsara vs Droll 4.20 -> 14.51 (guide 11.32), D/D/D Doom Queen vs Droll 2.05 -> 14.76 (12.81), Kewl
   Tune Rotary vs Droll 4.40 -> 11.14 (6.90). Still behind: Branded Walbaz through Droll 10.12 (13.61), Yubel Nightmare
   Throne vs Nibiru x3 12.3-12.7 (13.0-16.2): the long-combo decks.
+  Generation now stores "vs <handtrap>" lines per generated line (`L.vs`: [{by, s, f, z, b, l, st}], app/main.js genRun,
+  phase "vs"): an oppFirst search (4 s, beam, seeded with the line) for each of Ash, Imperm, Veiler, Droll and Nibiru
+  (`GEN_VS`), kept only if the handtrap got used (steps include an "Opp" step). Data only: the page doesn't show `vs` yet
+  (Guide Crafter UI, with the owner). The improver doesn't redo `vs` lines when a line improves (to do).
 
 - GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
   (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail

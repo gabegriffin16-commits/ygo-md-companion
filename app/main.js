@@ -574,6 +574,9 @@ ipcMain.on("bench:stop", () => { if (bench) { bench.stop = true; if (comboProc) 
 // result waits in userData/generated/<deckId>.json until the page picks it up and saves it onto the deck.
 const GEN_DIR = path.join(app.getPath("userData"), "generated");
 const GEN_HANDTRAPS = [14558127, 10045474, 97268402, 94145021];   // Ash, Imperm, Veiler, Droll
+// "vs <handtrap>" lines: the line to play when they hold it (the opponent uses it at its first legal chance and the
+// search plays through it, like a guide's "into Droll" combo). Nibiru too: the handtrap guides plan around most.
+const GEN_VS = [14558127, 10045474, 97268402, 94145021, 27204311];   // Ash, Imperm, Veiler, Droll, Nibiru
 let gen = null;
 function genEvent(d) { pageEvent("overlay-gen", d); }
 // Generation runs in the background: every logical core but one (6-core / 12-thread CPUs still gain ~9% from 8 -> 11),
@@ -667,6 +670,20 @@ async function genRun(job) {
     g.phase = "handtraps"; g.total = lines.reduce((a, L) => a + L.st.filter(x => x[0] === "Activate" || x[0] === "Use").length * GEN_HANDTRAPS.length, 0); g.done = 0;
     genEvent(Object.assign({ state: "running" }, genInfo()));
     for (const L of lines) if (!(await genBackups(send, L, () => g.cancel, () => { g.done++; if (g.done % 4 === 0 || g.done === g.total) genEvent(Object.assign({ state: "running" }, genInfo())); }))) break;
+    if (g.cancel) { genEvent({ state: "cancelled", deckId: job.deckId }); return; }
+    // "vs <handtrap>" lines (L.vs): searched from the start knowing they'll use it (vsguide.py: 10 of 14 guide lines
+    // matched or beaten, the per-step backups above 6 of 14). Kept only when the handtrap actually got used.
+    g.phase = "vs"; g.total = lines.length * GEN_VS.length; g.done = 0; genEvent(Object.assign({ state: "running" }, genInfo()));
+    for (const L of lines) {
+      L.vs = [];
+      for (const ht of GEN_VS) {
+        if (g.cancel) break;
+        const r = await send({ hand: L.h, timeMs: 4000, maxActions: 16, labels: true, mode: "beam", oppFirst: ht, seeds: L.lab ? [L.lab] : [] });
+        const b = r.boards && r.boards[0];
+        if (b && b.steps.some(x => x.do === "Opp")) L.vs.push({ by: ht, s: b.score, f: b.field, z: b.zones || [], b: b.backrow, l: b.hand, st: b.steps.map(x => [x.do, x.card, x.effect || "", x.groups && x.groups.length ? [] : (x.picks || []), x.groups || []]) });
+        g.done++; if (g.done % 5 === 0 || g.done === g.total) genEvent(Object.assign({ state: "running" }, genInfo()));
+      }
+    }
     if (g.cancel) { genEvent({ state: "cancelled", deckId: job.deckId }); return; }
     genSave(job, lines, false);
     genEvent({ state: "ready", deckId: job.deckId });
