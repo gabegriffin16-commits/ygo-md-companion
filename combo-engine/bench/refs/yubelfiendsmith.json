@@ -1,0 +1,361 @@
+{
+ "deck": "unseen/yubelfiendsmith.json",
+ "extra": [
+  46640168,
+  28143384,
+  80453041,
+  80453041,
+  82135803,
+  79559912,
+  70636044,
+  24269961,
+  2463794,
+  67680512,
+  50277355,
+  71607202,
+  29301450,
+  29301450,
+  49867899,
+  4731783,
+  71818935,
+  93860227,
+  60303245
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a362998cf77b20d92d62aac"
+ ],
+ "author": "MorddredG",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Samsara D Lotus 1 Card Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a1e47f1c8aefb8e65736518",
+   "notes": "",
+   "start": [
+    "Samsara D Lotus"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "A Bao A Qu, the Lightless Shadow"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Samsara D Lotus 1 Card Combo 2",
+   "source": "https://www.masterduelmeta.com/combo/6a1f7fa0d851d98d71354511",
+   "notes": "",
+   "start": [
+    "Samsara D Lotus"
+   ],
+   "field": [
+    "Fiendsmith's Desirae",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Phantom of Yubel",
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Samsara D Lotus Combo (Mutiny)",
+   "source": "https://www.masterduelmeta.com/combo/6a359371bca34d1b2d219bf5",
+   "notes": "",
+   "start": [
+    "Samsara D Lotus"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Mutiny in the Sky",
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Samsara D Lotus Into Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a2246dba06c0ffd2ec03043",
+   "notes": "",
+   "start": [
+    "Samsara D Lotus"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Nightmare Throne 1 Card Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a1f91bd739edd2bd9393763",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "Varudras, the Final Bringer of the End Times",
+    "Unchained Soul of Rage"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Nightmare Throne Into Nibiru",
+   "source": "https://www.masterduelmeta.com/combo/6a24370501ce1e421f6fcfdc",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "A Bao A Qu, the Lightless Shadow",
+    "Fiendsmith's Desirae",
+    "Varudras, the Final Bringer of the End Times"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Nightmare Throne Into Nibiru 2",
+   "source": "https://www.masterduelmeta.com/combo/6a24abe2a68cf1a7b554e805",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "D/D/D Wave High King Caesar",
+    "Unchained Soul of Rage"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Nightmare Throne Combo (Mutiny)",
+   "source": "https://www.masterduelmeta.com/combo/6a35dd771e3c672052866b9a",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "D/D/D Wave High King Caesar",
+    "Samsara D Lotus"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Mutiny in the Sky",
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Nightmare Throne Ultimate Combo (Mutiny)",
+   "source": "https://www.masterduelmeta.com/combo/6a360d4ecb44e2d29747f730",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "Varudras, the Final Bringer of the End Times",
+    "A Bao A Qu, the Lightless Shadow"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Mutiny in the Sky",
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Nightmare Throne Into Nibiru (Mutiny)",
+   "source": "https://www.masterduelmeta.com/combo/6a361912a87a0adef9de48b9",
+   "notes": "",
+   "start": [
+    "Nightmare Throne"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "Fiendsmith's Desirae",
+    "D/D/D Wave High King Caesar",
+    "Unchained Soul of Rage"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Mutiny in the Sky"
+   ]
+  },
+  {
+   "name": "Spirit Gates 1.5 Cards Full Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a361e1c76bb91abd37208ea",
+   "notes": "",
+   "start": [
+    "Opening of the Spirit Gates",
+    "Fake Trap"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar",
+    "Varudras, the Final Bringer of the End Times"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Opening of the Spirit Gates",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Spirit Gates 1.5 Cards Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a36264833f51f6e5ee1f7f1",
+   "notes": "",
+   "start": [
+    "Opening of the Spirit Gates",
+    "Fake Trap"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar",
+    "Samsara D Lotus",
+    "Muckraker From the Underworld"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [
+    "Opening of the Spirit Gates"
+   ],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Dark Beckoning Beast 1.5 Cards Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a1fa2cdd76cdbcc6d9fe629",
+   "notes": "",
+   "start": [
+    "Dark Beckoning Beast",
+    "Fake Trap"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar",
+    "Varudras, the Final Bringer of the End Times"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Opening of the Spirit Gates",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Fabled Lurrie 1.5 Cards Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a223bf3ebb77b540d5a1ffc",
+   "notes": "",
+   "start": [
+    "Fabled Lurrie",
+    "Fake Trap"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar",
+    "Samsara D Lotus",
+    "Muckraker From the Underworld"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  },
+  {
+   "name": "Lacrima 1.5 Cards Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a3628da988ee8de20dd253a",
+   "notes": "",
+   "start": [
+    "Lacrima the Crimson Tears",
+    "Fake Trap"
+   ],
+   "field": [
+    "Phantom of Yubel",
+    "D/D/D Wave High King Caesar",
+    "Samsara D Lotus",
+    "Muckraker From the Underworld"
+   ],
+   "backrow": [
+    "Nightmare Pain",
+    "Abominable Chamber of the Unchained"
+   ],
+   "hand": [],
+   "gy": [
+    "Unchained Soul of Rage"
+   ]
+  }
+ ]
+}

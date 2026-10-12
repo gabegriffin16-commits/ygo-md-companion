@@ -1,0 +1,262 @@
+{
+ "deck": "unseen/rikka.json",
+ "extra": [
+  73167098,
+  3828844,
+  33779875,
+  9349094,
+  43129357,
+  30989084,
+  93896655,
+  93896655,
+  65563871,
+  91557476,
+  21200905,
+  21200905,
+  21903613,
+  92770064,
+  73345237,
+  44478599
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a31d227f08593620a653e0b"
+ ],
+ "author": "Yusodus",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "True 1c Loci (Lily Follow-Up)",
+   "source": "https://www.masterduelmeta.com/combo/6a1e0bb91d7c7dbb1a137863",
+   "notes": "This is your bread and butter combo. It is an improvement over all other publicly available combos (at least to my knowledge). It ends on all 7 interrupts and Magnolia which is standard, but makes the combo true 1c Loci without needing a discard by making Lily the Omni-Negate. If you do have a useless card in hand, feel free to keep Bloom on the field. This improvement was already featured in my own video guide. But on top of that, it also ends with an additional Lily in hand which can either be used as pure follow-up, or simply as the cost to activate the Omni-Negate (thus preserving the threat of the Omni-Negate through your Draw and Standby Phase).",
+   "start": [
+    "Sunseed Genius Loci"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Rikka Princess",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [],
+   "gy": [
+    "Therion \"Lily\" Borea",
+    "Therion \"Lily\" Borea"
+   ],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton",
+    "Rikka Princess",
+    "Benghalancer the Resurgent"
+   ]
+  },
+  {
+   "name": "True 1c Loci (Rosemary Follow-Up)",
+   "source": "https://www.masterduelmeta.com/combo/6a1ede6a64e05d5949c857c4",
+   "notes": "Alternative to the bread and butter combo. Instead of Lily, you instead keep Rosemary as follow-up. This can be helpful if you didn't need one of the Jasmine searches (because you opened/drew one of them) or if you opened Glamour and were able to search Snowdrop + Lily off of it.\n\nBe aware that if you opened Lonefire Blossom in Hand, you can also use Petal and Skeletal Soldier for Melias + Loci into Benghalancer in Step 24, which preserves Jasmine on the board, but if you also summon Magnolia, you'll end up with a full board, meaning you won't be able to use Sheet + Konkon together. Therefore it is recommended to either do as the combo shows (linking Jasmine off into Benghalancer) or to not summon Magnolia.",
+   "start": [
+    "Sunseed Genius Loci"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [
+    "Therion \"Lily\" Borea",
+    "Rikka Princess",
+    "Aromalilith Rosemary"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton",
+    "Benghalancer the Resurgent"
+   ]
+  },
+  {
+   "name": "True 1c Loci (1 Dryas)",
+   "source": "https://www.masterduelmeta.com/combo/6a2eb552687197602988ea88",
+   "notes": "Alternative to the bread and butter combo. Mandatory for TCG players, relevant for MD players (if your 1st Dryas got interrupted). Has slight advantage of being able to insulate with an early Lily Omni-Negate right after using Aroma Blend. As with the B&B combo, you can also spin back Rosemary instead of adding a 2nd Lily for follow-up.",
+   "start": [
+    "Sunseed Genius Loci"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [
+    "Therion \"Lily\" Borea",
+    "Rikka Princess",
+    "Therion \"Lily\" Borea"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton"
+   ]
+  },
+  {
+   "name": "1c Loci vs. Droll & Lock Bird",
+   "source": "https://www.masterduelmeta.com/combo/6a2eba72687197602988fcdb",
+   "notes": "Combo under Droll. If you do not have the additional monster or hit with Dancepione, you will end on only Princess negate. There are situations where you do not have to add Princess back either (if you already have an additional Special Summon on top of the starting hand requirements) which can lead to adding back follow-up via Strenna instead (or something like Konkon if you get really lucky with milling).",
+   "start": [
+    "<any card>",
+    "Sunseed Genius Loci",
+    "<Any Special Summon>",
+    "<any card>",
+    "Unexpected Dai",
+    "Primite Roar",
+    "<Any Normal Summon>",
+    "<any card>"
+   ],
+   "field": [
+    "Rikka Queen Strenna",
+    "Benghalancer the Resurgent"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Rikka Princess"
+   ]
+  },
+  {
+   "name": "1c Loci vs. Purulia",
+   "source": "https://www.masterduelmeta.com/combo/6a201925ec352b3d30fb2d4d",
+   "notes": "5 interrupts into Purulia for potentially 0 draws. Ironically, every usual search target that is in the starting hand actually adds draws. As seen in the combo, you can also attach a Spell to Hyperyton for a potential Spell Negate + Destroy for an extra Purulia draw.",
+   "start": [
+    "Sunseed Genius Loci"
+   ],
+   "field": [
+    "Rikka Queen Strenna",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet"
+   ],
+   "hand": [
+    "Rikka Konkon"
+   ],
+   "gy": [
+    "Rikka Princess"
+   ],
+   "guessed": [
+    "Rikka Queen Strenna",
+    "Rikka Sheet",
+    "Aromalilith Magnolia"
+   ]
+  },
+  {
+   "name": "1c Raika (Early Jasmine)",
+   "source": "https://www.masterduelmeta.com/combo/6a2156571b753b6b0b73af97",
+   "notes": "Bread and butter 1c Raika combo that goes into Jasmine first before Rosemary.",
+   "start": [
+    "Ragnaraika the Evil Seed"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [
+    "Rikka Princess",
+    "Therion \"King\" Regulus"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton"
+   ]
+  },
+  {
+   "name": "1.5c Raika (Early Rosemary)",
+   "source": "https://www.masterduelmeta.com/combo/6a217461f71cfc7b0b719ad1",
+   "notes": "Alternative to the bread and butter combo. For 1 discard and needing Melias, this setup is slightly better against interrupts on the 1st Jasmine in the true 1c Raika combo because if they interrupt Rosemary, you can at least still attempt to Skeletal Soldier back Rosemary, use its effect to summon back Evil Seed and go for Dancepione mills. Otherwise it ends on the exact same setup.",
+   "start": [
+    "Ragnaraika the Evil Seed",
+    "<Generic Discard>"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [
+    "Rikka Princess",
+    "Therion \"King\" Regulus"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton"
+   ]
+  },
+  {
+   "name": "1c Rosalina",
+   "source": "https://www.masterduelmeta.com/combo/6a231e608638e0c620ebb53a",
+   "notes": "Bread and butter 1c Rosalina combo. You can technically also link Dancepione and Magnolia up into Melias and then Benghalancer at the end to keep Jasmine on board for follow-up, but due to using both Rosalinas in this combo, you don't have a guaranteed way to search (you'd have to hope your opponent somehow lowers your LP).",
+   "start": [
+    "Aromalilith Rosalina"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Teardrop the Rikka Queen",
+    "Benghalancer the Resurgent",
+    "Aromalilith Magnolia"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [
+    "Rikka Princess"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sacred Tree Beast, Hyperyton"
+   ]
+  },
+  {
+   "name": "40c 1c Loci (Low Ceiling)",
+   "source": "https://www.masterduelmeta.com/combo/6a2dd9f8d9ea1e23003cd3c9",
+   "notes": "Bread and butter for my 40c Plant Link deck. It does not play Snowdrop or ways to gain an additional Normal Summon in favor of actual live cards and higher consistency for both engine and strong non-engine. This also means that you do not use Glamour as pure combo piece like others do, but actually as potential extender.",
+   "start": [
+    "Sunseed Genius Loci",
+    "Primite Roar"
+   ],
+   "field": [
+    "Sacred Tree Beast, Hyperyton",
+    "Benghalancer the Resurgent"
+   ],
+   "backrow": [
+    "Rikka Sheet",
+    "Rikka Konkon"
+   ],
+   "hand": [],
+   "gy": [
+    "Rikka Princess"
+   ]
+  }
+ ]
+}

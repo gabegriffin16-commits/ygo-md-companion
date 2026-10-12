@@ -1,0 +1,634 @@
+{
+ "deck": "unseen/thunderdragon.json",
+ "extra": [
+  54757758,
+  60516416,
+  11765832,
+  15291624,
+  15291624,
+  15291624,
+  87758525,
+  41685633,
+  41685633,
+  22850702,
+  65741786,
+  98462037,
+  29301450,
+  53904087,
+  98127546,
+  87746184,
+  59400890,
+  78397661,
+  24915933,
+  27420823,
+  72578374,
+  70534340,
+  44146295,
+  34876719,
+  8165596,
+  69946549,
+  37818794,
+  74997493,
+  58071334,
+  76666602,
+  73082255
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a0df8406f9286ca681393e7"
+ ],
+ "author": "GadgetBug",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "banish TDdark",
+   "source": "https://www.masterduelmeta.com/combo/6a0def89c9457c83ac34bdc0",
+   "notes": "Most common play in Thunder Dragon.",
+   "start": [
+    "Gold Sarcophagus",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "banish TDdark + OG/TDF",
+   "source": "https://www.masterduelmeta.com/combo/6a241818c97dce113896c1d8",
+   "notes": "This combo can be done by having OG somewhere, e.g. banish with Crossout Designator.\n\nIts one less draw vs Maxx C compared to using TDhawk and you get TDF as follow-up.",
+   "start": [
+    "<any card>",
+    "Thunder Dragon",
+    "<any card>",
+    "Gold Sarcophagus",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [],
+   "hand": [
+    "Thunder Dragon Fusion"
+   ],
+   "gy": []
+  },
+  {
+   "name": "TDdark + banish TDroar",
+   "source": "https://www.masterduelmeta.com/combo/6a0df5538cec204d8db863f5",
+   "notes": "Important to incorporate into other lines.",
+   "start": [
+    "Thunder Dragondark",
+    "Gold Sarcophagus",
+    "Thunder Dragonroar"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus"
+   ]
+  },
+  {
+   "name": "TDhawk + banish TDroar",
+   "source": "https://www.masterduelmeta.com/combo/6a0ddf677e03ecbe83422e85",
+   "notes": "Important to incorporate into other lines.",
+   "start": [
+    "Thunder Dragonhawk",
+    "Gold Sarcophagus",
+    "Thunder Dragonroar"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [
+    "Thunder Dragon Fusion"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Fusion"
+   ]
+  },
+  {
+   "name": "OG + banish TDroar",
+   "source": "https://www.masterduelmeta.com/combo/6a0ba0017b44787a183ccf96",
+   "notes": "Important to incorporate into other lines.",
+   "start": [
+    "Thunder Dragon",
+    "Gold Sarcophagus",
+    "Thunder Dragonroar"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [
+    "Thunder Dragon Fusion"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Fusion"
+   ]
+  },
+  {
+   "name": "Hand full of ThunDras",
+   "source": "https://www.masterduelmeta.com/combo/6a26e573f80efd3d6da8465f",
+   "notes": "Its a greedy combo but you kinda have to go for it when your hand doesn't have strong cards, it plays poorly into blowouts like Fuwalos and Maxx \"C\" as well as Nibiru. \n\nIt does give options if they use a disruption on Solar, as you can make Colossus and get TDF in GY.",
+   "start": [
+    "Batteryman Solar",
+    "Thunder Dragon",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "I:P Masquerena"
+   ],
+   "backrow": [
+    "Magical Mallet",
+    "Thunder Dragon Fusion"
+   ],
+   "hand": [],
+   "gy": [
+    "Thunder Dragon Titan"
+   ],
+   "guessed": [
+    "Magical Mallet",
+    "Thunder Dragon Fusion"
+   ]
+  },
+  {
+   "name": "TDF Follow-up play",
+   "source": "https://www.masterduelmeta.com/combo/6a24957c457b975cf1903b1a",
+   "notes": "This is the basic Thunder Dragon resource Loop.\n \nUsing a Bystial to banish TDdark during their turn can also help adding the pieces.",
+   "start": [
+    "Thunder Dragon Fusion",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Titan"
+   ],
+   "backrow": [],
+   "hand": [
+    "Thunder Dragon Fusion"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Solar + Bystial + out to Fuwa",
+   "source": "https://www.masterduelmeta.com/combo/6a0b96484756a2e7a5c40a68",
+   "notes": "You can use a bystial in hand too, which means you can keep the W:P and use Bystial + Colossus for S:P so W:P can negate something.",
+   "start": [
+    "Batteryman Solar",
+    "Bystial Druiswurm",
+    "<Out to Fuwa>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus",
+    "I:P Masquerena",
+    "Bystial Druiswurm"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Bystial Druiswurm"
+   ]
+  },
+  {
+   "name": "Solar + Bystial",
+   "source": "https://www.masterduelmeta.com/combo/6a0a40375c402545e442aab2",
+   "notes": "- This is assuming you don't have an out to Maxx c/Fuwalos.\n\n- If the Bystial isn't Druis or Baldrake, you can use it as Material for I:P and use Solar for a 2nd Colossus.",
+   "start": [
+    "Batteryman Solar",
+    "Bystial Druiswurm"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Bystial Druiswurm",
+    "I:P Masquerena"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "Bystial Druiswurm",
+    "I:P Masquerena"
+   ]
+  },
+  {
+   "name": "Noroi + lv5",
+   "source": "https://www.masterduelmeta.com/combo/6a0b129f4e7161d1a5e418cb",
+   "notes": "This same combo works with Jokul + lv5 but it plays into Droll or you don't end on Ripper.",
+   "start": [
+    "K9-04 Noroi",
+    "<Any Lv5>"
+   ],
+   "field": [
+    "K9-17 \"Ripper\"",
+    "Thunder Dragon Colossus",
+    "S:P Little Knight"
+   ],
+   "backrow": [],
+   "hand": [
+    "K9-17 Izuna",
+    "K9-ØØ Lupis"
+   ],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "S:P Little Knight"
+   ]
+  },
+  {
+   "name": "Solar + Bystial (Saryuja)",
+   "source": "https://www.masterduelmeta.com/combo/6a0f7039d882f82488980f6f",
+   "notes": "This is very dependent on the hand, what you draw and the opponent not having hand traps, so its good to look what they have if possible, or just blindly try to have as many hand traps as possible, between Bystials, Izuna, Ash, Droll, Maxx c, or even set cards like Droplet.",
+   "start": [
+    "Batteryman Solar",
+    "Bystial Druiswurm"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "K9-17 \"Ripper\"",
+    "N.As.H. Knight",
+    "I:P Masquerena",
+    "K9-17 Izuna"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus",
+    "K9-17 \"Ripper\"",
+    "N.As.H. Knight",
+    "I:P Masquerena",
+    "K9-17 Izuna"
+   ]
+  },
+  {
+   "name": "2.5c White Albaz + Solar",
+   "source": "https://www.masterduelmeta.com/combo/6a0b538bdd9634f34b9b55dc",
+   "notes": "Retribution isn't a core card, you can also add Branded Fusion for follow-up instead.\n\nTDdark being drawn means you can start with Solar to bait a hand trap.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Batteryman Solar",
+    "<Any card>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Mirrorjade the Iceblade Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "Albion the Branded Dragon",
+    "The Dragon that Devours the Dogma"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Ecclesia and the Dark Dragon"
+   ],
+   "gy": [
+    "Incredible Ecclesia, the Virtuous"
+   ],
+   "guessed": [
+    "The Dragon that Devours the Dogma"
+   ]
+  },
+  {
+   "name": "White Albaz + OG",
+   "source": "https://www.masterduelmeta.com/combo/6a149bbf307a50fbd6bc1c2a",
+   "notes": "There are better things you can do with the Fusion plays depending on the other draws.\n\nYou could also tribute OG over the Albaz to make Colossus, this line gives more options.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Thunder Dragon"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Fallen of Albaz"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Ecclesia and the Dark Dragon"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Ecclesia + TDdark + Albaz/Cartesia",
+   "source": "https://www.masterduelmeta.com/combo/6a15cfffa045acccf2e7dd7b",
+   "notes": "",
+   "start": [
+    "Incredible Ecclesia, the Virtuous",
+    "Thunder Dragondark",
+    "Fallen of Albaz"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Fallen of Albaz",
+    "S:P Little Knight"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Branded Regained"
+   ],
+   "hand": [
+    "Ecclesia and the Dark Dragon"
+   ],
+   "gy": [],
+   "guessed": [
+    "Branded Regained"
+   ]
+  },
+  {
+   "name": "WAlbaz + TDdark",
+   "source": "https://www.masterduelmeta.com/combo/6a1af6823abbd694c8af9541",
+   "notes": "Playing The Golden Swordsoul makes drawing WAlbaz no require a lv4 or extender to start the engine, but its a bad draw, so only recommended if you play more ways to add WAlbaz.",
+   "start": [
+    "Fallen of the White Dragon",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Mirrorjade the Iceblade Dragon",
+    "Blazing Cartesia, the Virtuous",
+    "Fallen of Albaz",
+    "Albion the Branded Dragon",
+    "The Dragon that Devours the Dogma"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Ecclesia and the Dark Dragon"
+   ],
+   "gy": [],
+   "guessed": [
+    "Fallen of Albaz",
+    "The Dragon that Devours the Dogma"
+   ]
+  },
+  {
+   "name": "Cartesia + Bystial + LIGHT/DARK",
+   "source": "https://www.masterduelmeta.com/combo/6a1aff20a8e7a7e70e18f707",
+   "notes": "Check the Basic line tab in the Spreadsheet to optimize the line to what else you drew.",
+   "start": [
+    "Blazing Cartesia, the Virtuous",
+    "The Bystial Lubellion",
+    "<LIGHT/DARK>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "S:P Little Knight",
+    "Thunder Dragondark",
+    "Thunder Dragondark"
+   ],
+   "backrow": [
+    "Branded Regained"
+   ],
+   "hand": [
+    "Bystial Baldrake",
+    "Thunder Dragonroar"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Branded Fusion + discard",
+   "source": "https://www.masterduelmeta.com/combo/6a0dfff698b5d66e5c8c06be",
+   "notes": "You shouldn't use this line most of the time, as any Bystial, a light monster or a way to Thunder Dragondark makes the line much better.",
+   "start": [
+    "Branded Fusion",
+    "<???>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Predaplant Dragostapelia"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "BF + LIGHT monster",
+   "source": "https://www.masterduelmeta.com/combo/6a0e02d1e1f221eb2fdd001b",
+   "notes": "",
+   "start": [
+    "Branded Fusion",
+    "Effect Veiler"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Predaplant Dragostapelia"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "BF + TDdark",
+   "source": "https://www.masterduelmeta.com/combo/6a0f6058a06141192ed3d6c3",
+   "notes": "If you didn't normal summon Batteryman Solar to get to TDdark, you can play around Nibiru by skipping steps 6-7.\n\nYou can also just add TDhawk instead of TDroar (to keep TDroar in deck.",
+   "start": [
+    "Branded Fusion",
+    "Thunder Dragondark",
+    "<any card>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Mirrorjade the Iceblade Dragon"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous"
+   ],
+   "hand": [
+    "Branded Regained"
+   ],
+   "gy": [],
+   "guessed": [
+    "Thunder Dragon Colossus"
+   ]
+  },
+  {
+   "name": "BF vs DiFi/Macro",
+   "source": "https://www.masterduelmeta.com/combo/6a1705118a44f9581633d375",
+   "notes": "It doesn't uses your normal summon, so you can bait out stuff earlier and it will enable other plays later like TF&TV or WAlbaz.\n\nYou can do the same going 1st but making Dragostapelia if it was Dimensional Shifter.",
+   "start": [
+    "Branded Fusion",
+    "Dimensional Fissure"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Khaos Starsource Dragon"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "BF + Lubellion",
+   "source": "https://www.masterduelmeta.com/combo/6a7613da6e8f31d383f19363",
+   "notes": "If different Bystial you just don't get to Regained.",
+   "start": [
+    "Branded Fusion",
+    "The Bystial Lubellion",
+    "<any card>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Mirrorjade the Iceblade Dragon"
+   ],
+   "backrow": [],
+   "hand": [
+    "Branded Regained",
+    "Bystial Magnamhut",
+    "Bystial Druiswurm"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Solar + OG/TDdark + TF&TV",
+   "source": "https://www.masterduelmeta.com/combo/6a14a0edd29a37425285ff3b",
+   "notes": "Something you will do if your hand doesn't have Bystials or hand traps/backrow.\n\nIf you do have good non-engine, and its OG and not TDdark, you can summon TDdark with TDroar's eff (Step 6) and use TDdark to add TDF, which makes Titan (or 3rd Colossus) for a better follow-up.",
+   "start": [
+    "Batteryman Solar",
+    "The Fallen & The Virtuous",
+    "<any card>",
+    "Thunder Dragon",
+    "<any card>"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Thunder Dragon Colossus"
+   ],
+   "backrow": [
+    "The Fallen & The Virtuous",
+    "Magical Mallet"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Magical Mallet"
+   ]
+  },
+  {
+   "name": "Zombie Vampire into Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a1f14b85189118bb849ad1e",
+   "notes": "This make so you have 3 targets you can mill, meaning between the 5 cards in hand, deck thinning to find 3 Solar, 3 TDdark or 1-2 TDroar.\n\nIf you have a Bystial you can also choose to summon smth else from the GY, maybe to get value or prevent the opponent from triggering their effects.",
+   "start": [
+    "The Zombie Vampire"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "S:P Little Knight"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "S:P Little Knight"
+   ]
+  },
+  {
+   "name": "Millenium + TDdark/TDroar",
+   "source": "https://www.masterduelmeta.com/combo/6a1f1cc846b9d68c246ccbef",
+   "notes": "The priority if you draw multiple pieces is: Sengenjin> Wedju > Golem.\n\nSengenjin can add itself but it can't place itself multiple times in the S/T.",
+   "start": [
+    "Sengenjin Wakes from a Millennium",
+    "Thunder Dragondark"
+   ],
+   "field": [
+    "Thunder Dragon Colossus",
+    "Number 90: Galaxy-Eyes Photon Lord",
+    "I:P Masquerena"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "I:P Masquerena"
+   ]
+  },
+  {
+   "name": "Millenium into ZVamp",
+   "source": "https://www.masterduelmeta.com/combo/6a1f20a784680298112928ae",
+   "notes": "",
+   "start": [
+    "Sengenjin Wakes from a Millennium",
+    "Mulcharmy Fuwalos",
+    "The Zombie Vampire"
+   ],
+   "field": [
+    "The Zombie Vampire",
+    "Golem that Guards the Millennium Treasures"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "DMGMA into ZVamp",
+   "source": "https://www.masterduelmeta.com/combo/6a1f29278e60c113adbdefb0",
+   "notes": "",
+   "start": [
+    "Dark Magician Girl the Magician's Apprentice",
+    "Mulcharmy Fuwalos",
+    "The Zombie Vampire"
+   ],
+   "field": [
+    "The Zombie Vampire",
+    "Red-Eyes Dark Dragoon"
+   ],
+   "backrow": [],
+   "hand": [
+    "The Gaze of Timaeus"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Crackle + Whisker + Solar + Baldrake",
+   "source": "https://www.masterduelmeta.com/combo/6a467e998cafbf2fed78ff00",
+   "notes": "This is to highlight plays going 2nd.\n\nCrack eff can summon Solar or a ThunDra to start your plays, any Bystial to trigger your ThunDra is an option to use in their end phase.\n\nWhisker in the end phase is also very strong and can be better most of the time.",
+   "start": [
+    "Crackle Blitzclique",
+    "Whisker Blitzclique",
+    "Batteryman Solar",
+    "Bystial Baldrake"
+   ],
+   "field": [
+    "Whisker Blitzclique",
+    "Bystial Baldrake"
+   ],
+   "backrow": [],
+   "hand": [
+    "Thunder Dragonhawk",
+    "Crackle Blitzclique"
+   ],
+   "gy": [
+    "Blitzclique - Breakaway"
+   ],
+   "guessed": [
+    "Whisker Blitzclique",
+    "Bystial Baldrake"
+   ]
+  }
+ ]
+}

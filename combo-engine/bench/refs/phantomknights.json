@@ -1,0 +1,233 @@
+{
+ "deck": "unseen/phantomknights.json",
+ "extra": [
+  62709239,
+  16237004,
+  78449284,
+  359563,
+  91279700,
+  16195942,
+  28781003,
+  77675029,
+  1621413,
+  64276752,
+  58699500,
+  8264361,
+  29301450,
+  26692769,
+  65741786
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6aaf722c6cd43a07507d6f1a"
+ ],
+ "author": "Krust",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Soleret",
+   "source": "https://www.masterduelmeta.com/combo/6ab63a3196afad3eb61ded19",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Doomed Soleret",
+    "<Any Discard>"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Evilswarm Ophion",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [
+    "Phantom Knights' Wing"
+   ],
+   "gy": [],
+   "guessed": [
+    "Evilswarm Ophion"
+   ]
+  },
+  {
+   "name": "Decayed",
+   "source": "https://www.masterduelmeta.com/combo/6ab63ee396afad3eb61e0861",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Decayed Cloak",
+    "<'The Phantom Knights'>"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Evilswarm Ophion",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [],
+   "hand": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Scales",
+   "source": "https://www.masterduelmeta.com/combo/6ab64376ee360ddfc6be97fe",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Torn Scales",
+    "<Any Discard>"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "The Phantom Knights' Rank-Up-Magic Launch",
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [],
+   "gy": [
+    "Phantom Knights' Wing"
+   ]
+  },
+  {
+   "name": "Foolish",
+   "source": "https://www.masterduelmeta.com/combo/6ab65886ed00d860d0b47b65",
+   "notes": "",
+   "start": [
+    "Foolish Burial",
+    "<Any Discard>"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [
+    "The Phantom Knights' Rank-Up-Magic Launch"
+   ],
+   "gy": [
+    "Phantom Knights' Wing"
+   ],
+   "guessed": [
+    "Dark Requiem Xyz Dragon"
+   ]
+  },
+  {
+   "name": "Boots + Soleret",
+   "source": "https://www.masterduelmeta.com/combo/6ab7945c23de6b2fcf61afc7",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Silent Boots",
+    "The Phantom Knights of Doomed Soleret"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Evilswarm Ophion",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [
+    "Phantom Knights' Wing"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Boots + Decayed",
+   "source": "https://www.masterduelmeta.com/combo/6ab8c27e53da9d48fbe8841c",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Silent Boots",
+    "The Phantom Knights of Decayed Cloak"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Evilswarm Ophion",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [],
+   "gy": [
+    "Phantom Knights' Wing"
+   ],
+   "guessed": [
+    "Dark Requiem Xyz Dragon"
+   ]
+  },
+  {
+   "name": "Boots + Scales",
+   "source": "https://www.masterduelmeta.com/combo/6ab8c660f1e5233245ea37fd",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Silent Boots",
+    "The Phantom Knights of Torn Scales",
+    "<Any Discard>"
+   ],
+   "field": [
+    "The Phantom Knights of Rusty Bardiche",
+    "I:P Masquerena",
+    "Evilswarm Ophion",
+    "Dark Requiem Xyz Dragon"
+   ],
+   "backrow": [
+    "Phantom Knights' Fog Blade"
+   ],
+   "hand": [],
+   "gy": [
+    "Phantom Knights' Wing"
+   ]
+  },
+  {
+   "name": "1 Soleret vs Fuwa",
+   "source": "https://www.masterduelmeta.com/combo/6a4fb0cfae336d2332ff52b1",
+   "notes": "Play will change with release of rival cards",
+   "start": [
+    "The Phantom Knights of Doomed Soleret"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Soleret + 1 vs Nib",
+   "source": "https://www.masterduelmeta.com/combo/6a54b4a107194786ec874337",
+   "notes": "",
+   "start": [
+    "The Phantom Knights of Doomed Soleret",
+    "<Any discard>"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Soleret + Discard vs Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a50d0cd07224e31471155d6",
+   "notes": "Will change with rival cards",
+   "start": [
+    "The Phantom Knights of Doomed Soleret",
+    "<Any card>"
+   ],
+   "field": [
+    "Dark Requiem Xyz Dragon",
+    "S:P Little Knight"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "The Phantom Knights of Rusty Bardiche"
+   ]
+  }
+ ]
+}

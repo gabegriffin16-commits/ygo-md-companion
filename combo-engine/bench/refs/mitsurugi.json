@@ -1,0 +1,206 @@
+{
+ "deck": "unseen/mitsurugi.json",
+ "extra": [
+  59400890,
+  37818794,
+  87746184,
+  78397661,
+  11398059,
+  66011101,
+  93039339,
+  73898890,
+  34989413,
+  65741786,
+  29301450,
+  12067160,
+  4993187,
+  45112597,
+  27519978,
+  32530043,
+  8165596
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a1d397cfd123b7dd1195729"
+ ],
+ "author": "kagetane",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "1cc Habakiri -  Ritual search",
+   "source": "https://www.masterduelmeta.com/combo/6a0a255720e74e0424a9f3cb",
+   "notes": "",
+   "start": [
+    "Ame no Habakiri no Mitsurugi"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena",
+    "Number 90: Galaxy-Eyes Photon Lord"
+   ],
+   "backrow": [
+    "Mitsurugi Great Purification"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "I:P Masquerena",
+    "Number 90: Galaxy-Eyes Photon Lord",
+    "Mitsurugi Great Purification"
+   ]
+  },
+  {
+   "name": "Habakiri 1cc - Prayers search",
+   "source": "https://www.masterduelmeta.com/combo/6a0a205d5398ed67df437047",
+   "notes": "",
+   "start": [
+    "Ame no Habakiri no Mitsurugi"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena",
+    "Number 90: Galaxy-Eyes Photon Lord"
+   ],
+   "backrow": [],
+   "hand": [
+    "Mitsurugi Great Purification",
+    "Nibiru, the Primal Being"
+   ],
+   "gy": [],
+   "guessed": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena",
+    "Number 90: Galaxy-Eyes Photon Lord"
+   ]
+  },
+  {
+   "name": "Aramasa",
+   "source": "https://www.masterduelmeta.com/combo/6a1d2309e521924d9543b661",
+   "notes": "Instead of Granite you can also make Dugares",
+   "start": [
+    "Mitsurugi no Mikoto, Aramasa"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena"
+   ],
+   "backrow": [],
+   "hand": [
+    "Nibiru, the Primal Being",
+    "Mitsurugi Prayers"
+   ],
+   "gy": [],
+   "guessed": [
+    "I:P Masquerena"
+   ]
+  },
+  {
+   "name": "Prayers 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a1d25c0c69ab56d06206ea2",
+   "notes": "",
+   "start": [
+    "Mitsurugi Prayers"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena"
+   ],
+   "backrow": [],
+   "hand": [
+    "Mitsurugi Great Purification"
+   ],
+   "gy": []
+  },
+  {
+   "name": "Preparation",
+   "source": "https://www.masterduelmeta.com/combo/6a1d320495f8f0ba54f0ae63",
+   "notes": "You have the possiblity to extend further with Prayers, check the Habakiri 1ccs for reference. Wether you should or not depends of the clues about the MU mostly",
+   "start": [
+    "Pre-Preparation of Rites"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena"
+   ],
+   "backrow": [],
+   "hand": [
+    "Mitsurugi Prayers",
+    "Mitsurugi Great Purification"
+   ],
+   "gy": [],
+   "guessed": [
+    "I:P Masquerena"
+   ]
+  },
+  {
+   "name": "1 Ritual Monster + Mitsurugi Ritual",
+   "source": "https://www.masterduelmeta.com/combo/6a0971a1b2e2c7b3b4aa5ef4",
+   "notes": "You can extend further with Mirror  to bring Habakiri in game too and keep Murakumo on field or make Photon Lord, but this ints harder into Nibiru.",
+   "start": [
+    "Ame no Murakumo no Mitsurugi",
+    "Mitsurugi Ritual"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena"
+   ],
+   "backrow": [
+    "Mitsurugi Magatama"
+   ],
+   "hand": [
+    "Mitsurugi Prayers",
+    "Mitsurugi Great Purification"
+   ],
+   "gy": [],
+   "guessed": [
+    "I:P Masquerena",
+    "Mitsurugi Magatama"
+   ]
+  },
+  {
+   "name": "Prayers + 1 Ritual monster",
+   "source": "https://www.masterduelmeta.com/combo/6a0a5ad84ef330ac2aba2bec",
+   "notes": "granite or photon are needing an extra normal summon. \n\nThe combo is a bit weak into Nibiru, so you can consider making S:P from Habakiri and Aramasa before using mirror instead if you suspect it. Even if you don't though, you still have Prayers next turn.",
+   "start": [
+    "Mitsurugi Prayers",
+    "Ame no Murakumo no Mitsurugi"
+   ],
+   "field": [
+    "I:P Masquerena",
+    "Ame no Murakumo no Mitsurugi",
+    "Gallant Granite"
+   ],
+   "backrow": [],
+   "hand": [
+    "Mitsurugi Great Purification"
+   ],
+   "gy": [
+    "Futsu no Mitama no Mitsurugi",
+    "Mitsurugi Prayers"
+   ],
+   "guessed": [
+    "I:P Masquerena",
+    "Gallant Granite"
+   ]
+  },
+  {
+   "name": "saji + aramasa",
+   "source": "https://www.masterduelmeta.com/combo/6a0946f9fa2b16294f13ef92",
+   "notes": "Loses to every single handtrap, but if you get a hand this bad, this is how you can get full combo unintrerupted. \n\nCan play around nibiru by searching Mitama from Murakumo instead of Prayers, and ending on just 1 spell/trap instead (skip summoning Habakiri, just tribute the second copy from Deck instead)",
+   "start": [
+    "Mitsurugi no Mikoto, Saji",
+    "Mitsurugi no Mikoto, Aramasa"
+   ],
+   "field": [
+    "Futsu no Mitama no Mitsurugi",
+    "I:P Masquerena",
+    "Ame no Murakumo no Mitsurugi"
+   ],
+   "backrow": [],
+   "hand": [
+    "Mitsurugi Prayers",
+    "Mitsurugi Great Purification"
+   ],
+   "gy": []
+  }
+ ]
+}

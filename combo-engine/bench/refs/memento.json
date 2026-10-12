@@ -1,0 +1,205 @@
+{
+ "deck": "unseen/memento.json",
+ "extra": [
+  54757758,
+  96334243,
+  11765832,
+  19181420,
+  87746184,
+  37260677,
+  76666602,
+  11321089,
+  14529511,
+  14529511,
+  78397661,
+  34755994,
+  12450071,
+  52119435,
+  29301450,
+  4731783,
+  28143384,
+  50277355,
+  46640168,
+  2463794,
+  49867899,
+  27381364
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a0e83d7b4ba7a4e61441261"
+ ],
+ "author": "Tipstyshow_",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Mementotlan Angwitch Zoroa 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a09184f468f980c7194ad72",
+   "notes": "While this combo shoots for Elf and Zoroa after most memento effects are used and after cross-sheep revives you can realistically shoot for a couple different endboards. This visual is just to help get the basics down.",
+   "start": [
+    "Mementotlan Angwitch"
+   ],
+   "field": [
+    "Zoroa, the Magistus Verethragna",
+    "Spright Elf",
+    "Mementoal Tecuhtlica - Combined Creation",
+    "Mementotlan-Horned Dragon",
+    "Mementotlan Angwitch"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Bone Party",
+    "Mementotlan Fusion"
+   ],
+   "hand": [],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King"
+   ]
+  },
+  {
+   "name": "Dark Blade 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0947a0ee68d7c900316919",
+   "notes": "While this combo shoots for Elf and Zoroa after most memento effects are used and after cross-sheep revives you can realistically shoot for a couple different endboards. This visual is just to help get the basics down.",
+   "start": [
+    "Mementotlan Dark Blade"
+   ],
+   "field": [
+    "Zoroa, the Magistus Verethragna",
+    "Spright Elf",
+    "Mementoal Tecuhtlica - Combined Creation",
+    "Mementotlan-Horned Dragon"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Bone Party",
+    "Mementotlan Fusion"
+   ],
+   "hand": [],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King",
+    "Mementotlan Angwitch"
+   ]
+  },
+  {
+   "name": "Tatsu Zoroa 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0a4fbdc53a91b9822ea430",
+   "notes": "While this combo shoots for Elf and Zoroa after most memento effects are used and after cross-sheep revives you can realistically shoot for a couple different endboards. This visual is just to help get the basics down.",
+   "start": [
+    "Mementotlan Tatsunootoshigo"
+   ],
+   "field": [
+    "Zoroa, the Magistus Verethragna",
+    "Spright Elf",
+    "Mementoal Tecuhtlica - Combined Creation",
+    "Mementotlan-Horned Dragon",
+    "Mementotlan Angwitch"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Fusion",
+    "Mementotlan Bone Party"
+   ],
+   "hand": [],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King"
+   ]
+  },
+  {
+   "name": "Shleepy + Creation Zoroa 1.5cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0a58d0d5b8ecbab4b0d60b",
+   "notes": "Read the garnet warning. sheepy is a weird starter as it needs a second memento name in hand but it also needs to be one of the brick one of names as goblin, blade, witch, and even mace would be a better start. For the sake of this site I am using combined creation as the starting bad name, but keep in mind of the changes you will have to do based on what is drawn.",
+   "start": [
+    "Mementotlan Shleepy",
+    "Mementoal Tecuhtlica - Combined Creation"
+   ],
+   "field": [
+    "Zoroa, the Magistus Verethragna",
+    "Spright Elf",
+    "Mementoal Tecuhtlica - Combined Creation",
+    "Mementotlan-Horned Dragon",
+    "Mementotlan Angwitch"
+   ],
+   "backrow": [
+    "Mementotlan Bone Party",
+    "Mementotlan Fusion"
+   ],
+   "hand": [],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King"
+   ]
+  },
+  {
+   "name": "Goblin Zoroa 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a0e50be4c72fb234cf37644",
+   "notes": "This is the weakest of the lines but its still a negate and evrything that would come from the memento portion of the endboard",
+   "start": [
+    "Mementotlan Goblin"
+   ],
+   "field": [
+    "Zoroa, the Magistus Verethragna",
+    "Mementoal Tecuhtlica - Combined Creation",
+    "Mementotlan Angwitch",
+    "Mementotlan-Horned Dragon"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Fusion",
+    "Mementotlan Bone Party"
+   ],
+   "hand": [],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King"
+   ]
+  },
+  {
+   "name": "Memento Engraver start",
+   "source": "https://www.masterduelmeta.com/combo/6a0e7e52353d4250ff8d3291",
+   "notes": "",
+   "start": [
+    "Fiendsmith Engraver"
+   ],
+   "field": [
+    "A Bao A Qu, the Lightless Shadow",
+    "S:P Little Knight",
+    "Mementoal Tecuhtlica - Combined Creation"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Fusion",
+    "Mementotlan Bone Party"
+   ],
+   "hand": [
+    "Mementotlan Goblin"
+   ],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King",
+    "Mementotlan-Horned Dragon",
+    "Mementotlan Angwitch"
+   ]
+  },
+  {
+   "name": "Memento Tract start",
+   "source": "https://www.masterduelmeta.com/combo/6a0e82e1eee340fc5e361adb",
+   "notes": "",
+   "start": [
+    "Fiendsmith's Tract"
+   ],
+   "field": [
+    "A Bao A Qu, the Lightless Shadow",
+    "S:P Little Knight",
+    "Mementoal Tecuhtlica - Combined Creation"
+   ],
+   "backrow": [
+    "Mementomictlan",
+    "Mementotlan Fusion",
+    "Mementotlan Bone Party"
+   ],
+   "hand": [
+    "Mementotlan Goblin"
+   ],
+   "gy": [
+    "Mementomictlan Tecuhtlica - Creation King",
+    "Mementotlan-Horned Dragon",
+    "Mementotlan Angwitch"
+   ]
+  }
+ ]
+}

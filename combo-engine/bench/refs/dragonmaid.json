@@ -1,0 +1,171 @@
+{
+ "deck": "unseen/dragonmaid.json",
+ "extra": [
+  41373230,
+  87746184,
+  44146295,
+  3410461,
+  70538272,
+  48658295,
+  89851827,
+  41232647,
+  41232647,
+  24799107,
+  27548199,
+  78397661,
+  73539069,
+  24361622,
+  29301450,
+  11969228,
+  13143275,
+  42097666
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a0a6dc0db4dc77a0ebe8f21"
+ ],
+ "author": "Terra",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Chamber",
+   "source": "https://www.masterduelmeta.com/combo/6a092ac4be6afa34f5b214c8",
+   "notes": "",
+   "start": [
+    "Chamber Dragonmaid"
+   ],
+   "field": [
+    "Hieratic Seal of the Heavenly Spheres",
+    "Dragonmaid Sheou"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Dragonmaid Tidying"
+   ]
+  },
+  {
+   "name": "Parlor",
+   "source": "https://www.masterduelmeta.com/combo/6a090e9d159ac9029164db8f",
+   "notes": "",
+   "start": [
+    "Parlor Dragonmaid"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Kitchen",
+   "source": "https://www.masterduelmeta.com/combo/6a09db3700e39dcfd78115ee",
+   "notes": "",
+   "start": [
+    "Kitchen Dragonmaid"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Parlor + Kitchen",
+   "source": "https://www.masterduelmeta.com/combo/6a0a6465f1385f86d0464314",
+   "notes": "",
+   "start": [
+    "Parlor Dragonmaid",
+    "Kitchen Dragonmaid"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Dragonmaid Tidying"
+   ]
+  },
+  {
+   "name": "Parlor + Chamber",
+   "source": "https://www.masterduelmeta.com/combo/6a0a6644805036ec9d0c87bf",
+   "notes": "",
+   "start": [
+    "Parlor Dragonmaid",
+    "Chamber Dragonmaid"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres",
+    "Dragonmaid Tidying"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Kitchen + Chamber",
+   "source": "https://www.masterduelmeta.com/combo/6a0a680c131c178bfa39ea5b",
+   "notes": "",
+   "start": [
+    "Kitchen Dragonmaid",
+    "Chamber Dragonmaid"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Dragonmaid Tidying"
+   ]
+  },
+  {
+   "name": "Parlor + Hospitality",
+   "source": "https://www.masterduelmeta.com/combo/6a0a6b3fc3a097482045d8cb",
+   "notes": "",
+   "start": [
+    "Parlor Dragonmaid",
+    "Dragonmaid Hospitality"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Dragonmaid Tidying"
+   ]
+  },
+  {
+   "name": "World legacy guardragon combo.",
+   "source": "https://www.masterduelmeta.com/combo/6a0a2e80c317a1f924f1711e",
+   "notes": "This combo is a way to play through your normal summon being negated without hospitality in hand.",
+   "start": [
+    "Kitchen Dragonmaid",
+    "World Legacy Guardragon",
+    "<Any card>"
+   ],
+   "field": [
+    "Dragonmaid Sheou",
+    "Hieratic Seal of the Heavenly Spheres"
+   ],
+   "backrow": [
+    "Dragonmaid Tidying"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Hieratic Seal of the Heavenly Spheres",
+    "Dragonmaid Tidying"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,205 @@
+{
+ "deck": "unseen/ddd.json",
+ "extra": [
+  74583607,
+  11852093,
+  71398055,
+  70576413,
+  44852429,
+  72402069,
+  32232538,
+  71612253,
+  79559912,
+  15939229,
+  46593546,
+  46593546,
+  30998403,
+  9024198,
+  9024198,
+  3758046
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a24c5999899c84396040fd8"
+ ],
+ "author": "karli",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "Savant Kepler 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a24afcf3bdb24b683a8cdf7",
+   "notes": "",
+   "start": [
+    "D/D Savant Kepler"
+   ],
+   "field": [
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Kepler Combo, Nibiru on Gryphon summon",
+   "source": "https://www.masterduelmeta.com/combo/6a24b5024bec3366f9016787",
+   "notes": "",
+   "start": [
+    "D/D Savant Kepler"
+   ],
+   "field": [
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Gilgamesh Chokepoint vs Handtraps",
+   "source": "https://www.masterduelmeta.com/combo/6a2241a84111f387eb9a7424",
+   "notes": "",
+   "start": [
+    "D/D Savant Kepler"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Dark Contract with the Gate 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a2544575724beaf1d7d590a",
+   "notes": "",
+   "start": [
+    "Dark Contract with the Gate"
+   ],
+   "field": [
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Gate 1cc vs Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a24ca4638a9efa0062488df",
+   "notes": "",
+   "start": [
+    "Dark Contract with the Gate"
+   ],
+   "field": [
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Wave High King Caesar",
+    "D/D/D Cursed King Siegfried"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Gate 1cc vs Purulia (0 draws)",
+   "source": "https://www.masterduelmeta.com/combo/6a24c3d06c2d559893683b01",
+   "notes": "",
+   "start": [
+    "Dark Contract with the Gate"
+   ],
+   "field": [
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "D/D/D Zero Doom Queen Machinex 1cc",
+   "source": "https://www.masterduelmeta.com/combo/6a223061571ecad2de51e6c8",
+   "notes": "",
+   "start": [
+    "D/D/D Zero Doom Queen Machinex"
+   ],
+   "field": [
+    "D/D/D Wave High King Caesar",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Deviser King Deus Machinex"
+   ],
+   "backrow": [],
+   "hand": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "gy": []
+  },
+  {
+   "name": "D/D/D Doom Queen Machinex 1cc vs  Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a254d6f882fab8296b9c5f9",
+   "notes": "The combo is slightly different from the regular one so play with caution",
+   "start": [
+    "D/D/D Zero Doom Queen Machinex"
+   ],
+   "field": [
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Deviser King Deus Machinex",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Wave High King Caesar"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Kepler + Gryphon 2 cc vs Ash",
+   "source": "https://www.masterduelmeta.com/combo/6a24bc6faed0fd1ab351452f",
+   "notes": "",
+   "start": [
+    "D/D Savant Kepler",
+    "D/D Gryphon"
+   ],
+   "field": [
+    "D/D/D Sky King Zeus Ragnarok",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Wave High King Caesar",
+    "D/D/D Deviser King Deus Machinex"
+   ],
+   "backrow": [
+    "Dark Contract with the Eternal Darkness"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Kepler + Gryphon + Doom Queen under Droll",
+   "source": "https://www.masterduelmeta.com/combo/6a2272e100225c1697a2bb41",
+   "notes": "Not my combo, shoutout to the D/D/D goat Taro which did this during meta weekly\n\nWatch the actual combo in action: https://youtu.be/56AYPzF21bI?si=U_LkIz-bHrciU0op&t=467",
+   "start": [
+    "D/D Savant Kepler",
+    "D/D Gryphon",
+    "D/D/D Zero Doom Queen Machinex"
+   ],
+   "field": [
+    "D/D/D Wave High King Caesar",
+    "D/D/D Cursed King Siegfried",
+    "D/D/D Super Doom King Bright Armageddon",
+    "D/D/D Sky King Zeus Ragnarok"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  }
+ ]
+}

@@ -1,0 +1,236 @@
+{
+ "deck": "unseen/skystriker.json",
+ "extra": [
+  87746184,
+  78397661,
+  93039339,
+  76072561,
+  76072561,
+  63288573,
+  63288573,
+  63288573,
+  90673288,
+  8491308,
+  25072579,
+  75147529,
+  98462037,
+  29301450,
+  63013339,
+  12421694
+ ],
+ "sources": [
+  "https://www.masterduelmeta.com/spreadsheet/6a346132ba029160e2f1ff17"
+ ],
+ "author": "Dkayed",
+ "expect": "each guide board should rank at or near the top of what the engine finds from its starting hand",
+ "boards": [
+  {
+   "name": "First Turn 1 Card Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a214eedfba4fe358dcfac34",
+   "notes": "One card combo ending on three disruptions:\n- Lemnisgate = Return 1 card to the hand\n- Zero = Destroy 1 card\n- Zeke = Banish 1 of their monsters until their next end phase\n\nAlso end with 1 Engage in hand for follow-up",
+   "start": [
+    "Sky Striker Mobilize - Engage!"
+   ],
+   "field": [
+    "Sky Striker Ace = Zero",
+    "Sky Striker Ace - Raye"
+   ],
+   "backrow": [
+    "Sky Striker Special Maneuver - Lemnisgate!",
+    "Sky Striker Special Maneuver - Lemnisgate!"
+   ],
+   "hand": [
+    "Sky Striker Ace - Kagari",
+    "Sky Striker Ace - Kagari"
+   ],
+   "gy": [
+    "Sky Striker Mobilize - Engage!"
+   ],
+   "guessed": [
+    "Sky Striker Ace - Raye"
+   ]
+  },
+  {
+   "name": "Chant/Eldam One Card Combo",
+   "source": "https://www.masterduelmeta.com/combo/6a21a13989e85c0748c138eb",
+   "notes": "One Card Combo ending on 4 disruptions\n- MST = destroy or negate field/continuous spell/trap activations\n- Lemnis = Return 1/2 cards to hand\n- Zero = Destroy 1 card\n- Zeke = Banish an opponent's monster until their end phase",
+   "start": [
+    "Radiant Typhoon Eldam"
+   ],
+   "field": [
+    "Sky Striker Ace = Zero",
+    "Sky Striker Ace - Raye"
+   ],
+   "backrow": [
+    "Mystical Space Typhoon",
+    "Sky Striker Special Maneuver - Lemnisgate!",
+    "Sky Striker Special Maneuver - Lemnisgate!"
+   ],
+   "hand": [],
+   "gy": [
+    "Sky Striker Ace - Kagari",
+    "Sky Striker Mobilize - Engage!",
+    "Sky Striker Mobilize - Engage!",
+    "Sky Striker Ace - Kagari"
+   ],
+   "guessed": [
+    "Mystical Space Typhoon",
+    "Sky Striker Ace - Raye"
+   ]
+  },
+  {
+   "name": "Just Roze",
+   "source": "https://www.masterduelmeta.com/combo/6a27b727111204e8eebe8673",
+   "notes": "",
+   "start": [
+    "Sky Striker Ace - Roze"
+   ],
+   "field": [
+    "Sky Striker Ace = Zero"
+   ],
+   "backrow": [],
+   "hand": [],
+   "gy": [
+    "Sky Striker Special Maneuver - Lemnisgate!"
+   ]
+  },
+  {
+   "name": "Raye 1c 2 Disruptions",
+   "source": "https://www.masterduelmeta.com/combo/6a34627cf2048b0184b850f0",
+   "notes": "",
+   "start": [
+    "Sky Striker Ace - Raye"
+   ],
+   "field": [
+    "Sky Striker Ace = Zero"
+   ],
+   "backrow": [
+    "Sky Striker Mecha - Widow Anchor"
+   ],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Engage + Linkage [Greedy line]",
+   "source": "https://www.masterduelmeta.com/combo/6a21cbacb26489eb264d347d",
+   "notes": "GREEDY line to get 3 spells with just Engage + Linkage. Note that if you any extra starter/spells the line will change dramatically. Sky Striker isn't a combo deck so there's no fixed way to play the opening hands. \n\nMultirole is rarely played currently because Lemnis is sufficient to handle the recursion (and it doesn't banish your spells). But Multirole does make it a little bit safer when your Kagari is negated.",
+   "start": [
+    "Sky Striker Mobilize - Engage!",
+    "Sky Striker Mobilize - Linkage!"
+   ],
+   "field": [
+    "Sky Striker Ace - Shizuku",
+    "Sky Striker Ace = Zero"
+   ],
+   "backrow": [
+    "Sky Striker Mecha - Widow Anchor",
+    "Sky Striker Special Maneuver - Lemnisgate!",
+    "Sky Striker Mecha Modules - Multirole"
+   ],
+   "hand": [
+    "Sky Striker Mobilize - Linkage!"
+   ],
+   "gy": [],
+   "guessed": [
+    "Sky Striker Mecha - Widow Anchor",
+    "Sky Striker Special Maneuver - Lemnisgate!",
+    "Sky Striker Ace - Shizuku",
+    "Sky Striker Mecha Modules - Multirole"
+   ]
+  },
+  {
+   "name": "Ray and Roze Sky Striker combo",
+   "source": "https://www.masterduelmeta.com/combo/6a26b717b32cd283c919a5ab",
+   "notes": "a simple starter",
+   "start": [
+    "Sky Striker Ace - Raye",
+    "Sky Striker Ace - Roze"
+   ],
+   "field": [
+    "Sky Striker Ace = Zero"
+   ],
+   "backrow": [
+    "Sky Striker Mecha - Widow Anchor"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Sky Striker Mecha - Widow Anchor"
+   ]
+  },
+  {
+   "name": "Drolled: Engage + Raye",
+   "source": "https://www.masterduelmeta.com/combo/6a1f3a936a5f06d7d87e6601",
+   "notes": "Combo from: andthenishowedhermypanini",
+   "start": [
+    "Sky Striker Mobilize - Engage!",
+    "Sky Striker Ace - Raye"
+   ],
+   "field": [
+    "Sky Striker Ace - Camellia",
+    "Sky Striker Ace = Zero",
+    "Sky Striker Ace - Kagari",
+    "Sky Striker Ace - Zeke"
+   ],
+   "backrow": [
+    "Sky Striker Mobilize - Linkage!"
+   ],
+   "hand": [],
+   "gy": [],
+   "guessed": [
+    "Sky Striker Ace - Kagari",
+    "Sky Striker Ace - Zeke"
+   ]
+  },
+  {
+   "name": "Drones 1 card OTK",
+   "source": "https://www.masterduelmeta.com/combo/6a1f02f8e0c87eab61084ccb",
+   "notes": "Only do this if the board is empty and your opponent has nothing to stop you",
+   "start": [
+    "Sky Striker Mecha - Hornet Drones"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "Raye 1 card OTK",
+   "source": "https://www.masterduelmeta.com/combo/6a1efacda6d1de93218eefd0",
+   "notes": "Only do this if their board is empty and they absolutely have nothing to stop you.",
+   "start": [
+    "Sky Striker Ace - Raye"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "OTK: Roze + Engage/Linkage - 13.1k DMG",
+   "source": "https://www.masterduelmeta.com/combo/6a1f33219bf88d03c6777466",
+   "notes": "Open field 13.1k damage. Combo from: andthenishowedhermypanini",
+   "start": [
+    "Sky Striker Ace - Roze",
+    "Sky Striker Mobilize - Engage!"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  },
+  {
+   "name": "「1 Ace + 1 Linkage」OTK through 2 opponent's face up monsters (one under 3000)",
+   "source": "https://www.masterduelmeta.com/combo/6a1f51ae872eb87596217fd9",
+   "notes": "​There are many different OTK sequences available. For example, if your monster has the same ATK as an opponent's, you can crash into it to destroy both, trigger Raye’s GY effect to Special Summon herself, and pivot into the standard 1-card Raye OTK line.\n\n​Alternatively, you can summon Amatsu, declare an attack, and activate its effect. By targeting an opponent's monster, chaining Linkage, and sending Amatsu to the GY as cost, its effect will still resolve to destroy the targeted card. This allows you to summon Kagari or Zero via Linkage to continue your plays.\n\n​The lines are highly flexible. Provided you have another Ace, you can start with Hayate in the EMZ and Amatsu in an MMZ. From there, Amatsu can be used to destroy one of their cards before you pivot back into your usual OTK lines. You can also make Azalea or Zeke first to clear one body, then transition into the aforementioned Amatsu line to clear a second card.\n\n​Generally, reversing Hayate and Amatsu's zone placements is perfectly viable, as Amatsu can simply target and pop Hayate instead of itself to free up the MMZ. However, placing Hayate in the EMZ and Amatsu in the MMZ is preferred because it accounts for specific contingencies: after Hayate crashes, Raye's Quick Effect can be activated to tag out and summon an Ace to the EMZ. This allows you to clear the MMZ with Amatsu and seamlessly transition back into your standard OTK line.\n\nAll the OTK lines are based on the same few ingredients:\n- Linkage ATK buff. Amatsu can provide a Dark. Zero gets the buff because Linkage checks both field and gy at res\n- Zero tagout with Lemnisgate in gy can deal 2000+3000+3000 dmg (if you can use Raye tagout)\n- Amatsu, Zeke, Amatsu, Zero, and Lemnisgate can remove bodies during battle phase\n- Take into account the dmg from stolen monsters by Widow Anchor\n\nAs long as you can simplify the board back to Raye or any Ace + Linkage on empty board you will be able to execute the OTK easily",
+   "start": [
+    "Sky Striker Ace - Raye",
+    "Sky Striker Mobilize - Linkage!"
+   ],
+   "field": [],
+   "backrow": [],
+   "hand": [],
+   "gy": []
+  }
+ ]
+}
