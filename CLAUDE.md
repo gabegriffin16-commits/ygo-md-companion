@@ -166,7 +166,8 @@ Key parts of `src/main.cpp`:
   (`MDC_WWIN`), and the Normal Summon bonus counts when the line hasn't used it (the game doesn't offer it mid-chain).
   Found by tracing Dracotail "Branded Fusion 1cc" (the guide's board is reachable, 10.93, but was cut at beam level 3).
   tune.py before -> after: std 15k 109.45 -> 114.02, 30k 119.10 -> 119.34; guideless 15k 91.63 -> 94.18, 30k 96.13 -> 97.49
-  (1.0 gained a bit more but dipped once). `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
+  (1.0 gained a bit more but dipped once). compare.py 20s, before -> after: Dracotail total 181.85 -> 188.30 (guide better 3 -> 2: Branded Fusion 1cc
+  now found), Branded 147.51 -> 161.08 (5 -> 4). Left: mostly guide boards with guessed placements or missing cards. `mode:"adaptive"` (beam on all threads + idle-priority depth-first workers) exists but
   isn't used: on 6 physical cores it slows HERO's beam. `maxReplays` = work budget instead of the clock and `growth`
   = beam widening factor (`bench/tune.py` tunes the search on a fixed budget, nearly reproducible; GitHub runs it per
   configuration in parallel via `engine-tune.yml` when `bench/tune.json` changes; runner and PC totals match, e.g.
