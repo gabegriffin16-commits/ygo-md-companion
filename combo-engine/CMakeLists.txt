@@ -54,6 +54,10 @@ target_compile_definitions(deps PUBLIC SQLITE_OMIT_LOAD_EXTENSION SQLITE_THREADS
 
 find_package(Threads REQUIRED)
 add_executable(combo-engine src/main.cpp src/reset.cpp)
+if(MIMALLOC_DIR)
+  target_sources(combo-engine PRIVATE src/arena.cpp)   # duel memory regions + operator new / Lua allocator
+  target_link_libraries(combo-engine PRIVATE mimalloc_static)
+endif()
 # Link-time optimization: most search time is spent inside the rules core and Lua (replaying lines), across library
 # boundaries the compiler can only optimize when linking. ENGINE_LTO=OFF to turn it off.
 option(ENGINE_LTO "Link-time optimization" ON)

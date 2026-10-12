@@ -37,19 +37,23 @@ struct DuelMessages { using type = std::deque<duel::duel_message> duel::*; frien
 template struct Grab<DuelRandom, &duel::random>;
 template struct Grab<DuelMessages, &duel::messages>;
 
+int mdc_arena_swap(int a);   // src/arena.cpp (or a stub): our own tables must not live in a duel's memory region
+struct OffArena { int prev; OffArena() : prev(mdc_arena_swap(-1)) {} ~OffArena() { mdc_arena_swap(prev); } };
 static std::mutex g_base_mx;
+static std::mutex g_gc_mx; static std::unordered_map<duel*, int> g_gc_base;   // Lua heap size after each duel's last full collection
 static std::unordered_map<duel*, std::unordered_set<lua_Integer>> g_base;
 // Called once per duel right after the rules scripts load: the registry entries that belong to the duel itself.
 void mdc_mark_duel(OCG_Duel h) {
 	auto* d = static_cast<duel*>(h);
 	lua_State* L = d->lua->lua_state;
+	OffArena off;   // (lua_next doesn't allocate)
 	std::unordered_set<lua_Integer> keys;
 	lua_pushnil(L);
 	while(lua_next(L, LUA_REGISTRYINDEX)) { if(lua_type(L, -2) == LUA_TNUMBER && lua_isinteger(L, -2)) keys.insert(lua_tointeger(L, -2)); lua_pop(L, 1); }
 	std::lock_guard<std::mutex> lk(g_base_mx);
 	g_base[d] = std::move(keys);
 }
-void mdc_forget_duel(OCG_Duel h) { std::lock_guard<std::mutex> lk(g_base_mx); g_base.erase(static_cast<duel*>(h)); }
+void mdc_forget_duel(OCG_Duel h) { OffArena off; std::lock_guard<std::mutex> lk(g_base_mx); g_base.erase(static_cast<duel*>(h)); }
 
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o) {
 	auto* d = static_cast<duel*>(h);
@@ -104,9 +108,9 @@ bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o) {
 	// Garbage from the old game: a quick incremental step usually, and a full collection once the heap has
 	// grown a quarter past its size after the last one, so a duel reused thousands of times stays fast.
 	{
-		static std::mutex mx; static std::unordered_map<duel*, int> base;
+		auto& mx = g_gc_mx; auto& base = g_gc_base;
 		int kb = lua_gc(L, LUA_GCCOUNT, 0);
-		int& b = [&]() -> int& { std::lock_guard<std::mutex> lk(mx); return base[d]; }();   // (a new duel at a reused address starts over)
+		int& b = [&]() -> int& { OffArena off; std::lock_guard<std::mutex> lk(mx); return base[d]; }();   // (a new duel at a reused address starts over)
 		if(!b || kb > b + b / 4) { lua_gc(L, LUA_GCCOLLECT, 0); b = lua_gc(L, LUA_GCCOUNT, 0); }
 		else lua_gc(L, LUA_GCSTEP, 0);
 	}
@@ -156,3 +160,6 @@ std::vector<MdcFx> mdc_card_effects(OCG_Duel h) {
 	}
 	return out;
 }
+
+// How big one duel's Lua state is (KB): what a copy of the duel would have to move (MDC_PROF).
+int mdc_lua_kb(OCG_Duel h) { auto* d = static_cast<duel*>(h); return d && d->lua ? lua_gc(d->lua->lua_state, LUA_GCCOUNT, 0) : -1; }

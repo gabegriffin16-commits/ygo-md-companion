@@ -25,7 +25,7 @@ extern "C++" {
 #include "json.hpp"
 #include "evaluate.h"
 #ifdef MDC_MIMALLOC
-#include <mimalloc-new-delete.h>   // the rules engine's own (C++) allocations go through mimalloc too
+// The rules engine's own (C++) allocations go through mimalloc (or a duel's region): operator new is in src/arena.cpp.
 #endif
 
 #include <algorithm>
@@ -252,8 +252,11 @@ static const std::string* get_script(const std::string& name) {
 	slot = std::move(bc);
 	return slot.empty() ? nullptr : &slot;
 }
+int mdc_arena_swap(int a);   // src/arena.cpp
 static int script_reader(void*, OCG_Duel duel, const char* name) {
+	int prev = mdc_arena_swap(-1);   // the bytecode cache is ours, not the duel's
 	const std::string* b = get_script(base_name(name));
+	mdc_arena_swap(prev);
 	if(!b) return 0;
 	return OCG_LoadScript(duel, b->data(), (uint32_t)b->size(), name);
 }
@@ -407,10 +410,32 @@ struct Setup { std::vector<uint32_t> deck, extra, hand, oppHand, oppDeck, oppExt
 bool mdc_reset_duel(OCG_Duel h, const OCG_DuelOptions& o);
 void mdc_mark_duel(OCG_Duel h); void mdc_forget_duel(OCG_Duel h);
 struct MdcFx { uint32_t card, code; uint16_t type, range; uint64_t category; uint32_t flag; uint8_t countMax; uint32_t countCode; uint64_t desc; bool cond, cost, tgt, op; uint32_t timing; uint8_t hopt, countFlag; };
-std::vector<MdcFx> mdc_card_effects(OCG_Duel h);   // src/reset.cpp: what our cards' scripts registered
+std::vector<MdcFx> mdc_card_effects(OCG_Duel h);
+int mdc_lua_kb(OCG_Duel h);   // src/reset.cpp: what our cards' scripts registered
+// Duel memory regions (src/arena.cpp): with MDC_ARENA each duel lives in its own region, current only during calls into
+// the rules core (our own code's memory must stay outside: a restore overwrites the region).
+int mdc_arena_new(); void mdc_arena_release(int a); size_t mdc_arena_used(int a);
+void mdc_arena_save(int a, std::vector<char>& out); void mdc_arena_load(int a, const std::vector<char>& in);
+struct ArenaScope { int prev; explicit ArenaScope(int a) : prev(mdc_arena_swap(a)) {} ~ArenaScope() { mdc_arena_swap(prev); } };
+#ifdef MDC_MIMALLOC
+static const bool g_arenas = getenv("MDC_ARENA") != nullptr || getenv("MDC_SNAP") != nullptr;
+static const bool g_snap = getenv("MDC_SNAP") != nullptr;   // restore saved games at branch points instead of replaying (src/arena.cpp)
+#else
+static const bool g_snap = false;
+static const bool g_arenas = false;   // regions need src/arena.cpp (built with mimalloc)
+int mdc_arena_swap(int) { return -1; } int mdc_arena_new() { return -1; } void mdc_arena_release(int) {} size_t mdc_arena_used(int) { return 0; }
+void mdc_arena_save(int, std::vector<char>&) {} void mdc_arena_load(int, const std::vector<char>&) {}
+#endif
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
+static std::unordered_map<OCG_Duel, int> g_arenaOf;   // each duel's region (-1 / missing: none)
+static int arena_of(OCG_Duel d) { std::lock_guard<std::mutex> lk(g_pool_mx); auto it = g_arenaOf.find(d); return it == g_arenaOf.end() ? -1 : it->second; }
+static void destroy_duel(OCG_Duel d) {   // free a duel inside its own region, then hand the region back
+	int a = arena_of(d);
+	{ ArenaScope sc(a); OCG_DestroyDuel(d); }
+	if(a >= 0) { mdc_arena_release(a); std::lock_guard<std::mutex> lk(g_pool_mx); g_arenaOf.erase(d); }
+}
 static std::unordered_map<OCG_Duel, int> g_uses;   // how many times each pooled duel has been reused
-static void pool_flush() { std::lock_guard<std::mutex> lk(g_pool_mx); for(OCG_Duel d : g_pool) { mdc_forget_duel(d); OCG_DestroyDuel(d); } g_pool.clear(); g_uses.clear(); }
+static void pool_flush() { std::vector<OCG_Duel> ds; { std::lock_guard<std::mutex> lk(g_pool_mx); ds.swap(g_pool); g_uses.clear(); } for(OCG_Duel d : ds) { mdc_forget_duel(d); destroy_duel(d); } }
 static const uint32_t DUMMY = 46986414;   // opponent's deck: Dark Magician x5, they never act on our turn
 // Draws are random in a real duel. Cards drawn during a line come off a stack of these vanilla Spiral Serpents
 // on top of the Deck, so a line never counts on drawing a specific card (and boards don't show them).
@@ -427,6 +452,7 @@ struct ProfTimer { std::atomic<uint64_t>& acc; std::chrono::steady_clock::time_p
 	~ProfTimer() { if(g_prof) acc += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t0).count(); } };
 struct Duel {
 	OCG_Duel h = nullptr;
+	int arena = -1;   // its memory region (MDC_ARENA), -1: none
 	uint64_t lastHint[2] = {0, 0};
 	int turnPlayer = 0, turns = 0, phase = 0;   // whose turn it is (how many turns have started) and the phase
 	std::vector<uint64_t>* left = nullptr;      // if set: cards that left a Monster / Spell & Trap Zone (where_key of the zone left)
@@ -440,15 +466,18 @@ struct Duel {
 		// and loading scripts is most of the cost of starting a duel.
 		bool worn = false;
 		if(g_reuse) { std::lock_guard<std::mutex> lk(g_pool_mx); if(!g_pool.empty()) { h = g_pool.back(); g_pool.pop_back(); worn = ++g_uses[h] > MAX_REUSE; } }
-		if(h && worn) { forget(h); OCG_DestroyDuel(h); h = nullptr; }
-		if(h && !reset()) { forget(h); OCG_DestroyDuel(h); h = nullptr; }
+		if(h && worn) { forget(h); destroy_duel(h); h = nullptr; }
+		if(h) { arena = arena_of(h); bool ok; { ArenaScope sc(arena); ok = reset(); } if(!ok) { forget(h); destroy_duel(h); h = nullptr; arena = -1; } }
 		if(!h) {
 			OCG_DuelOptions o = options();
-			if(OCG_CreateDuel(&h, &o) != OCG_DUEL_CREATION_SUCCESS) { h = nullptr; return; }
-			for(const char* f : {"constant.lua", "utility.lua"}) { const std::string* b = get_script(f); if(!b || !OCG_LoadScript(h, b->data(), (uint32_t)b->size(), f)) { OCG_DestroyDuel(h); h = nullptr; return; } }
-			mdc_mark_duel(h);
+			if(g_arenas) arena = mdc_arena_new();
+			bool ok; { ArenaScope sc(arena); ok = OCG_CreateDuel(&h, &o) == OCG_DUEL_CREATION_SUCCESS; }
+			if(!ok) { h = nullptr; mdc_arena_release(arena); arena = -1; return; }
+			if(arena >= 0) { std::lock_guard<std::mutex> lk(g_pool_mx); g_arenaOf[h] = arena; }
+			for(const char* f : {"constant.lua", "utility.lua"}) { const std::string* b = get_script(f); bool loaded; { ArenaScope sc(arena); loaded = b && OCG_LoadScript(h, b->data(), (uint32_t)b->size(), f); } if(!loaded) { destroy_duel(h); h = nullptr; arena = -1; return; } }
+			{ ArenaScope sc(arena); mdc_mark_duel(h); }
 		}
-		auto add = [&](uint8_t team, uint32_t code, uint32_t loc) { OCG_NewCardInfo i{team, 0, code, team, loc, 0, POS_FACEDOWN_DEFENSE}; OCG_DuelNewCard(h, &i); };
+		auto add = [&](uint8_t team, uint32_t code, uint32_t loc) { OCG_NewCardInfo i{team, 0, code, team, loc, 0, POS_FACEDOWN_DEFENSE}; ArenaScope sc(arena); OCG_DuelNewCard(h, &i); };
 		for(uint32_t c : s.deck) add(0, c, LOCATION_DECK);
 		for(int i = 0; i < BLANKS; i++) add(0, BLANK, LOCATION_DECK);
 		for(uint32_t c : s.extra) add(0, c, LOCATION_EXTRA);
@@ -457,19 +486,19 @@ struct Duel {
 		// Quick-Play / Normal Spells Set, Continuous and Field Spells face-up.
 		{ static const int order[5] = {2, 1, 3, 0, 4};
 		  for(size_t i = 0; i < s.preField.size() && i < 5; i++) { int z = i < s.preZones.size() && s.preZones[i] >= 0 && s.preZones[i] < 5 ? s.preZones[i] : order[i];
-			OCG_NewCardInfo ci{0, 0, s.preField[i], 0, LOCATION_MZONE, (uint32_t)z, POS_FACEUP_ATTACK}; OCG_DuelNewCard(h, &ci); }
+			OCG_NewCardInfo ci{0, 0, s.preField[i], 0, LOCATION_MZONE, (uint32_t)z, POS_FACEUP_ATTACK}; ArenaScope sc(arena); OCG_DuelNewCard(h, &ci); }
 		  uint32_t seq = 0;
 		  for(uint32_t c : s.preBack) { auto it = g_cards.find(c); uint32_t t = it == g_cards.end() ? 0 : it->second.type;
 			bool fieldSpell = (t & TYPE_SPELL) && (t & TYPE_FIELD), faceUp = (t & TYPE_SPELL) && (t & (TYPE_CONTINUOUS | TYPE_FIELD | TYPE_EQUIP));
 			if(!fieldSpell && seq >= 5) continue;
-			OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_SZONE, fieldSpell ? 5u : seq++, faceUp ? (uint32_t)POS_FACEUP : (uint32_t)POS_FACEDOWN}; OCG_DuelNewCard(h, &ci); }
+			OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_SZONE, fieldSpell ? 5u : seq++, faceUp ? (uint32_t)POS_FACEUP : (uint32_t)POS_FACEDOWN}; ArenaScope sc(arena); OCG_DuelNewCard(h, &ci); }
 		  for(uint32_t c : s.preGy) add(0, c, LOCATION_GRAVE);
-		  for(uint32_t c : s.preBanished) { OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_REMOVED, 0, POS_FACEUP}; OCG_DuelNewCard(h, &ci); } }
+		  for(uint32_t c : s.preBanished) { OCG_NewCardInfo ci{0, 0, c, 0, LOCATION_REMOVED, 0, POS_FACEUP}; ArenaScope sc(arena); OCG_DuelNewCard(h, &ci); } }
 		if(s.oppDeck.empty()) for(int i = 0; i < 5; i++) add(1, DUMMY, LOCATION_DECK);
 		for(uint32_t c : s.oppDeck) add(1, c, LOCATION_DECK);
 		for(uint32_t c : s.oppExtra) add(1, c, LOCATION_EXTRA);
 		for(uint32_t c : s.oppHand) add(1, c, LOCATION_HAND);   // handtraps for "what if they hit this" searches
-		OCG_StartDuel(h);
+		{ ArenaScope sc(arena); OCG_StartDuel(h); }
 	}
 	// Wipe the field back to an empty Duel (the engine's own puzzle-reload path), keep the loaded scripts, and
 	// clear the "already set up this Duel" flags scripts keep on their card tables so their global effects
@@ -485,16 +514,16 @@ struct Duel {
 	bool reset() { return mdc_reset_duel(h, options()); }   // src/reset.cpp
 	~Duel() {
 		if(!h) return;
-		if(g_reuse) { std::lock_guard<std::mutex> lk(g_pool_mx); if(g_pool.size() < 256) { g_pool.push_back(h); return; } }
-		forget(h); OCG_DestroyDuel(h);
+		if(g_reuse) { std::lock_guard<std::mutex> lk(g_pool_mx); if(g_pool.size() < 200) { g_pool.push_back(h); return; } }
+		forget(h); destroy_duel(h);
 	}
 	static void forget(OCG_Duel d) { mdc_forget_duel(d); std::lock_guard<std::mutex> lk(g_pool_mx); g_uses.erase(d); }
 	// Runs until player 0 must decide something. returns false at duel end / error.
 	bool run(Prompt& out, bool& retry) {
 		retry = false;
 		for(int guard = 0; guard < 10000; guard++) {
-			int st = OCG_DuelProcess(h);
-			uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelGetMessage(h, &n);
+			int st; uint32_t n = 0; const uint8_t* p;
+			{ ArenaScope sc(arena); st = OCG_DuelProcess(h); p = (const uint8_t*)OCG_DuelGetMessage(h, &n); }
 			bool got = false;
 			for(size_t o = 0; o + 4 <= n;) {
 				uint32_t ln = 0; std::memcpy(&ln, p + o, 4);
@@ -523,12 +552,16 @@ struct Duel {
 		}
 		return false;
 	}
-	void respond(const Bytes& b) { OCG_DuelSetResponse(h, b.data(), (uint32_t)b.size()); }
+	void respond(const Bytes& b) { ArenaScope sc(arena); OCG_DuelSetResponse(h, b.data(), (uint32_t)b.size()); }
+	// A copy of the whole game at this moment (its memory region + what we track from its messages), and back.
+	struct Saved { std::vector<char> mem; uint64_t lastHint[2]; int turnPlayer, turns, phase; int lp[2]; std::vector<std::pair<uint32_t, uint8_t>> chainLinks, negated; std::vector<uint64_t>* left; };
+	void save(Saved& s) const { mdc_arena_save(arena, s.mem); s.lastHint[0] = lastHint[0]; s.lastHint[1] = lastHint[1]; s.turnPlayer = turnPlayer; s.turns = turns; s.phase = phase; s.lp[0] = lp[0]; s.lp[1] = lp[1]; s.chainLinks = chainLinks; s.negated = negated; s.left = left; }
+	void load(const Saved& s) { mdc_arena_load(arena, s.mem); lastHint[0] = s.lastHint[0]; lastHint[1] = s.lastHint[1]; turnPlayer = s.turnPlayer; turns = s.turns; phase = s.phase; lp[0] = s.lp[0]; lp[1] = s.lp[1]; chainLinks = s.chainLinks; negated = s.negated; left = s.left; }
 	// A player's cards in one place: code, position and ATK (for the simulation's checks on the opponent).
 	struct Seen { uint32_t code = 0, pos = 0, seq = 0; int32_t atk = 0; };
 	std::vector<Seen> look(uint8_t player, uint32_t loc) {
 		OCG_QueryInfo q{QUERY_CODE | QUERY_POSITION | QUERY_ATTACK, player, loc, 0, 0};
-		uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q);
+		uint32_t n = 0; const uint8_t* p; { ArenaScope sc(arena); p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q); }
 		std::vector<Seen> out; Rd r(p, n, 4); int slot = -1;
 		while(r.o + 2 <= n) {
 			slot++;
@@ -550,7 +583,7 @@ struct Duel {
 	}
 	std::vector<uint32_t> cards(uint32_t loc, bool faceupOnly = false, std::vector<int>* slots = nullptr) {
 		OCG_QueryInfo q{QUERY_CODE | QUERY_POSITION, 0, loc, 0, 0};
-		uint32_t n = 0; const uint8_t* p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q);
+		uint32_t n = 0; const uint8_t* p; { ArenaScope sc(arena); p = (const uint8_t*)OCG_DuelQueryLocation(h, &n, &q); }
 		std::vector<uint32_t> out;
 		Rd r(p, n, 4);
 		int slot = -1;
@@ -1267,7 +1300,8 @@ struct Search {
 	}
 	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
 	// Play from the live duel at prompt m until the next free Main Phase choice; each one reached becomes a child.
-	void sub(std::unique_ptr<Duel> d, Prompt m, St st, bool atStart, std::vector<Node>& out, std::mutex& omx, size_t par) {
+	void sub(Duel& dref, Prompt m, St st, bool atStart, std::vector<Node>& out, std::mutex& omx, size_t par) {
+		Duel* d = &dref;   // not ours: the caller owns it (and may restore it after this returns)
 		for(;;) {
 			if(out_of_time()) return;
 			prompts++;
@@ -1401,15 +1435,26 @@ struct Search {
 				live.resize(1);
 			}
 			if(live.empty()) return;
+			// MDC_SNAP (needs MDC_ARENA): save the duel here once and restore it for each other choice, instead of replaying
+			// the whole line from the start for each.
+			const bool snap = g_snap && d->arena >= 0 && live.size() > 1;
+			Duel::Saved saved; if(snap) d->save(saved);
 			if(g_branchLog && live.size() > 1) { std::lock_guard<std::mutex> lk(g_branchMx); auto& e = g_branch[std::string(st.ending ? "EP " : "") + std::to_string(m.type) + " " + (live[1]->step.card ? card_name(live[1]->step.card) : std::string("-"))]; e.first++; e.second += live.size() - 1; }
 			for(size_t i = 1; i < live.size(); i++) {
 				if(out_of_time()) return;
 				St s2 = st; take(s2, *live[i]);
 				if(live[i]->main && m.type == MSG_SELECT_IDLECMD) s2.actions++;
 				if(live[i]->end && epGreedy()) s2.epRoot = std::make_shared<const St>(s2);
+				if(snap) {
+					d->load(saved); replays++;
+					d->respond(live[i]->resp); Prompt mm; bool rt;
+					if(d->run(mm, rt)) sub(*d, mm, std::move(s2), false, out, omx, par);
+					continue;
+				}
 				Prompt mm; bool ok; auto dd = replay(s2.path, mm, ok);
-				if(ok) sub(std::move(dd), mm, std::move(s2), false, out, omx, par);
+				if(ok) sub(*dd, mm, std::move(s2), false, out, omx, par);
 			}
+			if(snap) d->load(saved);
 			const Opt& o = *live[0];
 			d->respond(o.resp); take(st, o);
 			if(o.main && m.type == MSG_SELECT_IDLECMD) st.actions++;
@@ -1447,7 +1492,7 @@ struct Search {
 				}
 				std::vector<Node> mine; std::mutex mmx; t_capped = false;
 				Prompt m; bool ok; auto d = replay(level[i].st.path, m, ok);
-				if(ok) sub(std::move(d), m, level[i].st, true, mine, mmx, i);
+				if(ok) sub(*d, m, level[i].st, true, mine, mmx, i);
 				if(!noReuse && ok && !t_capped && !out_of_time()) { std::lock_guard<std::mutex> lk(cmx); curKids[key] = mine; }
 				std::lock_guard<std::mutex> lk(omx); for(auto& x : mine) out.push_back(std::move(x));
 			}
@@ -1473,7 +1518,7 @@ struct Search {
 				{ std::lock_guard<std::mutex> lk(mx); if(q[i].first < bestScore - epMargin) continue; }
 				St s = *q[i].second; s.epDeep = true;
 				Prompt m; bool ok; auto d = replay(s.path, m, ok);
-				if(ok) sub(std::move(d), m, std::move(s), false, sink, smx, 0);
+				if(ok) sub(*d, m, std::move(s), false, sink, smx, 0);
 			}
 		};
 		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)q.size()));
@@ -2027,7 +2072,8 @@ struct Search {
 		if(g_prof) { auto f = [](std::atomic<uint64_t>& a) { double v = a.load() / 1e9; a = 0; return v; };
 			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand);
 			fprintf(stderr, "prof: %.1fs wall x %d threads = %.1f thread-s | new/reset duel %.1f | replay %.1f | read board %.1f | score %.1f | beam expansions %.1f | replays %llu\n",
-				secs, threads, secs * threads, nw, rp, bd, sc, ex, (unsigned long long)replays.load()); }
+				secs, threads, secs * threads, nw, rp, bd, sc, ex, (unsigned long long)replays.load());
+			{ Duel dd(setup); fprintf(stderr, "prof: one duel's Lua state %d KB, cards %zu\n", dd.h ? mdc_lua_kb(dd.h) : -1, setup.deck.size() + setup.extra.size()); } }
 		std::vector<Found> all; for(auto& kv : boards) all.push_back(kv.second);
 		std::sort(all.begin(), all.end(), [](const Found& a, const Found& b) { return a.score != b.score ? a.score > b.score : a.steps.size() < b.steps.size(); });
 		json res = json::array();
