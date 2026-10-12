@@ -166,8 +166,10 @@ Key parts of `src/main.cpp`:
   back only the pages written since its save (marks go to the newest save, handed down when it's removed; Linux: full
   copies). A branch writes ~250-350 of ~900 pages (not Lua's garbage collector: stopping it changed nothing), so restores
   run near memory bandwidth. Identical results again (tune.py 3000 single-threaded: 110.25; dfs: same boards on 3 hands).
-  10s default mode, interleaved with full copies under the same load: Snake-Eye 7.3-8.3k -> 31-35k branches; unloaded
-  earlier: Dracotail 46k -> 69k, HERO 51k -> 61k. `MDC_PROF` prints save/restore counts, pages copied / shared and
+  Clean machine, 10s default mode, old replays (`MDC_NOSNAP`) -> now: Snake-Eye Ash + Marshmao 12.3k -> 56.6k branches
+  (4.6x, best 13.00 -> 15.25), Dracotail Walbaz + Lukias 15.9k -> 114.5k (7.2x), HERO Stratos + Faris 22.1k -> 107.1k
+  (4.8x, 8.20 -> 9.87 = the Sunrise x2 reference board). (Check for leftover engine processes before timing: a hung test
+  once skewed these.) `MDC_PROF` prints save/restore counts, pages copied / shared and
   write-watch time. Next: each beam state is still replayed once before it's expanded. Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
