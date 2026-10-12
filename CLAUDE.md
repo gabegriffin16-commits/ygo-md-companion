@@ -281,6 +281,17 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   6/14); e.g. Yubel Samsara vs Droll 4.20 -> 14.51 (guide 11.32), D/D/D Doom Queen vs Droll 2.05 -> 14.76 (12.81), Kewl
   Tune Rotary vs Droll 4.40 -> 11.14 (6.90). Still behind: Branded Walbaz through Droll 10.12 (13.61), Yubel Nightmare
   Throne vs Nibiru x3 12.3-12.7 (13.0-16.2): the long-combo decks.
+  Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
+  agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
+  <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another
+  card) get a role: 1-card starter (the board it builds alone with the deck's non-engine cards scores >= 4, cards still
+  in hand not counted; that line is its main line), 2-card starter (lines open with it; searched with every engine
+  partner, best pair = main line), extender, situational; plus reliability (share of its hands reaching the top
+  quarter's floor), upgrades, "vs <handtrap>" lines (oppFirst), and how often other cards put it on the board from the
+  Deck (Dracotail Horn 64%). Non-engine cards are listed. `bench/explain.py`: step explanations from the line's own data
+  (what each step produced / used -> dependencies; end-board points credited back), defining steps get reasoning,
+  others one line (owner's rule). `bench/guidepage2.py` renders it all, with a plain-language score rubric and a "Why N
+  points" table per board (owner asked to be able to read the score).
   Generation now stores "vs <handtrap>" lines per generated line (`L.vs`: [{by, s, f, z, b, l, st}], app/main.js genRun,
   phase "vs"): an oppFirst search (4 s, beam, seeded with the line) for each of Ash, Imperm, Veiler, Droll and Nibiru
   (`GEN_VS`), kept only if the handtrap got used (steps include an "Opp" step). Data only: the page doesn't show `vs` yet

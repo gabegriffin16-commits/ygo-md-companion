@@ -111,6 +111,8 @@ for i, s in enumerate(starters):
         else: merged[k] = dict(u, cards=[u["card"]])
     s["upgrades"] = [dict(u, card=None) for u in merged.values()]
     ups = "".join('<details class="up"><summary><span class="uc">+ %s</span><span class="ug">+%.1f</span></summary>%s%s</details>' % (esc(" + ".join(nm(c) for c in u["cards"])), u["gain"], flow(u["line"]["steps"], u["line"]["hand"]), board(u["line"])) for u in s["upgrades"])
+    pr = "".join('<details class="up"><summary><span class="uc">+ %s</span><span class="ug">%.1f</span></summary>%s%s%s</details>' % (esc(nm(x["partner"])), why(x["line"])["total"], flow(x["line"]["steps"], x["line"]["hand"]), steps_block(x["line"]), board(x["line"])) for x in s.get("pairs", []))
+    if pr: ups = '<p class="cm">Other partners for this card:</p>' + pr + (('<p class="cm">With more cards:</p>' + ups) if ups else "")
     vsd = "".join('<details class="vs"><summary>%s <span class="vk">keeps %d%%</span></summary>%s</details>' % (pill(v, m), round(v["keeps"] * 100), flow(v["line"]["steps"], v["line"]["hand"])) for v in s["vs"] if v["used"] and v["line"])
     cards.append('''<details class="card" id="s%d"%s><summary><span class="cn">%s</span><span class="cm">%sgood board in %d of 10 hands &middot; typical %.1f</span><span class="cs">%.1f</span></summary>
 <div class="body">
@@ -119,12 +121,14 @@ for i, s in enumerate(starters):
   %s
   <div class="sec"><h3>If they have</h3><div class="pills big">%s</div>%s</div>
 </div></details>''' % (i, " open" if i == 0 else "", esc(nm(s["card"])), ("%s starter &middot; " % s["kind"]) if s.get("kind") else "", rel, s["median"], m["score"], esc(plus), flow(m["steps"], m["hand"]), steps_block(m), board(m),
-        ('<div class="sec"><h3>Upgrades</h3>%s</div>' % ups) if ups else "", pills, vsd))
+        ('<div class="sec"><h3>%s</h3>%s</div>' % ("Other partners and upgrades" if s.get("pairs") else "Upgrades", ups)) if ups else "", pills, vsd))
 o = G["opening"]
 # The rest of the deck: extenders and situational cards (compact entries), then non-engine cards. Every card appears once.
 def entry(c):
     k = c["card"]; b = c.get("best")
     what = "used in %d%% of its hands, opens the line in %d%% &middot; typical board with it %.1f" % (round(c["used"] * 100), round(c["opens"] * 100), c["median"])
+    if c.get("fromDeck", 0) >= 0.2:   # a card other cards put on the board (Dracotail Traps Set from the Deck): drawn copies matter less
+        what += " &middot; other cards put it on the board from the Deck in %d%% of lines" % round(c["fromDeck"] * 100)
     inner = ('<div class="sec"><h3>Its best line <small>%.1f &middot; hand: %s</small></h3>%s%s</div>' % (why(b)["total"], esc(", ".join(nm(x) for x in b["hand"])), flow(b["steps"], b["hand"]) + steps_block(b), board(b))) if b else '<p class="cm">No line used it.</p>'
     return '<details class="card mini"><summary><span class="cn">%s <small>&times;%d</small></span><span class="cm">%s</span><span class="cs">%.1f</span></summary><div class="body">%s</div></details>' % (esc(nm(k)), c["copies"], what, c["median"], inner)
 rest = []

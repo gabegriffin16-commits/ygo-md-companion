@@ -114,7 +114,7 @@ for st in cards:
         h = deal(st); b = search(h)
         if b: x = brief(b, h); x["opener"] = opener_of(x); hands.append(x)
     if not hands: continue
-    out.setdefault("hands", {})[str(st)] = [{"hand": x["hand"], "score": x["score"], "uses": x["uses"], "opener": x["opener"]} for x in hands]   # for later re-analysis
+    out.setdefault("hands", {})[str(st)] = [{"hand": x["hand"], "score": x["score"], "uses": x["uses"], "opener": x["opener"], "board": x["field"] + x["backrow"]} for x in hands]   # for later re-analysis
     sc = [x["score"] for x in hands]; med = statistics.median(sc)
     solo = None
     if brick_hand:
@@ -139,8 +139,18 @@ for st in cards:
     lean = [x for x in hands if len([c for c in x["uses"] if c != st and engine(c)]) <= 1 and st in x["uses"]]
     # None: the line needing the fewest other cards among hands at or above the median (not the best 5-card line).
     extra_n = lambda x: len([c for c in x["uses"] if c != st and engine(c)])
+    # A 2-card starter: search it with every engine partner (the rest of the hand non-engine), like a guide's 2-card
+    # combos; the best pair is its main line, the top 3 are listed.
+    pairs = []
+    if kind == "2-card" and brick_hand:
+        for pc in cards:
+            if pc == st and main.count(st) < 2: continue
+            ph = [st, pc] + [c for c in brick_hand][:3]
+            b = search(ph)
+            if b: x = brief(b, ph); pairs.append({"partner": pc, "score": x["score"], "line": x})
+        pairs.sort(key=lambda x: -x["score"])
     # A 1-card starter's main line is its line alone (with non-engine cards): the guide's "1-card combo".
-    mainline = solo if kind == "1-card" else max(lean, key=lambda x: x["score"]) if lean else min([x for x in hands if x["score"] >= med], key=lambda x: (extra_n(x), -x["score"]))
+    mainline = solo if kind == "1-card" else pairs[0]["line"] if pairs else max(lean, key=lambda x: x["score"]) if lean else min([x for x in hands if x["score"] >= med], key=lambda x: (extra_n(x), -x["score"]))
     # Upgrades: cards (other than the starter) present and used in hands that score clearly above the starter's median.
     with_c = defaultdict(list)
     for x in hands:
@@ -159,10 +169,18 @@ for st in cards:
         # Relative to the main line, capped at it: a separate search can land a little higher by chance.
         keep = min(1.0, b["score"] / mainline["score"]) if mainline["score"] > 0 else 0
         vs.append({"by": ht, "used": hit, "score": round(min(b["score"], mainline["score"]), 2), "keeps": round(keep, 2) if hit else 1.0, "line": brief(b, mainline["hand"]) if hit else None})
-    entry = dict(base, main=mainline, upgrades=ups[:3], vs=vs); entry.pop("best", None)
+    entry = dict(base, main=mainline, upgrades=ups[:3], vs=vs, pairs=[{"partner": x["partner"], "score": x["score"], "line": x["line"]} for x in pairs[1:4]]); entry.pop("best", None)
     out["starters"].append(entry); json.dump(out, open(outf, "w"), indent=1)   # saved after each card
     print("  main %.2f (uses %s), upgrades %s, vs %s" % (mainline["score"], ", ".join(nm(c) for c in mainline["uses"]), ", ".join("%s +%.1f" % (nm(u["card"]), u["gain"]) for u in ups[:3]) or "-",
           " ".join("%s %d%%%s" % (HT[v["by"]].split()[0], round(v["keeps"] * 100), "" if v["used"] else "(n/a)") for v in vs)), flush=True)
+# How often each card ends on the board without having been in the opening hand (Dracotail Traps Set from the Deck by
+# other cards): over every searched hand, once per distinct hand.
+seen = {}
+for xs in out.get("hands", {}).values():
+    for x in xs: seen[tuple(sorted(x["hand"]))] = x
+for c in out["cards"]:
+    pool = [x for x in seen.values() if c["card"] not in x["hand"]]
+    c["fromDeck"] = round(sum(1 for x in pool if c["card"] in x["board"]) / len(pool), 2) if pool else 0
 json.dump(out, open(outf, "w"), indent=1)
 p.stdin.write('{"cmd":"quit"}\n'); p.stdin.flush()
 print("wrote", outf)
