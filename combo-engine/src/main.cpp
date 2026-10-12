@@ -1298,7 +1298,13 @@ struct Search {
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
-				Node n; n.st = std::move(st); n.h = promise(b, !m.summon.empty(), moves); n.parent = par; n.vkey = k;
+				// A chain window with our triggers waiting (a Dracotail sent as material about to Set a Trap) is mid-way through
+				// something: each waiting activation is worth a bonus, and the Normal Summon is still there if the line hasn't
+				// used it (the game only offers it back in the Main Phase).
+				bool nsLeft = !m.summon.empty();
+				if(window) { nsLeft = true; for(auto& l : st.labels) if(l.rfind("ns ", 0) == 0) { nsLeft = false; break; } }
+				static const double wWin = getenv("MDC_WWIN") ? atof(getenv("MDC_WWIN")) : 0.5;   // tune.py 15k/30k, std + guideless: +4.6 / +0.2 / +2.6 / +1.4, never lower
+				Node n; n.st = std::move(st); n.h = promise(b, nsLeft, moves) + (window ? wWin * moves : 0); n.parent = par; n.vkey = k;
 				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
 				return;
