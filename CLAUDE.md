@@ -97,7 +97,7 @@ Runs turn one in the real rules engine (edo9300/ygopro-core pinned at `38d04c9f`
 Key parts of `src/main.cpp`:
 - **Search**: beam search (widening, parent-diverse) + depth-first workers sharing results. Chain windows with
   optional activations are decision points (Quick-Effect decks combo inside chains). Card picks inside one action
-  (materials, cards to send) are capped at half the beam width per pass (4, 12, 36...): several 15-way picks in one
+  (materials, cards to send) are capped at half the beam width per pass (at least 2: 4, 12, 36...; `MDC_PICKMIN`, 2 beat 4 on `tune.py SET=guideless` at 5k/15k/30k replays: 90.38->90.48, 92.46->94.69, 96.18->96.79, tune set unchanged): several 15-way picks in one
   action used to eat a whole search (one beam level took 81s of 120). One-at-a-time picks are tried in one order per
   set. The line to the best board so far is always kept in the beam. Debug env: `MDC_BEAMLOG=1` (per-level timing),
   `MDC_NOPICKCAP` / `MDC_PICKMIN` / `MDC_NOPICKORDER` / `MDC_NOELITE` (A/B switches), `MDC_TRACE=<labels.json>` (rank

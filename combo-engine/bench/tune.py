@@ -2,7 +2,7 @@
 reference decks, beam-only, for each configuration and prints the total best score.
   python3 tune.py <engine> <cards.cdb> <scripts.zip> <replays per hand> <config.json>...
 A config is a JSON object of search options, e.g. {} (defaults), {"width": 16}, {"growth": 2},
-{"w": [W_MOVES, W_HAND, W_NS, W_GY]} (defaults [0.35, 0.25, 0.5, 0.1]). Env THREADS (default 8)."""
+{"w": [W_MOVES, W_HAND, W_NS, W_GY]} (defaults [0.35, 0.25, 0.5, 0.1]). Env THREADS (default 8), SET=guideless (hands from bench/guideless)."""
 import json, os, sqlite3, subprocess, sys
 exe, cdb, scripts, budget = sys.argv[1:5]; configs = [json.loads(a) for a in sys.argv[5:]] or [{}]
 here = os.path.dirname(os.path.abspath(__file__))
@@ -16,6 +16,12 @@ HANDS = [("omni.json", [40044918, 18094166]), ("omni.json", [18094166, 9411399])
          ("dracotail.json", C("Dracotail Lukias", "Dracotail Faimena")),
          ("branded.json", C("Fallen of the White Dragon", "Blazing Cartesia, the Virtuous", "Nibiru, the Primal Being")),
          ("kewltune.json", C("Kewl Tune Rotary", "Kewl Tune Reco")), ("kewltune.json", C("Kewl Tune Cue"))]
+# SET=guideless: hands from decks the engine was never tuned on (bench/guideless), the audit's search-limited pairs.
+if os.environ.get("SET") == "guideless":
+    HANDS = [("guideless/Snake-Eye.json", C("Snake-Eye Ash", "Marshmao☆Yummy")), ("guideless/Snake-Eye.json", C("Bonfire", "Lollipo☆Yummy")),
+             ("guideless/Snake-Eye.json", C("Snake-Eye Ash", "Nibiru, the Primal Being")), ("guideless/Yubel.json", C("Nightmare Throne", "Piri Reis Map")),
+             ("guideless/Yubel.json", C("Samsara D Lotus", "Opening of the Spirit Gates")), ("guideless/Labrynth.json", C("Arianna the Labrynth Servant", "Welcome Labrynth", "Lady Labrynth of the Silver Castle")),
+             ("guideless/Ryzeal.json", C("Ice Ryzeal", "Sword Ryzeal")), ("guideless/Tenpai_Dragon.json", C("Tenpai Dragon Paidra", "Sangen Kaimen"))]
 p = subprocess.Popen([exe], stdin=subprocess.PIPE, stdout=subprocess.PIPE, text=True, encoding="utf-8", bufsize=1)
 def ask(o):
     p.stdin.write(json.dumps(o) + "\n"); p.stdin.flush()

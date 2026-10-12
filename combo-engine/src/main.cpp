@@ -1328,10 +1328,10 @@ struct Search {
 			}
 			// Card picks inside one action (which materials, which cards to send) multiply: several 15-way picks in one
 			// action can cost a whole search. Like the beam itself, they widen with each pass: half the beam width
-			// (4, 12, 36...), in a fixed scattered order, so early passes stay cheap and later ones see every pick.
+			// (2-4, 12, 36...), in a fixed scattered order, so early passes stay cheap and later ones see every pick.
 			bool pickPrompt = m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_SUM || m.type == MSG_SELECT_TRIBUTE;
 			static const bool noCap = getenv("MDC_NOPICKCAP") != nullptr;
-			static const size_t capMin = getenv("MDC_PICKMIN") ? (size_t)atoi(getenv("MDC_PICKMIN")) : 4;
+			static const size_t capMin = getenv("MDC_PICKMIN") ? (size_t)atoi(getenv("MDC_PICKMIN")) : 2;   // 2 beat 4 on the guideless set at every budget (Snake-Eye's long lines), same on the tune set
 			size_t pickCap = noCap ? (size_t)-1 : std::max<size_t>(capMin, beam_width / 2);
 			if(pickPrompt && live.size() > pickCap) {
 				auto h = [](const std::string& s) { uint64_t t = 1469598103934665603ull; for(char ch : s) t = (t ^ (unsigned char)ch) * 1099511628211ull; return t; };
