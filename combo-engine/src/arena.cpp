@@ -50,7 +50,7 @@ bool reserve() {
 	if(g_base) return true;
 #ifdef _WIN32
 	// Write-watch: the OS records which pages get written, so a restore copies back only those (see mdc_snap_*).
-	g_base = (char*)VirtualAlloc(nullptr, SLOT * MAXA, MEM_RESERVE | MEM_WRITE_WATCH, PAGE_NOACCESS);
+	g_base = (char*)VirtualAlloc(nullptr, SLOT * MAXA, MEM_RESERVE | (getenv("MDC_NOWW") ? 0 : MEM_WRITE_WATCH), PAGE_NOACCESS);
 #else
 	void* p = mmap(nullptr, SLOT * MAXA, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
 	g_base = p == MAP_FAILED ? nullptr : (char*)p;
@@ -103,14 +103,16 @@ void arena_free(int a, void* p) {
 	*(void**)p = h->freel[b->cls]; h->freel[b->cls] = b;
 }
 size_t arena_cap(void* p) { return ((Block*)p - 1)->size - sizeof(Block); }
+std::atomic<int64_t> g_miLive{0}, g_escaped{0};
 void* route_alloc(size_t n) {
-	if(tl_cur >= 0) { void* p = arena_alloc(tl_cur, n ? n : 1); if(p) return p; }
+	if(tl_cur >= 0) { void* p = arena_alloc(tl_cur, n ? n : 1); if(p) return p; g_escaped++; }
+	g_miLive++;
 	return mi_malloc(n ? n : 1);
 }
 void route_free(void* p) {
 	if(!p) return;
 	int a = owner(p);
-	if(a >= 0) arena_free(a, p); else mi_free(p);
+	if(a >= 0) arena_free(a, p); else { g_miLive--; mi_free(p); }
 }
 }   // namespace
 
@@ -141,7 +143,19 @@ namespace {
 constexpr size_t PAGE = 4096;
 // Pages are shared between saves: a save taken while an older one is live copies only the pages written since that
 // one and points at the older save's copy of every other page.
-using Page = std::shared_ptr<char>;
+// Page copies come from a pool (slabs of pages, one shared free list) with a reference count in each page: millions
+// of 4 KB new/delete calls spread over short-lived search threads made the general allocator keep gigabytes it never
+// handed back (14 GB after 20 searches).
+struct PageBlk { std::atomic<int> ref; char data[PAGE]; };
+using Page = PageBlk*;
+thread_local std::vector<void*> tl_addrs; thread_local std::vector<PageBlk*> tl_got, tl_back;   // per-thread scratch (released in mdc_thread_done)
+std::mutex g_poolMx; std::vector<PageBlk*> g_poolFree; std::atomic<int64_t> g_poolTotal{0}, g_liveSnaps{0};
+void pool_take(std::vector<PageBlk*>& out, size_t n) {
+	std::lock_guard<std::mutex> lk(g_poolMx);
+	while(g_poolFree.size() < n) { const size_t SLAB = 256; PageBlk* slab = (PageBlk*)mi_malloc(sizeof(PageBlk) * SLAB); for(size_t i = 0; i < SLAB; i++) g_poolFree.push_back(slab + i); g_poolTotal += SLAB; }
+	for(size_t i = 0; i < n; i++) { out.push_back(g_poolFree.back()); g_poolFree.pop_back(); }
+}
+void pool_give(const std::vector<PageBlk*>& v) { if(v.empty()) return; std::lock_guard<std::mutex> lk(g_poolMx); g_poolFree.insert(g_poolFree.end(), v.begin(), v.end()); }
 struct Snap { int a; size_t n; std::vector<Page> pages; std::vector<uint64_t> dirty; };
 inline bool is_dirty(const Snap* sp, size_t pg) { return pg >= sp->dirty.size() * 64 || (sp->dirty[pg >> 6] >> (pg & 63)) & 1; }
 std::vector<Snap*> g_stack[MAXA];
@@ -151,12 +165,14 @@ void collect(int a) {
 	auto t0 = std::chrono::steady_clock::now();
 	struct Done { std::chrono::steady_clock::time_point t0; ~Done() { st_collectNs += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t0).count(); } } done{t0};
 #ifdef _WIN32
-	thread_local std::vector<void*> addrs;
+	auto& addrs = tl_addrs;
 	size_t pages = g_committed[a] / PAGE; if(addrs.size() < pages) addrs.resize(pages);
 	ULONG_PTR count = pages; DWORD gran = 0;
 	char* base = g_base + SLOT * a;
 	// Only the newest save is marked; it hands its marks down to the one below when it goes (mdc_snap_pop): a page
 	// written since a newer save was also written since every older one.
+	static const bool noWW = getenv("MDC_NOWW") != nullptr;
+	if(noWW) { if(!g_stack[a].empty()) std::fill(g_stack[a].back()->dirty.begin(), g_stack[a].back()->dirty.end(), ~uint64_t(0)); return; }
 	if(g_stack[a].empty()) { ResetWriteWatch(base, g_committed[a]); return; }
 	Snap* top = g_stack[a].back();
 	if(GetWriteWatch(WRITE_WATCH_FLAG_RESET, base, g_committed[a], addrs.data(), &count, &gran) != 0) { std::fill(top->dirty.begin(), top->dirty.end(), ~uint64_t(0)); return; }
@@ -167,7 +183,8 @@ void collect(int a) {
 }
 void forget_writes(int a) {
 #ifdef _WIN32
-	ResetWriteWatch(g_base + SLOT * a, g_committed[a]);
+	static const bool noWW = getenv("MDC_NOWW") != nullptr;
+	if(!noWW) ResetWriteWatch(g_base + SLOT * a, g_committed[a]);
 #else
 	(void)a;
 #endif
@@ -178,14 +195,21 @@ void* mdc_snap_push(int a) {
 	const char* b = (const char*)head(a); const size_t n = head(a)->used, np = (n + PAGE - 1) / PAGE;
 	Snap* parent = g_stack[a].empty() ? nullptr : g_stack[a].back();
 	st_push++; if(!parent) st_pushFull++;
-	Snap* sp = new Snap{a, n, std::vector<Page>(np), std::vector<uint64_t>((np + 64) / 64, 0)};
+	Snap* sp = new Snap{a, n, std::vector<Page>(np, nullptr), std::vector<uint64_t>((np + 64) / 64, 0)};
+	size_t fresh = 0;
 	for(size_t pg = 0; pg < np; pg++) {
-		if(parent && pg < parent->pages.size() && !is_dirty(parent, pg)) { sp->pages[pg] = parent->pages[pg]; st_pagesShared++; continue; }
-		st_pagesCopied++;
-		Page q(new char[PAGE], std::default_delete<char[]>());
-		std::memcpy(q.get(), b + pg * PAGE, std::min(PAGE, n - pg * PAGE)); sp->pages[pg] = std::move(q);
+		if(parent && pg < parent->pages.size() && !is_dirty(parent, pg)) { sp->pages[pg] = parent->pages[pg]; sp->pages[pg]->ref.fetch_add(1, std::memory_order_relaxed); st_pagesShared++; }
+		else fresh++;
 	}
-	g_stack[a].push_back(sp);
+	auto& got = tl_got; got.clear(); pool_take(got, fresh);
+	size_t k = 0;
+	for(size_t pg = 0; pg < np; pg++) {
+		if(sp->pages[pg]) continue;
+		st_pagesCopied++;
+		PageBlk* q = got[k++]; q->ref.store(1, std::memory_order_relaxed);
+		std::memcpy(q->data, b + pg * PAGE, std::min(PAGE, n - pg * PAGE)); sp->pages[pg] = q;
+	}
+	g_stack[a].push_back(sp); g_liveSnaps++;
 	return sp;
 }
 void mdc_snap_restore(void* h) {
@@ -197,7 +221,7 @@ void mdc_snap_restore(void* h) {
 		size_t pg = w * 64 + (size_t)__builtin_ctzll_compat(bits), off = pg * PAGE;
 		if(off >= n) continue;
 		st_restorePages++;
-		std::memcpy(base + off, sp->pages[pg].get(), std::min(PAGE, n - off));
+		std::memcpy(base + off, sp->pages[pg]->data, std::min(PAGE, n - off));
 	}
 	std::fill(sp->dirty.begin(), sp->dirty.end(), 0);
 	forget_writes(a);   // the copies above put back this save's bytes: nothing written since it now
@@ -212,7 +236,10 @@ void mdc_snap_pop(void* h) {
 		}
 		st.erase(st.begin() + i); break;
 	}
-	delete sp;
+	auto& back = tl_back; back.clear();
+	for(PageBlk* q : sp->pages) if(q && q->ref.fetch_sub(1, std::memory_order_acq_rel) == 1) back.push_back(q);
+	pool_give(back);
+	delete sp; g_liveSnaps--;
 }
 
 // ---- Lua (lauxlib's allocator, via mi_lua.h) ----
@@ -248,7 +275,21 @@ void operator delete[](void* p, size_t, std::align_val_t) noexcept { mi_free(p);
 
 // MDC_PROF: what the saves cost (counts since the last call).
 void mdc_snap_stats(char* out, size_t cap) {
+	size_t freeN; { std::lock_guard<std::mutex> lk(g_poolMx); freeN = g_poolFree.size(); }
+	int n0 = snprintf(out, cap, "outside allocations live %lld (made while a duel was current: %lld); live saves %lld, page pool %lld pages (%lld free); ", (long long)g_miLive.load(), (long long)g_escaped.load(), (long long)g_liveSnaps.load(), (long long)g_poolTotal.load(), (long long)freeN);
+	if(n0 < 0 || (size_t)n0 >= cap) return; out += n0; cap -= n0;
 	snprintf(out, cap, "pushes %llu (%llu with nothing to share from), pages copied %llu / shared %llu; restores %llu (%llu pages); write-watch checks %.1f thread-s",
 		(unsigned long long)st_push.exchange(0), (unsigned long long)st_pushFull.exchange(0), (unsigned long long)st_pagesCopied.exchange(0), (unsigned long long)st_pagesShared.exchange(0),
 		(unsigned long long)st_restore.exchange(0), (unsigned long long)st_restorePages.exchange(0), st_collectNs.exchange(0) / 1e9);
+}
+
+// After a search: hand memory cached by the search's (now finished) threads back to the OS.
+void mdc_mem_collect() { mi_collect(true); }
+void mdc_arena_stats(int& inUse, size_t& committed) { std::lock_guard<std::mutex> lk(g_mx); inUse = 0; committed = 0; for(int a = 0; a < MAXA; a++) { if(g_inuse[a]) inUse++; committed += g_committed[a]; } }
+
+// End of a search thread: the statically linked allocator doesn't always see Windows threads exit, and threads it never
+// hears about keep their memory (1,200 of 3,100 search threads after 10 searches; private bytes +250 MB a search).
+void mdc_thread_done() {
+	std::vector<void*>().swap(tl_addrs); std::vector<PageBlk*>().swap(tl_got); std::vector<PageBlk*>().swap(tl_back);
+	mi_thread_done();
 }

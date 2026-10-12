@@ -174,7 +174,12 @@ Key parts of `src/main.cpp`:
   branches in 10 s on Walbaz + Lukias, best 10.65 -> 12.39 (guide 12.70). compare.py 20s: Dracotail 201.67 -> 205.36
   (guide better 2 -> 1), Branded 175.96 -> 175.27 (noise); tune.py 15k: std 113.89 -> 114.02, guideless 95.06 -> 93.33 (one
   Snake-Eye hand that swings 14.6-16.8 under many settings). Search order is timing-dependent with it on. `MDC_PROF` prints save/restore counts, pages copied / shared and
-  write-watch time. Next: each beam state is still replayed once before it's expanded. Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
+  write-watch time. Next: each beam state is still replayed once before it's expanded. Memory (fixed Oct 2026): page copies come from a pool
+  (slabs, one shared free list, a reference count per page), and every search thread ends with `mdc_thread_done()`
+  (`ThreadEnd` in main.cpp): the statically linked mimalloc missed many Windows thread exits (1,200 of 3,100 threads still
+  "alive" after 10 searches), so their memory was never reclaimed; private bytes grew ~250 MB a search (14 GB once, the
+  engine then crashed). Now flat (~490 MB private over 20 searches; 700 MB over 40 handtrap-backup searches).
+  `bench/memloop.py` checks it; `MDC_PROF` prints live saves, page pool, duels pooled, regions committed. Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
   cut mid-action (`MDC_NOMIDDEDUP`). End Phase: on decks with several End Phase effects (Dracotail / Branded) trying

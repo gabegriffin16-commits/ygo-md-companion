@@ -416,7 +416,9 @@ int mdc_lua_kb(OCG_Duel h);   // src/reset.cpp: what our cards' scripts register
 // the rules core (our own code's memory must stay outside: a restore overwrites the region).
 int mdc_arena_new(); void mdc_arena_release(int a); size_t mdc_arena_used(int a);
 void mdc_arena_save(int a, std::vector<char>& out); void mdc_arena_load(int a, const std::vector<char>& in);
-void* mdc_snap_push(int a); void mdc_snap_restore(void* h); void mdc_snap_pop(void* h); void mdc_snap_stats(char* out, size_t cap);   // saves that restore only the pages written since
+void* mdc_snap_push(int a); void mdc_snap_restore(void* h); void mdc_snap_pop(void* h); void mdc_mem_collect(); void mdc_thread_done();
+void mdc_arena_stats(int& inUse, size_t& committed); void mdc_snap_stats(char* out, size_t cap);   // saves that restore only the pages written since
+struct ThreadEnd { ~ThreadEnd() { mdc_thread_done(); } };   // first thing in every search thread (src/arena.cpp)
 struct ArenaScope { int prev; explicit ArenaScope(int a) : prev(mdc_arena_swap(a)) {} ~ArenaScope() { mdc_arena_swap(prev); } };
 #ifdef MDC_MIMALLOC
 // On by default (MDC_NOSNAP: replay from the start at every branch, as before; MDC_ARENA with it: regions without restores).
@@ -429,7 +431,7 @@ static const bool g_snap = false;
 static const bool g_arenas = false;   // regions need src/arena.cpp (built with mimalloc)
 int mdc_arena_swap(int) { return -1; } int mdc_arena_new() { return -1; } void mdc_arena_release(int) {} size_t mdc_arena_used(int) { return 0; }
 void mdc_arena_save(int, std::vector<char>&) {} void mdc_arena_load(int, const std::vector<char>&) {}
-void* mdc_snap_push(int) { return nullptr; } void mdc_snap_restore(void*) {} void mdc_snap_pop(void*) {} void mdc_snap_stats(char* out, size_t) { out[0] = 0; }
+void* mdc_snap_push(int) { return nullptr; } void mdc_snap_restore(void*) {} void mdc_snap_pop(void*) {} void mdc_mem_collect() {} void mdc_thread_done() {} void mdc_arena_stats(int& u, size_t& c) { u = 0; c = 0; } void mdc_snap_stats(char* out, size_t) { out[0] = 0; }
 #endif
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
 static std::unordered_map<OCG_Duel, int> g_arenaOf;   // each duel's region (-1 / missing: none)
@@ -1514,7 +1516,7 @@ struct Search {
 			}
 		};
 		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)level.size()));
-		for(int i = 0; i < n; i++) ts.emplace_back(work);
+		for(int i = 0; i < n; i++) ts.emplace_back([&work] { ThreadEnd te; work(); });
 		for(auto& t : ts) t.join();
 		return out;
 	}
@@ -1533,7 +1535,7 @@ struct Search {
 		{ std::lock_guard<std::mutex> lk(mx); q.swap(epQueue); double cut = bestScore - epMargin; q.erase(std::remove_if(q.begin(), q.end(), [&](auto& e) { return e.first < cut; }), q.end()); }
 		if(q.empty()) return;
 		static const bool sync = getenv("MDC_EPSYNC") != nullptr;
-		if(!sync) { std::lock_guard<std::mutex> lk(epThMx); epThreads.emplace_back([this, q]() mutable { ep_run(q); }); return; }
+		if(!sync) { std::lock_guard<std::mutex> lk(epThMx); epThreads.emplace_back([this, q]() mutable { ThreadEnd te; ep_run(q); }); return; }
 		ep_run(q);
 	}
 	void ep_run(std::vector<std::pair<double, std::shared_ptr<const St>>>& q) {
@@ -1549,7 +1551,7 @@ struct Search {
 			}
 		};
 		std::vector<std::thread> ts; int n = std::max(1, std::min<int>(beamThreads, (int)q.size()));
-		for(int i = 0; i < n; i++) ts.emplace_back(work);
+		for(int i = 0; i < n; i++) ts.emplace_back([&work] { ThreadEnd te; work(); });
 		for(auto& t : ts) t.join();
 		if(getenv("MDC_BEAMLOG")) fprintf(stderr, "  ep_deep: %zu turns\n", q.size());
 	}
@@ -2076,13 +2078,13 @@ struct Search {
 		// the CPU the beam leaves free (narrow beam levels leave most threads idle).
 		const bool adaptive = mode == "adaptive";
 		if(adaptive) { beamThreads = std::max(1, threads); dfsThreads = std::max(1, threads); }
-		if(useBeam) ts.emplace_back([this] { beam(); ep_join(); });
+		if(useBeam) ts.emplace_back([this] { ThreadEnd te; beam(); ep_join(); });
 		// Seeds (the best lines earlier searches found for this hand) are replayed first: their boards are recorded (so this
 		// search can't end worse), the best one becomes the beam's kept line, and the depth-first workers also start from
 		// points along them.
 		std::vector<St> seedStarts;
 		if(!interrupting()) for(const auto& sd : seeds) seed_line(sd, seedStarts);
-		if(dfsThreads) { queue.push_back(St{}); for(auto& st : seedStarts) queue.push_back(st); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this, adaptive] { if(adaptive) lower_thread_priority(); worker(); }); }
+		if(dfsThreads) { queue.push_back(St{}); for(auto& st : seedStarts) queue.push_back(st); for(int i = 0; i < dfsThreads; i++) ts.emplace_back([this, adaptive] { ThreadEnd te; if(adaptive) lower_thread_priority(); worker(); }); }
 		std::atomic<bool> finished{false};
 		std::mutex pmx; std::condition_variable pcv;
 		std::thread prog([&] {
@@ -2096,11 +2098,13 @@ struct Search {
 		for(auto& t : ts) t.join();
 		{ std::lock_guard<std::mutex> lk(pmx); finished = true; } pcv.notify_all(); prog.join();
 		double secs = std::chrono::duration<double>(Clock::now() - t0).count();
+		{ static const bool noCollect = getenv("MDC_NOCOLLECT") != nullptr; if(!noCollect) mdc_mem_collect(); }   // the search's threads are gone: give their cached memory back
 		if(g_prof) { auto f = [](std::atomic<uint64_t>& a) { double v = a.load() / 1e9; a = 0; return v; };
 			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand), sn = f(g_profSnap);
 			uint64_t snN = g_profSnapN.exchange(0), snB = g_profSnapBytes.exchange(0);
 			{ double lv = f(g_profLevel), ed = f(g_profEpDeep); fprintf(stderr, "prof: beam levels %.1fs wall, End Phase deep passes %.1fs wall%c", lv, ed, 10); }
 			{ char buf[400] = ""; mdc_snap_stats(buf, sizeof buf); fprintf(stderr, "prof: %s%c", buf, 10); }
+			{ int u; size_t c; mdc_arena_stats(u, c); size_t pooled; { std::lock_guard<std::mutex> lk(g_pool_mx); pooled = g_pool.size(); } fprintf(stderr, "prof: duels pooled %zu, regions in use %d, committed %zu MB%c", pooled, u, c >> 20, 10); }
 			fprintf(stderr, "prof: saves+restores %.1f thread-s, %llu saves, avg region %.2f MB\n", sn, (unsigned long long)snN, snN ? snB / 1048576.0 / snN : 0.0);
 			fprintf(stderr, "prof: %.1fs wall x %d threads = %.1f thread-s | new/reset duel %.1f | replay %.1f | read board %.1f | score %.1f | beam expansions %.1f | replays %llu\n",
 				secs, threads, secs * threads, nw, rp, bd, sc, ex, (unsigned long long)replays.load());
@@ -2123,7 +2127,7 @@ struct Search {
 			auto ts0 = Clock::now();
 			std::atomic<size_t> nx{0}; std::vector<std::thread> st;
 			int simThreads = getenv("MDC_SIMLOG") ? 1 : std::max(1, std::min<int>(threads, (int)picked.size()));   // one at a time when logging
-			for(int i = 0; i < simThreads; i++) st.emplace_back([&] {
+			for(int i = 0; i < simThreads; i++) st.emplace_back([&] { ThreadEnd te;
 				for(size_t k; (k = nx++) < picked.size();) { if(getenv("MDC_SIMLOG")) fprintf(stderr, "=== board %zu\n", k);
 					double v = picked[k].score; json j = simulate(picked[k], v); j["textScore"] = picked[k].score; picked[k].score = v; sims[k] = j; }
 			});
@@ -2310,7 +2314,7 @@ int main(int argc, char** argv) {
 			{ std::lock_guard<std::mutex> lk(g_search_mx); g_search = std::move(s); }
 			Search* sp = g_search.get();
 			if(!missing.empty()) emit({{"id", id}, {"warning", "not scripted yet"}, {"cards", missing}});
-			g_search_thread = std::thread([sp, id] { json r = sp->run(id); emit(r); });
+			g_search_thread = std::thread([sp, id] { ThreadEnd te; json r = sp->run(id); emit(r); });
 			continue;
 		}
 		emit({{"id", id}, {"error", "unknown command"}});
