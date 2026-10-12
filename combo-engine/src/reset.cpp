@@ -163,3 +163,4 @@ std::vector<MdcFx> mdc_card_effects(OCG_Duel h) {
 
 // How big one duel's Lua state is (KB): what a copy of the duel would have to move (MDC_PROF).
 int mdc_lua_kb(OCG_Duel h) { auto* d = static_cast<duel*>(h); return d && d->lua ? lua_gc(d->lua->lua_state, LUA_GCCOUNT, 0) : -1; }
+

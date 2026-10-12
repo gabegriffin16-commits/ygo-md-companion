@@ -416,6 +416,7 @@ int mdc_lua_kb(OCG_Duel h);   // src/reset.cpp: what our cards' scripts register
 // the rules core (our own code's memory must stay outside: a restore overwrites the region).
 int mdc_arena_new(); void mdc_arena_release(int a); size_t mdc_arena_used(int a);
 void mdc_arena_save(int a, std::vector<char>& out); void mdc_arena_load(int a, const std::vector<char>& in);
+void* mdc_snap_push(int a); void mdc_snap_restore(void* h); void mdc_snap_pop(void* h); void mdc_snap_stats(char* out, size_t cap);   // saves that restore only the pages written since
 struct ArenaScope { int prev; explicit ArenaScope(int a) : prev(mdc_arena_swap(a)) {} ~ArenaScope() { mdc_arena_swap(prev); } };
 #ifdef MDC_MIMALLOC
 // On by default (MDC_NOSNAP: replay from the start at every branch, as before; MDC_ARENA with it: regions without restores).
@@ -428,6 +429,7 @@ static const bool g_snap = false;
 static const bool g_arenas = false;   // regions need src/arena.cpp (built with mimalloc)
 int mdc_arena_swap(int) { return -1; } int mdc_arena_new() { return -1; } void mdc_arena_release(int) {} size_t mdc_arena_used(int) { return 0; }
 void mdc_arena_save(int, std::vector<char>&) {} void mdc_arena_load(int, const std::vector<char>&) {}
+void* mdc_snap_push(int) { return nullptr; } void mdc_snap_restore(void*) {} void mdc_snap_pop(void*) {} void mdc_snap_stats(char* out, size_t) { out[0] = 0; }
 #endif
 static std::mutex g_pool_mx; static std::vector<OCG_Duel> g_pool; static bool g_reuse = true;
 static std::unordered_map<OCG_Duel, int> g_arenaOf;   // each duel's region (-1 / missing: none)
@@ -448,7 +450,7 @@ static const int BLANKS = 12;
 static std::atomic<bool> g_zones{false};
 
 // MDC_PROF=1: where search time goes (summed over threads, printed after each search).
-static std::atomic<uint64_t> g_profNew{0}, g_profReplay{0}, g_profBoard{0}, g_profScore{0}, g_profExpand{0};
+static std::atomic<uint64_t> g_profNew{0}, g_profReplay{0}, g_profBoard{0}, g_profScore{0}, g_profExpand{0}, g_profSnap{0}, g_profSnapN{0}, g_profSnapBytes{0};
 static const bool g_prof = getenv("MDC_PROF") != nullptr;
 struct ProfTimer { std::atomic<uint64_t>& acc; std::chrono::steady_clock::time_point t0;
 	explicit ProfTimer(std::atomic<uint64_t>& a) : acc(a), t0(g_prof ? std::chrono::steady_clock::now() : std::chrono::steady_clock::time_point()) {}
@@ -557,9 +559,10 @@ struct Duel {
 	}
 	void respond(const Bytes& b) { ArenaScope sc(arena); OCG_DuelSetResponse(h, b.data(), (uint32_t)b.size()); }
 	// A copy of the whole game at this moment (its memory region + what we track from its messages), and back.
-	struct Saved { std::vector<char> mem; uint64_t lastHint[2]; int turnPlayer, turns, phase; int lp[2]; std::vector<std::pair<uint32_t, uint8_t>> chainLinks, negated; std::vector<uint64_t>* left; };
-	void save(Saved& s) const { mdc_arena_save(arena, s.mem); s.lastHint[0] = lastHint[0]; s.lastHint[1] = lastHint[1]; s.turnPlayer = turnPlayer; s.turns = turns; s.phase = phase; s.lp[0] = lp[0]; s.lp[1] = lp[1]; s.chainLinks = chainLinks; s.negated = negated; s.left = left; }
-	void load(const Saved& s) { mdc_arena_load(arena, s.mem); lastHint[0] = s.lastHint[0]; lastHint[1] = s.lastHint[1]; turnPlayer = s.turnPlayer; turns = s.turns; phase = s.phase; lp[0] = s.lp[0]; lp[1] = s.lp[1]; chainLinks = s.chainLinks; negated = s.negated; left = s.left; }
+	struct Saved { void* snap = nullptr; Saved() = default; Saved(const Saved&) = delete; Saved& operator=(const Saved&) = delete; ~Saved() { if(snap) mdc_snap_pop(snap); }
+		uint64_t lastHint[2]; int turnPlayer, turns, phase; int lp[2]; std::vector<std::pair<uint32_t, uint8_t>> chainLinks, negated; std::vector<uint64_t>* left; };
+	void save(Saved& s) const { ProfTimer pt(g_profSnap); if(g_prof) { g_profSnapN++; g_profSnapBytes += mdc_arena_used(arena); } if(s.snap) mdc_snap_pop(s.snap); s.snap = mdc_snap_push(arena); s.lastHint[0] = lastHint[0]; s.lastHint[1] = lastHint[1]; s.turnPlayer = turnPlayer; s.turns = turns; s.phase = phase; s.lp[0] = lp[0]; s.lp[1] = lp[1]; s.chainLinks = chainLinks; s.negated = negated; s.left = left; }
+	void load(const Saved& s) { ProfTimer pt(g_profSnap); mdc_snap_restore(s.snap); lastHint[0] = s.lastHint[0]; lastHint[1] = s.lastHint[1]; turnPlayer = s.turnPlayer; turns = s.turns; phase = s.phase; lp[0] = s.lp[0]; lp[1] = s.lp[1]; chainLinks = s.chainLinks; negated = s.negated; left = s.left; }
 	// A player's cards in one place: code, position and ATK (for the simulation's checks on the opponent).
 	struct Seen { uint32_t code = 0, pos = 0, seq = 0; int32_t atk = 0; };
 	std::vector<Seen> look(uint8_t player, uint32_t loc) {
@@ -2083,7 +2086,10 @@ struct Search {
 		{ std::lock_guard<std::mutex> lk(pmx); finished = true; } pcv.notify_all(); prog.join();
 		double secs = std::chrono::duration<double>(Clock::now() - t0).count();
 		if(g_prof) { auto f = [](std::atomic<uint64_t>& a) { double v = a.load() / 1e9; a = 0; return v; };
-			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand);
+			double nw = f(g_profNew), rp = f(g_profReplay), bd = f(g_profBoard), sc = f(g_profScore), ex = f(g_profExpand), sn = f(g_profSnap);
+			uint64_t snN = g_profSnapN.exchange(0), snB = g_profSnapBytes.exchange(0);
+			{ char buf[400] = ""; mdc_snap_stats(buf, sizeof buf); fprintf(stderr, "prof: %s%c", buf, 10); }
+			fprintf(stderr, "prof: saves+restores %.1f thread-s, %llu saves, avg region %.2f MB\n", sn, (unsigned long long)snN, snN ? snB / 1048576.0 / snN : 0.0);
 			fprintf(stderr, "prof: %.1fs wall x %d threads = %.1f thread-s | new/reset duel %.1f | replay %.1f | read board %.1f | score %.1f | beam expansions %.1f | replays %llu\n",
 				secs, threads, secs * threads, nw, rp, bd, sc, ex, (unsigned long long)replays.load());
 			{ Duel dd(setup); fprintf(stderr, "prof: one duel's Lua state %d KB, cards %zu\n", dd.h ? mdc_lua_kb(dd.h) : -1, setup.deck.size() + setup.extra.size()); } }

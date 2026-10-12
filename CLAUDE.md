@@ -161,7 +161,14 @@ Key parts of `src/main.cpp`:
   HERO 19.9k -> 51.1k); fixed-budget wall time 2.3x shorter (beam); peak memory 482 -> 547 MB; compare.py 20s: Dracotail
   188.30 -> 200.66, Branded 161.08 -> 171.55 (guide better 4 -> 2), Kewl Tune 221.02 -> 225.33. On by default;
   `MDC_NOSNAP` = the old replays, `MDC_ARENA` = regions only, `MDC_ARENACHECK` = fill freed blocks and check on reuse,
-  `MDC_ARENALOG` = report region exhaustion. Each beam state is still replayed once before it's expanded (next speedup). Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
+  `MDC_ARENALOG` = report region exhaustion. Saves share pages (src/arena.cpp `mdc_snap_*`): regions are reserved with
+  Windows write-watch, a save taken while an older one is live copies only the pages written since it, and a restore copies
+  back only the pages written since its save (marks go to the newest save, handed down when it's removed; Linux: full
+  copies). A branch writes ~250-350 of ~900 pages (not Lua's garbage collector: stopping it changed nothing), so restores
+  run near memory bandwidth. Identical results again (tune.py 3000 single-threaded: 110.25; dfs: same boards on 3 hands).
+  10s default mode, interleaved with full copies under the same load: Snake-Eye 7.3-8.3k -> 31-35k branches; unloaded
+  earlier: Dracotail 46k -> 69k, HERO 51k -> 61k. `MDC_PROF` prints save/restore counts, pages copied / shared and
+  write-watch time. Next: each beam state is still replayed once before it's expanded. Profile (`MDC_PROF=1`): ~88% of search time is creating/resetting duels and replaying lines
   (no way to copy a game state), scoring ~0.1%. Beam passes reuse the previous pass's expansions (~20% per pass;
   `MDC_NOREUSE` to compare). Inside one action, the same choices in another order reaching the same board + prompt are
   cut mid-action (`MDC_NOMIDDEDUP`). End Phase: on decks with several End Phase effects (Dracotail / Branded) trying

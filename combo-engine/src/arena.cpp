@@ -11,6 +11,9 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
+#include <atomic>
+#include <chrono>
+#include <memory>
 #include <mutex>
 #include <new>
 #include <vector>
@@ -23,6 +26,12 @@
 #include <sys/mman.h>
 #endif
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+static inline int __builtin_ctzll_compat(unsigned long long x) { unsigned long i; _BitScanForward64(&i, x); return (int)i; }
+#else
+static inline int __builtin_ctzll_compat(unsigned long long x) { return __builtin_ctzll(x); }
+#endif
 namespace {
 constexpr size_t SLOT = size_t(1) << 30;     // address space per duel (only what's used gets committed)
 constexpr int MAXA = 256;                    // duels that can have a region at once
@@ -40,7 +49,8 @@ thread_local int tl_cur = -1;
 bool reserve() {
 	if(g_base) return true;
 #ifdef _WIN32
-	g_base = (char*)VirtualAlloc(nullptr, SLOT * MAXA, MEM_RESERVE, PAGE_NOACCESS);
+	// Write-watch: the OS records which pages get written, so a restore copies back only those (see mdc_snap_*).
+	g_base = (char*)VirtualAlloc(nullptr, SLOT * MAXA, MEM_RESERVE | MEM_WRITE_WATCH, PAGE_NOACCESS);
 #else
 	void* p = mmap(nullptr, SLOT * MAXA, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE, -1, 0);
 	g_base = p == MAP_FAILED ? nullptr : (char*)p;
@@ -122,6 +132,89 @@ size_t mdc_arena_used(int a) { return a < 0 ? 0 : head(a)->used; }
 void mdc_arena_save(int a, std::vector<char>& out) { const char* b = (const char*)head(a); out.assign(b, b + head(a)->used); }
 void mdc_arena_load(int a, const std::vector<char>& in) { std::memcpy(head(a), in.data(), in.size()); }
 
+// ---- saves that restore only what changed ----
+// A save is a full copy of the region's used bytes. Each region keeps a stack of its live saves (a search saves at a
+// branch point, explores, and the deeper saves are gone before it restores again). Pages written since the last check
+// are credited to every save on the stack; a restore copies back only the pages written since that save. Without
+// write-watch (Linux), every page counts as written.
+namespace {
+constexpr size_t PAGE = 4096;
+// Pages are shared between saves: a save taken while an older one is live copies only the pages written since that
+// one and points at the older save's copy of every other page.
+using Page = std::shared_ptr<char>;
+struct Snap { int a; size_t n; std::vector<Page> pages; std::vector<uint64_t> dirty; };
+inline bool is_dirty(const Snap* sp, size_t pg) { return pg >= sp->dirty.size() * 64 || (sp->dirty[pg >> 6] >> (pg & 63)) & 1; }
+std::vector<Snap*> g_stack[MAXA];
+std::atomic<uint64_t> st_push{0}, st_pushFull{0}, st_pagesCopied{0}, st_pagesShared{0}, st_restore{0}, st_restorePages{0}, st_collectNs{0};
+inline void mark(Snap* sp, size_t pg) { if(pg < sp->dirty.size() * 64) sp->dirty[pg >> 6] |= uint64_t(1) << (pg & 63); }
+void collect(int a) {
+	auto t0 = std::chrono::steady_clock::now();
+	struct Done { std::chrono::steady_clock::time_point t0; ~Done() { st_collectNs += (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - t0).count(); } } done{t0};
+#ifdef _WIN32
+	thread_local std::vector<void*> addrs;
+	size_t pages = g_committed[a] / PAGE; if(addrs.size() < pages) addrs.resize(pages);
+	ULONG_PTR count = pages; DWORD gran = 0;
+	char* base = g_base + SLOT * a;
+	// Only the newest save is marked; it hands its marks down to the one below when it goes (mdc_snap_pop): a page
+	// written since a newer save was also written since every older one.
+	if(g_stack[a].empty()) { ResetWriteWatch(base, g_committed[a]); return; }
+	Snap* top = g_stack[a].back();
+	if(GetWriteWatch(WRITE_WATCH_FLAG_RESET, base, g_committed[a], addrs.data(), &count, &gran) != 0) { std::fill(top->dirty.begin(), top->dirty.end(), ~uint64_t(0)); return; }
+	for(ULONG_PTR i = 0; i < count; i++) mark(top, size_t((char*)addrs[i] - base) / PAGE);
+#else
+	if(!g_stack[a].empty()) std::fill(g_stack[a].back()->dirty.begin(), g_stack[a].back()->dirty.end(), ~uint64_t(0));
+#endif
+}
+void forget_writes(int a) {
+#ifdef _WIN32
+	ResetWriteWatch(g_base + SLOT * a, g_committed[a]);
+#else
+	(void)a;
+#endif
+}
+}   // namespace
+void* mdc_snap_push(int a) {
+	collect(a);
+	const char* b = (const char*)head(a); const size_t n = head(a)->used, np = (n + PAGE - 1) / PAGE;
+	Snap* parent = g_stack[a].empty() ? nullptr : g_stack[a].back();
+	st_push++; if(!parent) st_pushFull++;
+	Snap* sp = new Snap{a, n, std::vector<Page>(np), std::vector<uint64_t>((np + 64) / 64, 0)};
+	for(size_t pg = 0; pg < np; pg++) {
+		if(parent && pg < parent->pages.size() && !is_dirty(parent, pg)) { sp->pages[pg] = parent->pages[pg]; st_pagesShared++; continue; }
+		st_pagesCopied++;
+		Page q(new char[PAGE], std::default_delete<char[]>());
+		std::memcpy(q.get(), b + pg * PAGE, std::min(PAGE, n - pg * PAGE)); sp->pages[pg] = std::move(q);
+	}
+	g_stack[a].push_back(sp);
+	return sp;
+}
+void mdc_snap_restore(void* h) {
+	Snap* sp = (Snap*)h; int a = sp->a;
+	st_restore++;
+	collect(a);
+	char* base = (char*)head(a); const size_t n = sp->n;
+	for(size_t w = 0; w < sp->dirty.size(); w++) for(uint64_t bits = sp->dirty[w]; bits; bits &= bits - 1) {
+		size_t pg = w * 64 + (size_t)__builtin_ctzll_compat(bits), off = pg * PAGE;
+		if(off >= n) continue;
+		st_restorePages++;
+		std::memcpy(base + off, sp->pages[pg].get(), std::min(PAGE, n - off));
+	}
+	std::fill(sp->dirty.begin(), sp->dirty.end(), 0);
+	forget_writes(a);   // the copies above put back this save's bytes: nothing written since it now
+}
+void mdc_snap_pop(void* h) {
+	Snap* sp = (Snap*)h; auto& st = g_stack[sp->a];
+	if(st.size() > 1 && st.back() == sp) collect(sp->a);   // marks up to now, before handing them down (the bottom save has no one to hand them to)
+	for(size_t i = st.size(); i-- > 0;) if(st[i] == sp) {
+		if(i > 0) { Snap* below = st[i - 1];   // what was written since this save was written since the one below too
+			for(size_t w = 0; w < sp->dirty.size(); w++) if(sp->dirty[w]) for(uint64_t bits = sp->dirty[w]; bits; bits &= bits - 1) mark(below, w * 64 + (size_t)__builtin_ctzll_compat(bits));
+			if(sp->dirty.size() * 64 > below->dirty.size() * 64) {}   // pages past the older save's size don't matter to it
+		}
+		st.erase(st.begin() + i); break;
+	}
+	delete sp;
+}
+
 // ---- Lua (lauxlib's allocator, via mi_lua.h) ----
 void* mdc_lua_realloc(void* p, size_t n) {
 	if(!p) return route_alloc(n);
@@ -152,3 +245,10 @@ void operator delete(void* p, std::align_val_t) noexcept { mi_free(p); }
 void operator delete[](void* p, std::align_val_t) noexcept { mi_free(p); }
 void operator delete(void* p, size_t, std::align_val_t) noexcept { mi_free(p); }
 void operator delete[](void* p, size_t, std::align_val_t) noexcept { mi_free(p); }
+
+// MDC_PROF: what the saves cost (counts since the last call).
+void mdc_snap_stats(char* out, size_t cap) {
+	snprintf(out, cap, "pushes %llu (%llu with nothing to share from), pages copied %llu / shared %llu; restores %llu (%llu pages); write-watch checks %.1f thread-s",
+		(unsigned long long)st_push.exchange(0), (unsigned long long)st_pushFull.exchange(0), (unsigned long long)st_pagesCopied.exchange(0), (unsigned long long)st_pagesShared.exchange(0),
+		(unsigned long long)st_restore.exchange(0), (unsigned long long)st_restorePages.exchange(0), st_collectNs.exchange(0) / 1e9);
+}
