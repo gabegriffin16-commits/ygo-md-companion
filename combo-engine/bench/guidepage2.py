@@ -95,10 +95,14 @@ grid, cards = [], []
 for i, s in enumerate(starters):
     m = s["main"]; rel = round(s["reliability"] * 10)
     pills = "".join(pill(v, m) for v in s["vs"])
-    grid.append('<a class="st" href="#s%d"><span class="sn">%s</span><span class="meter" aria-label="good board in %d of 10 hands">%s</span><span class="sc">%.1f</span><span class="pills">%s</span></a>' % (
-        i, esc(nm(s["card"])), rel, "".join('<i class="%s"></i>' % ("on" if k < rel else "") for k in range(10)), m["score"], pills))
+    grid.append('<a class="st" href="#s%d"><span class="sn">%s%s</span><span class="meter" aria-label="good board in %d of 10 hands">%s</span><span class="sc">%.1f</span><span class="pills">%s</span></a>' % (
+        i, esc(nm(s["card"])), ('<span class="k">%s</span>' % s["kind"]) if s.get("kind") else "", rel, "".join('<i class="%s"></i>' % ("on" if k < rel else "") for k in range(10)), m["score"], pills))
     others = [c for c in m["uses"] if c != s["card"]]
-    plus = ("+ " + ", ".join(nm(c) for c in others)) if others else "on its own"
+    # A 1-card line that spends a non-engine card (a handtrap as material or a cost): any such card works, say so.
+    fill = [c for c in others if c in s.get("soloFiller", [])] if s.get("kind") == "1-card" else []
+    eng = [c for c in others if c not in fill]
+    plus = ("+ " + ", ".join(nm(c) for c in eng)) if eng else "on its own"
+    if fill: plus += " (uses %s from your hand: any spare monster works)" % " and ".join(sorted(set(nm(c) for c in fill)))
     # Upgrades found in the same hand are one upgrade (every card of that hand got the same gain); handtraps aren't upgrades.
     merged = {}
     for u in s["upgrades"]:
@@ -109,15 +113,30 @@ for i, s in enumerate(starters):
     s["upgrades"] = [dict(u, card=None) for u in merged.values()]
     ups = "".join('<details class="up"><summary><span class="uc">+ %s</span><span class="ug">+%.1f</span></summary>%s%s</details>' % (esc(" + ".join(nm(c) for c in u["cards"])), u["gain"], flow(u["line"]["steps"], u["line"]["hand"]), board(u["line"])) for u in s["upgrades"])
     vsd = "".join('<details class="vs"><summary>%s <span class="vk">keeps %d%%</span></summary>%s</details>' % (pill(v, m), round(v["keeps"] * 100), flow(v["line"]["steps"], v["line"]["hand"])) for v in s["vs"] if v["used"] and v["line"])
-    cards.append('''<details class="card" id="s%d"%s><summary><span class="cn">%s</span><span class="cm">good board in %d of 10 hands &middot; typical %.1f</span><span class="cs">%.1f</span></summary>
+    cards.append('''<details class="card" id="s%d"%s><summary><span class="cn">%s</span><span class="cm">%sgood board in %d of 10 hands &middot; typical %.1f</span><span class="cs">%.1f</span></summary>
 <div class="body">
   <div class="sec"><h3>Main line <small>%s</small></h3>%s<details class="more"><summary>All steps</summary>%s</details></div>
   <div class="sec"><h3>End board</h3>%s</div>
   %s
   <div class="sec"><h3>If they have</h3><div class="pills big">%s</div>%s</div>
-</div></details>''' % (i, " open" if i == 0 else "", esc(nm(s["card"])), rel, s["median"], m["score"], esc(plus), flow(m["steps"], m["hand"]), steps_list(m["steps"]), board(m),
+</div></details>''' % (i, " open" if i == 0 else "", esc(nm(s["card"])), ("%s starter &middot; " % s["kind"]) if s.get("kind") else "", rel, s["median"], m["score"], esc(plus), flow(m["steps"], m["hand"]), steps_list(m["steps"]), board(m),
         ('<div class="sec"><h3>Upgrades</h3>%s</div>' % ups) if ups else "", pills, vsd))
 o = G["opening"]
+# The rest of the deck: extenders and situational cards (compact entries), then non-engine cards. Every card appears once.
+def entry(c):
+    k = c["card"]; b = c.get("best")
+    what = "used in %d%% of its hands, opens the line in %d%% &middot; typical board with it %.1f" % (round(c["used"] * 100), round(c["opens"] * 100), c["median"])
+    inner = ('<div class="sec"><h3>Its best line <small>%.1f &middot; hand: %s</small></h3>%s%s</div>' % (why(b)["total"], esc(", ".join(nm(x) for x in b["hand"])), flow(b["steps"], b["hand"]), board(b))) if b else '<p class="cm">No line used it.</p>'
+    return '<details class="card mini"><summary><span class="cn">%s <small>&times;%d</small></span><span class="cm">%s</span><span class="cs">%.1f</span></summary><div class="body">%s</div></details>' % (esc(nm(k)), c["copies"], what, c["median"], inner)
+rest = []
+for role, head, note in (("extender", "Extenders", "Cards the lines use but don't open with: they make a starter's line bigger."),
+                         ("situational", "Situational", "Cards the lines use in under half of their hands.")):
+    cs = [c for c in G.get("cards", []) if c["role"] == role]
+    if cs: rest.append('<h2 class="part">%s <small>%s</small></h2>%s' % (head, note, "".join(entry(c) for c in sorted(cs, key=lambda c: -c["used"]))))
+if G.get("nonEngine"):
+    rest.append('<h2 class="part">Non-engine <small>Handtraps and Traps: not part of the combo; the score counts them as interruptions when held.</small></h2><p class="ne">%s</p>' % esc(", ".join(nm(c) for c in G["nonEngine"])))
+ncards = len(G.get("cards", [])); nst = len(starters)
+cover = ("Covers all %d cards in the Main Deck: %d starters, %d other engine cards, %d non-engine." % (ncards + len(G.get("nonEngine", [])), nst, ncards - nst, len(G.get("nonEngine", [])))) if G.get("cards") else ""
 page = '''<title>%s Guide Draft</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600&family=Barlow+Condensed:wght@600;700&display=swap">
 <style>
@@ -146,6 +165,10 @@ h1 small { color:var(--gold); font-size:16px; letter-spacing:2px; text-transform
 .pill { font-size:10.5px; padding:1px 6px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
 .pill.ok { border-color:var(--ok); color:var(--ok); } .pill.mid { border-color:var(--mid); color:var(--mid); } .pill.bad { border-color:var(--red); color:var(--red); } .pill.na { opacity:.55; }
 .pills.big .pill { font-size:12.5px; padding:2px 9px; }
+h2.part { font-family:var(--display); font-size:22px; margin:22px 0 8px; } h2.part small { font-family:var(--body); font-size:13px; color:var(--muted); font-weight:400; margin-left:8px; }
+.k { display:inline-block; margin-left:6px; font-size:10.5px; font-weight:400; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 4px; vertical-align:2px; }
+.cover { color:var(--muted); margin:0 0 4px; } .ne { margin:0; } .cn small { color:var(--muted); font-size:14px; }
+details.card.mini .cn { font-size:18px; } details.card.mini .cs { font-size:20px; }
 details.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; }
 details.card > summary { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"n s" "m s"; gap:2px 12px; padding:12px 14px; cursor:pointer; list-style:none; }
 details.card > summary::-webkit-details-marker { display:none; }
@@ -200,11 +223,15 @@ details.up > .flow, details.up > .board, details.vs > .flow { margin:6px 0 4px; 
     <p>Rough scale: <b>~6</b> = one or two real stops, <b>~10</b> = three, <b>14+</b> = four or more. Here a <b>strong board is %.1f+</b>: what the best quarter of random opening hands reached. Every end board has a "Why N points" table that adds up to its score.</p>
     <ul><li><b>Bar of 10</b> on a starter: in how many of 10 random hands with that card you reach a strong board.</li>
       <li><b>Handtrap pills</b>: green = the board keeps 85%%+ of its points if they play it, gold = 60&ndash;85%%, red = less; faded = it can't hit that line. Tap one under "If they have" for the line that plays through it.</li>
+      <li><b>Roles</b>: each engine card is tested alone, with the deck's most common non-engine cards filling the hand (they can still be used as material or a cost, as in a real hand). If the board it builds scores %.0f+ (not counting cards left in hand), it's a <b>1-card starter</b> and that line is its main line. Cards the lines usually open with but that need another engine card are <b>2-card starters</b>. Cards used in half or more of their hands without opening are <b>extenders</b>; the rest are <b>situational</b>.</li>
       <li><b>Line chips</b>: gold outline = a card from your hand, red = the opponent's handtrap. <b>Board tiles</b>: solid = monster, dashed = set card, dotted = held in hand or back at the End Phase.</li></ul>
   </details>
+  <p class="cover">%s</p>
+  <h2 class="part">Starters <small>1-card: makes a board on its own. 2-card: needs a partner card.</small></h2>
   <nav class="grid" aria-label="Starters">%s</nav>
   %s
-</div>''' % (esc(title), esc(title), o["hands"], o["median"], o["good"], round(o["shareGood"] * 10), o["good"], "".join(grid), "".join(cards))
+  %s
+</div>''' % (esc(title), esc(title), o["hands"], o["median"], o["good"], round(o["shareGood"] * 10), o["good"], G.get("soloMin", 4), esc(cover), "".join(grid), "".join(cards), "".join(rest))
 open(outf, "w", encoding="utf-8").write(page)
 p.stdin.write('{"cmd":"quit"}\n'); p.stdin.flush()
 print("wrote", outf, len(starters), "starters")
