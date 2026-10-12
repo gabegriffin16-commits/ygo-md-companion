@@ -768,6 +768,9 @@ struct Search {
 	// "What if they hit this?": follow `prefix` (our choices, by label) until our step `hitStep` is activated,
 	// let the opponent chain `hitCard` there, then search freely from whatever is left.
 	std::vector<std::string> prefix; uint32_t hitCard = 0; int hitStep = -1;
+	// "oppFirst": the opponent plays this handtrap at its first legal chance during a normal search (beam + depth-first):
+	// the best line when they Droll / Nibiru / Ash you, like a guide's "into Droll" combo. Not a replayed line (no prefix).
+	uint32_t oppFirst = 0;
 	std::vector<std::vector<std::string>> seeds;   // lines found before for this hand (choice labels): replayed first, then built on
 	bool interrupting() const { return hitCard != 0; }
 	std::atomic<bool> stop{false};
@@ -1173,12 +1176,15 @@ struct Search {
 	Opt opp_choice(const Prompt& m, const St& st, bool& hitNow) const {
 		hitNow = false;
 		uint32_t want = (hitStep >= 0 && hitStep < (int)st.steps.size()) ? st.steps[hitStep].card : 0;
+		if(oppFirst && !st.steps.empty()) want = st.steps.back().card;   // a targeting handtrap goes for what we just used
 		Opt o; o.label = "opp";
 		switch(m.type) {
 		case MSG_SELECT_CHAIN:
 			o.resp = p32(m.forced && !m.chains.empty() ? 0 : -1);
 			if(interrupting() && !st.hit && (int)st.steps.size() == hitStep + 1)
 				for(size_t i = 0; i < m.chains.size(); i++) if(m.chains[i].first == hitCard) { o.resp = p32((int)i); hitNow = true; break; }
+			if(oppFirst && !st.hit)
+				for(size_t i = 0; i < m.chains.size(); i++) if(m.chains[i].first == oppFirst) { o.resp = p32((int)i); hitNow = true; break; }
 			return o;
 		case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {
 			std::vector<uint32_t> idx;
@@ -1335,6 +1341,7 @@ struct Search {
 			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
 				bool hn; Opt o = opp_choice(m, st, hn);
 				d->respond(o.resp); st.path.push_back(o.resp);
+				if(hn) { st.hit = true; st.steps.push_back({"Opp", oppFirst ? oppFirst : hitCard, "", {}}); }
 				if(!d->run(m, retry)) return;
 				continue;
 			}
@@ -1344,7 +1351,7 @@ struct Search {
 			if((m.type == MSG_SELECT_IDLECMD || window) && !atStart) {
 				Board b = read_board(*d);
 				std::vector<Opt> opts = choices(m);
-				std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
+				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				if(window) k = "W" + k;
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
@@ -1379,7 +1386,7 @@ struct Search {
 			if(!noMid && live.size() > 1 && m.type != MSG_SELECT_IDLECMD) {
 				Board b = read_board(*d);
 				std::vector<std::string> ls = st.labels; std::sort(ls.begin(), ls.end());
-				std::string k = (st.epDeep ? "DM" : "M") + std::to_string(m.type) + "|" + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
+				std::string k = (st.epDeep ? "DM" : "M") + std::string(st.hit ? "H" : "") + std::to_string(m.type) + "|" + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto* o : live) k += o->label + ";";
 				k += "#"; for(auto& l : ls) k += l + ";";
 				std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return;
@@ -2304,6 +2311,8 @@ int main(int argc, char** argv) {
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->hitCard = req.value("hitCard", 0u);
 			s->hitStep = req.value("hitStep", -1);
+			s->oppFirst = req.value("oppFirst", 0u);
+			if(s->oppFirst) s->setup.oppHand.push_back(s->oppFirst);
 			if(req.contains("prefix") && req["prefix"].is_array()) for(auto& x : req["prefix"]) s->prefix.push_back(x.get<std::string>());
 			std::vector<uint32_t> missing;
 			for(uint32_t c : s->setup.hand) {

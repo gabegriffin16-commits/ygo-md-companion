@@ -273,6 +273,14 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   Mulcharmy / Maxx lines are left out (the score doesn't count their draws: they need their own goal). The app's backups
   (`genBackups`) cover Ash / Imperm / Veiler / Droll only (no Nibiru, the handtrap guides plan around most), 2.5 s and 6
   actions each.
+  Resilience (task 3): choosing among the engine's top lines by how they survive Droll / Nibiru barely helps
+  (`bench/resil.py`: Yubel 0 of 11 hands change, the top lines share the same fragile opening; Branded 2 of 12, worst
+  6.67 -> 7.09). What works: `"oppFirst": <handtrap code>` on a normal search (beam + depth-first) makes the opponent
+  play that handtrap at its first legal chance, so the search finds the line built to play through it (like a guide's
+  "into Droll" combo). vsguide.py FIRST=1, 14 guide lines: engine >= guide's board after the hit 10/14 (old backups:
+  6/14); e.g. Yubel Samsara vs Droll 4.20 -> 14.51 (guide 11.32), D/D/D Doom Queen vs Droll 2.05 -> 14.76 (12.81), Kewl
+  Tune Rotary vs Droll 4.40 -> 11.14 (6.90). Still behind: Branded Walbaz through Droll 10.12 (13.61), Yubel Nightmare
+  Throne vs Nibiru x3 12.3-12.7 (13.0-16.2): the long-combo decks.
 
 - GOAL (owner): be a guide maker: best lines for custom guideless decks. Tool: `bench/audit.py <engine> <cdb> <zip> <deck|.ydk|cloud:id>`
   (card reads that look silent, short-vs-long search gaps, unused cards, simulation over/underrated). First Dracotail

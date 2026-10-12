@@ -6,7 +6,9 @@ step for us (the opponent picks the moment). All boards scored by the engine.
 Mulcharmy (Fuwalos / Purulia) and Maxx "C" lines are left out: their "hit" makes the opponent draw, which the board score
 doesn't count; they need their own goal (fewest summons / searches).
   python3 vsguide.py <engine> <cards.cdb> <scripts.zip> <refs.json>...
-  env SECS (main search, 20), BSECS (per backup, 4), ACTS (backup max actions, 16), THREADS (8)"""
+  env SECS (main search, 20), BSECS (per backup, 4), ACTS (backup max actions, 16), THREADS (8)
+  FIRST=1: also search with the engine knowing the opponent plays the handtrap at its first legal chance ("oppFirst":
+  the line built to play through it, like the guide's) and compare that board too."""
 import json, os, re, sqlite3, subprocess, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from guidehand import hand_of
@@ -57,12 +59,19 @@ for rf in refs:
             s = rb["boards"][0]["score"]
             if first is None: first = (i, s)
             if worst is None or s < worst[1]: worst = (i, s)
-        rows.append((os.path.basename(rf)[:-5], b["name"], nm(H), g, main["score"], first, worst))
+        knew = None
+        if os.environ.get("FIRST"):
+            rk = ask(dict(base, timeMs=int(SECS * 1000), oppFirst=H))
+            if rk.get("boards"): knew = rk["boards"][0]["score"]
+        rows.append((os.path.basename(rf)[:-5], b["name"], nm(H), g, main["score"], first, worst, knew))
         f = "step %d: %.2f" % first if first else "never hit"
         w = "step %d: %.2f" % worst if worst else "-"
-        print("%-14s %-44s %-16s guide after hit %6.2f | engine main %6.2f, first hit %s, worst %s" % (rows[-1][0], b["name"][:44], nm(H)[:16], g, main["score"], f, w), flush=True)
+        print("%-14s %-44s %-16s guide after hit %6.2f | engine main %6.2f, first hit %s, worst %s%s" % (rows[-1][0], b["name"][:44], nm(H)[:16], g, main["score"], f, w,
+              (" | knowing it's coming %.2f" % knew) if knew is not None else ""), flush=True)
 hit = [x for x in rows if x[5]]
 print("\n%d guide 'vs handtrap' lines; the handtrap could hit the engine's line in %d" % (len(rows), len(hit)))
 if hit:
     print("engine backup at first hit >= guide's board: %d of %d; worst case >= guide: %d of %d" % (sum(1 for x in hit if x[5][1] >= x[3] - 0.3), len(hit), sum(1 for x in hit if x[6][1] >= x[3] - 0.3), len(hit)))
+k = [x for x in rows if x[7] is not None]
+if k: print("engine knowing it's coming >= guide's board: %d of %d" % (sum(1 for x in k if x[7] >= x[3] - 0.3), len(k)))
 p.stdin.write('{"cmd":"quit"}\n'); p.stdin.flush()
