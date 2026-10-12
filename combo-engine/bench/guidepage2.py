@@ -2,6 +2,7 @@
 a short card flow, end board tiles with interruption badges, up to 3 upgrades, handtrap pills). Details stay folded.
   python3 guidepage2.py <starters.json> <deck.json> <out.html> "<deck name>" """
 import json, sqlite3, subprocess, sys, html
+from explain import explain, card_points
 src, deckf, outf, title = sys.argv[1:5]
 D = "C:/Users/gabeg/AppData/Roaming/Master Duel Companion/combo-data/"
 ENGINE = "C:/Users/gabeg/AppData/Local/mdc-engine-build/ce-build/Release/combo-engine.exe"
@@ -59,27 +60,25 @@ def flow(steps, hand):
         cls = "opp" if do == "Opp" else ("hand" if c in hand else "")
         out.append('<span class="fc %s">%s</span>' % (cls, esc(("They: " if do == "Opp" else "") + nm(c))))
     return '<div class="flow">' + '<span class="ar" aria-hidden="true">&rsaquo;</span>'.join(out) + "</div>"
-def steps_list(steps):
-    HINT = {501: "discard", 503: "banish", 504: "send", 506: "add", 509: "Special Summon", 510: "Set", 527: "place", 511: "material", 512: "material", 513: "material", 533: "material"}
-    li = []
-    for s in steps:
-        do, c, fx, picks, groups = s
-        extra = "; ".join("%s %s" % (HINT.get(h, "pick"), ", ".join(nm(x) for x in cs)) for h, cs in (groups or []) if cs)
-        li.append("<li>%s <b>%s</b>%s</li>" % (esc("They activate" if do == "Opp" else do), esc(nm(c)), (" &middot; " + esc(extra)) if extra else ""))
-    return '<ol class="steps">' + "".join(li) + "</ol>"
+def steps_block(L):
+    """Defining steps shown with their reasoning; every step one line in a fold (defining ones marked)."""
+    ex, built = explain(L, why(L), nm, lambda c: row(c)[2], kind)
+    keys = "".join('<li class="key"><span class="kt"><b>Step %d</b> %s</span><ul>%s</ul></li>' % (e["n"], esc(e["text"]), "".join("<li>%s</li>" % esc(x) for x in e["detail"])) for e in ex if e["key"])
+    li = "".join('<li%s>%s%s</li>' % (' class="k"' if e["key"] else "", esc(e["text"]), (' <span class="fo">%s</span>' % esc(e["for"])) if e.get("for") else "") for e in ex)
+    return ('<div class="keys"><h4>Key steps</h4><ol class="keyl">%s</ol></div>' % keys if keys else "") + '<details class="more"><summary>All %d steps</summary><ol class="steps">%s</ol></details>' % (len(ex), li)
 def board(L):
-    sv = stops(L)
+    """End-board tiles; each badge = that card's points (same numbers as the key steps), named by what earns them."""
+    pts, lab = card_points(L, why(L), nm, kind)
+    badge = lambda c: ('<span class="bd b-%s">%s %.1f</span>' % (lab[c].lower(), lab[c], pts[c])) if c in lab and pts.get(c, 0) >= 0.4 else ""
     tiles = []
     for c in L["field"] + L["backrow"]:
-        v = sv.pop(c, 0); k = kind(c) if v > 0.4 else ""
-        tiles.append('<div class="tile%s"><span class="tn">%s</span>%s</div>' % (" set" if c in L["backrow"] else "", esc(nm(c)), ('<span class="bd b-%s">%s %.1f</span>' % (k.lower(), k, v)) if k else ""))
-    # Cards elsewhere that still count as interruptions: handtraps / Traps held in hand, a monster banished until the End Phase.
+        tiles.append('<div class="tile%s"><span class="tn">%s</span>%s</div>' % (" set" if c in L["backrow"] else "", esc(nm(c)), badge(c)))
+    # Cards elsewhere that still count: handtraps / Traps held in hand (copies together), a monster banished until the End Phase.
     for where, cs, cls in (("in hand", L.get("left", []), "hand"), ("back at End Phase", L.get("banished", []), "ban")):
-        for c in cs:
-            v = sv.pop(c, 0)
-            if v <= 0.4: continue
-            k = kind(c)
-            tiles.append('<div class="tile %s"><span class="tn">%s</span><span class="wh">%s</span>%s</div>' % (cls, esc(nm(c)), where, ('<span class="bd b-%s">%s %.1f</span>' % (k.lower(), k, v)) if k else ""))
+        for c in sorted(set(cs), key=cs.index):
+            if c not in lab: continue
+            k = cs.count(c)
+            tiles.append('<div class="tile %s"><span class="tn">%s%s</span><span class="wh">%s</span>%s</div>' % (cls, esc(nm(c)), (" &times;%d" % k) if k > 1 else "", where, badge(c)))
     return '<div class="board">' + "".join(tiles) + "</div>" + breakdown(L)
 def pill(v, main):
     if not v["used"]: return '<span class="pill na" title="%s can\'t hit this line">%s</span>' % (HT[v["by"]], HT[v["by"]])
@@ -115,18 +114,18 @@ for i, s in enumerate(starters):
     vsd = "".join('<details class="vs"><summary>%s <span class="vk">keeps %d%%</span></summary>%s</details>' % (pill(v, m), round(v["keeps"] * 100), flow(v["line"]["steps"], v["line"]["hand"])) for v in s["vs"] if v["used"] and v["line"])
     cards.append('''<details class="card" id="s%d"%s><summary><span class="cn">%s</span><span class="cm">%sgood board in %d of 10 hands &middot; typical %.1f</span><span class="cs">%.1f</span></summary>
 <div class="body">
-  <div class="sec"><h3>Main line <small>%s</small></h3>%s<details class="more"><summary>All steps</summary>%s</details></div>
+  <div class="sec"><h3>Main line <small>%s</small></h3>%s%s</div>
   <div class="sec"><h3>End board</h3>%s</div>
   %s
   <div class="sec"><h3>If they have</h3><div class="pills big">%s</div>%s</div>
-</div></details>''' % (i, " open" if i == 0 else "", esc(nm(s["card"])), ("%s starter &middot; " % s["kind"]) if s.get("kind") else "", rel, s["median"], m["score"], esc(plus), flow(m["steps"], m["hand"]), steps_list(m["steps"]), board(m),
+</div></details>''' % (i, " open" if i == 0 else "", esc(nm(s["card"])), ("%s starter &middot; " % s["kind"]) if s.get("kind") else "", rel, s["median"], m["score"], esc(plus), flow(m["steps"], m["hand"]), steps_block(m), board(m),
         ('<div class="sec"><h3>Upgrades</h3>%s</div>' % ups) if ups else "", pills, vsd))
 o = G["opening"]
 # The rest of the deck: extenders and situational cards (compact entries), then non-engine cards. Every card appears once.
 def entry(c):
     k = c["card"]; b = c.get("best")
     what = "used in %d%% of its hands, opens the line in %d%% &middot; typical board with it %.1f" % (round(c["used"] * 100), round(c["opens"] * 100), c["median"])
-    inner = ('<div class="sec"><h3>Its best line <small>%.1f &middot; hand: %s</small></h3>%s%s</div>' % (why(b)["total"], esc(", ".join(nm(x) for x in b["hand"])), flow(b["steps"], b["hand"]), board(b))) if b else '<p class="cm">No line used it.</p>'
+    inner = ('<div class="sec"><h3>Its best line <small>%.1f &middot; hand: %s</small></h3>%s%s</div>' % (why(b)["total"], esc(", ".join(nm(x) for x in b["hand"])), flow(b["steps"], b["hand"]) + steps_block(b), board(b))) if b else '<p class="cm">No line used it.</p>'
     return '<details class="card mini"><summary><span class="cn">%s <small>&times;%d</small></span><span class="cm">%s</span><span class="cs">%.1f</span></summary><div class="body">%s</div></details>' % (esc(nm(k)), c["copies"], what, c["median"], inner)
 rest = []
 for role, head, note in (("extender", "Extenders", "Cards the lines use but don't open with: they make a starter's line bigger."),
@@ -169,6 +168,12 @@ h2.part { font-family:var(--display); font-size:22px; margin:22px 0 8px; } h2.pa
 .k { display:inline-block; margin-left:6px; font-size:10.5px; font-weight:400; color:var(--muted); border:1px solid var(--line); border-radius:4px; padding:0 4px; vertical-align:2px; }
 .cover { color:var(--muted); margin:0 0 4px; } .ne { margin:0; } .cn small { color:var(--muted); font-size:14px; }
 details.card.mini .cn { font-size:18px; } details.card.mini .cs { font-size:20px; }
+.keys { margin-top:10px; } .keys h4 { margin:0 0 4px; font-size:11.5px; letter-spacing:1.4px; text-transform:uppercase; color:var(--gold); font-weight:600; }
+.keyl { list-style:none; margin:0; padding:0; display:grid; gap:8px; }
+.keyl > li { border-left:3px solid var(--gold); padding:4px 0 4px 10px; background:var(--bg); border-radius:0 6px 6px 0; }
+.kt { font-size:14px; } .kt b { color:var(--gold); margin-right:4px; }
+.keyl ul { margin:4px 0 0; padding-left:18px; font-size:13.5px; color:var(--ink); } .keyl ul li { margin:2px 0; }
+.steps li.k { font-weight:600; } .steps li.k::marker { color:var(--gold); } .fo { color:var(--muted); font-size:12px; font-weight:400; }
 details.card { background:var(--panel); border:1px solid var(--line); border-radius:12px; margin-bottom:10px; }
 details.card > summary { display:grid; grid-template-columns:minmax(0,1fr) auto; grid-template-areas:"n s" "m s"; gap:2px 12px; padding:12px 14px; cursor:pointer; list-style:none; }
 details.card > summary::-webkit-details-marker { display:none; }
@@ -201,7 +206,7 @@ details.more summary, details.up summary, details.vs summary { cursor:pointer; c
 .tile.set { border-style:dashed; } .tile.hand, .tile.ban { border-style:dotted; opacity:.9; } .wh { font-size:11px; color:var(--muted); }
 .tn { line-height:1.25; }
 .bd { align-self:flex-start; font-size:10.5px; letter-spacing:.8px; text-transform:uppercase; padding:1px 6px; border-radius:4px; background:var(--panel2); }
-.b-negate { color:var(--gold); } .b-banish, .b-destroy, .b-bounce { color:var(--sky); } .b-summon { color:var(--muted); }
+.b-negate { color:var(--gold); } .b-lock, .b-stop { color:var(--ink); } .b-banish, .b-destroy, .b-bounce { color:var(--sky); } .b-summon { color:var(--muted); }
 details.up summary { display:flex; gap:8px; align-items:baseline; color:var(--ink); }
 .uc { font-weight:600; } .ug { color:var(--ok); font-variant-numeric:tabular-nums; font-size:13px; }
 details.up > .flow, details.up > .board, details.vs > .flow { margin:6px 0 4px; }
