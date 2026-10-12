@@ -343,8 +343,8 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   Poplar, Sinful Spoils, Flamberge, Yummy Synchros into Little Knight) and Yubel (2x Phantom of Yubel + Samsara D Lotus)
   read like real play. Fixed from them: "cannot be destroyed by your opponent's card effects" is protection, not removal
   (43 cards: Almiraj, Hedge Guard); "this card that was Special Summoned this turn" effects are ours-only (W:P Fancy Ball).
-  Known gap: Labrynth links off Lady / Lovely Labrynth where guides keep them (their value is synergy: Lovely's destroy
-  when our Traps remove a monster, no responses to Normal Traps, Big Welcome's Level 8+ Fiend bounce).
+  Labrynth links off Lady / Lovely into Unchained Soul of Rage; checked before building anything: both judges prefer that
+  board over Lady + Lovely with the same Traps (text 14.70 vs 13.06, simboard 7.86 vs 6.13), so no synergy rule was added.
   Conditions: `bench/condscan.py` groups every interruption's condition (text before the colon) by pattern. Most are
   timing ("when your opponent activates"), already handled; board-state ones are few. Added `needs` kinds 3 / 4 / 5: "if
   you control no (other) monsters" (Sky Striker Mechas), "N or more cards in your hand" (Dark World Brainwashing), "no
