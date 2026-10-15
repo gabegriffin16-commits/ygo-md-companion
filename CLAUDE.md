@@ -293,7 +293,19 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   a "from your GY" add/summon) in the beam's promise (`wGyUse`, off by default): rank 524 -> 389 at 0.8; tune 15k at 0.4
   std +0.6 / guideless +1.0, at 0.8 -0.7 / +1.2; Memento / Yubel guide totals within noise. Promise weights can't lift
   a state that's behind on everything visible: the next step is lookahead (a greedy playout per candidate state), a
-  bigger feature that needs a pass/fail test agreed first. Note: guide 1cc hands are just the named card; spell fillers
+  bigger feature that needs a pass/fail test agreed first.
+  Lookahead tried (Oct 2026), FAILED the agreed test, left off: request `lookahead` K / `laSteps` N / `laMix` (env
+  MDC_LOOKAHEAD / MDC_LASTEPS / MDC_LAMIX; main.cpp `look_level`): each level, states ranked below K x width get a greedy
+  playout (every choice at each decision point tried once, default answers inside actions, best next promise kept, N
+  decisions or to the turn's end), rank = h + mix x (playout - h) when higher; playouts count as replays. It does what it
+  was meant to on the trace: Memento Dark Blade's guide-like line goes from rank ~520 to 1-3 at level 3 and survives to
+  level 9 (was cut at 3). But the boards don't follow. tune.py 15k (current 114.49 / guideless 93.89): K3 N6 112.30 /
+  96.86; K2 N6 111.80 / 95.60; K3 N3 112.38 / 100.67; K3 N2 109.64 / 94.38; K3 N3 mix 0.5 113.28 / 93.08; K2 N3 mix 0.5
+  113.18 / 94.49 (std always below -1.0: Elfnote 14.93 -> 12-14, Branded 14.43 -> 9.7-13.5, Dracotail Branded Fusion
+  9.93 -> 8.93). compare.py 20s x2, K3 N3: Memento engine 60.68 / 62.41 -> 56.28 / 58.68 (guide 90.08, engine >= guide
+  0 of 7 either way), Yubel Fiendsmith 189.11 / 190.21 -> 189.13 / 184.00 (guide 222.13). Playouts saturate (many states
+  get the same greedy endpoint value) and cost replays the beam needed. Not worth more tuning without a new idea (e.g.
+  playouts done on the live duel at child creation instead of a replay, or a learned value). Note: guide 1cc hands are just the named card; spell fillers
   that can be Set (Forbidden Droplet) add ~7 points of held "set" value, so don't judge Memento with them.
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>

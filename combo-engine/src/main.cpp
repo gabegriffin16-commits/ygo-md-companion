@@ -1359,6 +1359,35 @@ struct Search {
 	}
 	const bool traceOn = getenv("MDC_TRACE") != nullptr;
 	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
+	// What a capped card pick is for (the game's hint): giving cards up (materials, costs, Tributes, discards) or taking them.
+	static bool give_up(uint64_t hint) { return hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519; }
+	// Best guess first for card picks: what we give up, cards that act when used as material (a Dracotail sent as Fusion
+	// material Sets a Trap), then Deck before GY / hand before the field (the field is our board), cheaper first; what we
+	// take or target, their cards, then our most valuable.
+	static double pick_rank(const Prompt& m, const Opt& o, bool giveUp) {
+		double v = 0;
+		for(uint32_t c : o.picks) {
+			size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
+			if(o.pkey) for(size_t q = 0; q < m.ckeys.size(); q++) if(m.ckeys[q] == o.pkey) { at = q; break; }
+			bool theirs = at < m.ccon.size() && m.ccon[at] == 1; uint8_t loc = at < m.cloc.size() ? m.cloc[at] : 0;
+			auto it = g_cards.find(c);
+			if(theirs) v += giveUp ? -5 : 10;
+			else if(giveUp) v += (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * card_value(c);
+			else v += card_value(c);
+		}
+		return v;
+	}
+	// A decision point's rank in the beam: its promise, plus a bonus per waiting activation in a chain window.
+	double node_h(const Board& b, const Prompt& m, const St& st, const std::vector<Opt>& opts, bool window) const {
+		size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
+		// A chain window with our triggers waiting (a Dracotail sent as material about to Set a Trap) is mid-way through
+		// something: each waiting activation is worth a bonus, and the Normal Summon is still there if the line hasn't
+		// used it (the game only offers it back in the Main Phase).
+		bool nsLeft = !m.summon.empty();
+		if(window) { nsLeft = true; for(auto& l : st.labels) if(l.rfind("ns ", 0) == 0) { nsLeft = false; break; } }
+		static const double wWin = getenv("MDC_WWIN") ? atof(getenv("MDC_WWIN")) : 0.5;   // tune.py 15k/30k, std + guideless: +4.6 / +0.2 / +2.6 / +1.4, never lower
+		return promise(b, nsLeft, moves) + (window ? wWin * moves : 0);
+	}
 	// Play from the live duel at prompt m until the next free Main Phase choice; each one reached becomes a child.
 	void sub(Duel& dref, Prompt m, St st, bool atStart, std::vector<Node>& out, std::mutex& omx, size_t par) {
 		Duel* d = &dref;   // not ours: the caller owns it (and may restore it after this returns)
@@ -1400,13 +1429,8 @@ struct Search {
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
-				// A chain window with our triggers waiting (a Dracotail sent as material about to Set a Trap) is mid-way through
-				// something: each waiting activation is worth a bonus, and the Normal Summon is still there if the line hasn't
-				// used it (the game only offers it back in the Main Phase).
-				bool nsLeft = !m.summon.empty();
-				if(window) { nsLeft = true; for(auto& l : st.labels) if(l.rfind("ns ", 0) == 0) { nsLeft = false; break; } }
-				static const double wWin = getenv("MDC_WWIN") ? atof(getenv("MDC_WWIN")) : 0.5;   // tune.py 15k/30k, std + guideless: +4.6 / +0.2 / +2.6 / +1.4, never lower
-				Node n; n.st = std::move(st); n.h = promise(b, nsLeft, moves) + (window ? wWin * moves : 0); n.parent = par; n.vkey = k;
+				double h = node_h(b, m, st, opts, window);
+				Node n; n.st = std::move(st); n.h = h; n.parent = par; n.vkey = k;
 				if(traceOn) { n.sc = score_of(b); n.nh = (uint16_t)b.hand.size(); n.ng = (uint16_t)b.grave.size(); n.nm = (uint16_t)moves; }
 				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
@@ -1451,22 +1475,8 @@ struct Search {
 				// sent as Fusion material Sets a Trap), then Deck before GY / hand before the field (the field is our board),
 				// cheaper first. What we take or target: their cards, then our most valuable.
 				static const bool noRank = getenv("MDC_NOPICKRANK") != nullptr;
-				const uint64_t hint = m.hint;
-				const bool giveUp = hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519;
-				auto rank = [&](const Opt* o) {
-					if(noRank) return 0.0;
-					double v = 0;
-					for(uint32_t c : o->picks) {
-						size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
-						if(o->pkey) for(size_t q = 0; q < m.ckeys.size(); q++) if(m.ckeys[q] == o->pkey) { at = q; break; }
-						bool theirs = at < m.ccon.size() && m.ccon[at] == 1; uint8_t loc = at < m.cloc.size() ? m.cloc[at] : 0;
-						auto it = g_cards.find(c);
-						if(theirs) v += giveUp ? -5 : 10;
-						else if(giveUp) v += (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * card_value(c);
-						else v += card_value(c);
-					}
-					return v;
-				};
+				const bool giveUp = give_up(m.hint);
+				auto rank = [&](const Opt* o) { return noRank ? 0.0 : pick_rank(m, *o, giveUp); };
 				std::stable_sort(rest.begin(), rest.end(), [&](const Opt* a, const Opt* b) { double ra = rank(a), rb = rank(b); return ra != rb ? ra > rb : h(a->label) < h(b->label); });
 				for(auto* o : rest) { if(keep.size() >= pickCap) break; keep.push_back(o); }
 				live.swap(keep); capped = true; t_capped = true;
@@ -1531,6 +1541,108 @@ struct Search {
 			atStart = false;
 			if(!d->run(m, retry)) return;
 		}
+	}
+	// ---------------- lookahead (opt-in: request "lookahead": K, env MDC_LOOKAHEAD) ----------------
+	// A long combo often looks weak half-way (Memento's Tatsunootoshigo fills the GY: board 0.5, few moves left) and is cut
+	// before it cashes in. With lookahead, the top K x width states of each level also get a cheap greedy playout: at each
+	// decision point every choice is tried once (the rest of that action on default answers) and the playout goes on with
+	// the one whose next state looks best, for laSteps decisions or until the turn ends. A state then ranks by the best of
+	// its own promise and what its playout reached. Playouts count as replays (fair at a fixed budget).
+	double lookK = 0, laMix = 1; int laSteps = 6;   // laMix: share of the playout's gain over the promise that counts
+	std::mutex lamx; std::unordered_map<uint64_t, double> laCache;   // by line (deterministic), kept across passes
+	// Default answers inside an action: card picks ranked as for capped picks, yes / activate before no / pass. Plays from
+	// prompt m to the next decision point (1), or to the opponent's turn (2: val = the board's score), or fails (0).
+	int la_run(Duel& d, Prompt& m, St& st, double& val) {
+		for(int guard = 0; guard < 400; guard++) {
+			bool retry;
+			if(st.ending && m.type == MSG_SELECT_IDLECMD) { val = record(d, st); return 2; }
+			if(m.player == 1 && m.type != MSG_SELECT_IDLECMD) {
+				bool hn; Opt o = opp_choice(m, st, hn); d.respond(o.resp); st.path.push_back(o.resp);
+				if(hn) { st.hit = true; st.steps.push_back({"Opp", oppFirst ? oppFirst : hitCard, "", {}}); }
+				if(!d.run(m, retry)) return 0;
+				continue;
+			}
+			bool window = !st.ending && m.type == MSG_SELECT_CHAIN && !m.chains.empty() && !m.forced;
+			if(m.type == MSG_SELECT_IDLECMD || window) return 1;
+			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
+			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
+			zone_opts(m, st, opts); pick_order(m, st, opts);
+			if(st.ending) ep_filter(m, opts);
+			if(opts.empty()) return 0;
+			const bool giveUp = give_up(m.hint);
+			size_t bi = 0; double bv = -1e18;
+			for(size_t i = 0; i < opts.size(); i++) {
+				const std::string& l = opts[i].label;
+				double v = l == "finish" ? (giveUp ? 100.0 : -100.0) : (l == "no" || l == "no chain" || l == "pass") ? -50.0 : pick_rank(m, opts[i], giveUp);
+				if(v > bv) { bv = v; bi = i; }
+			}
+			d.respond(opts[bi].resp); take(st, opts[bi]);
+			if(!d.run(m, retry)) return 0;
+		}
+		return 0;
+	}
+	// The greedy playout from decision point m (on the live duel d, which it leaves somewhere later): the best value seen.
+	double lookahead(Duel& d, Prompt m, St st) {
+		double best = -1e18;
+		for(int step = 0; step < laSteps && !out_of_time(); step++) {
+			bool window = m.type == MSG_SELECT_CHAIN;
+			std::vector<Opt> opts = choices(m);
+			bool epOK = true;
+			if(!window) {
+				double sc = record(d, st); best = std::max(best, sc);   // ending the turn here is a result too
+				epOK = ep_worth(read_board(d));
+				if(st.actions >= maxActions) { std::vector<Opt> e; if(epOK) for(auto& o : opts) if(o.end) e.push_back(o); opts.swap(e); }
+			}
+			std::vector<const Opt*> live; for(auto& o : opts) if(!o.end || epOK) live.push_back(&o);
+			if(live.empty()) break;
+			Duel::Saved saved; d.save(saved);
+			int bi = -1, bk = 0; double bv = -1e18;
+			for(size_t i = 0; i < live.size() && !out_of_time(); i++) {
+				if(i) d.load(saved);
+				replays++;
+				St s2 = st; take(s2, *live[i]);
+				if(live[i]->main && !window) s2.actions++;
+				d.respond(live[i]->resp); Prompt mm; bool rt;
+				if(!d.run(mm, rt)) continue;
+				double v = 0; int r = la_run(d, mm, s2, v);
+				if(r == 0) continue;
+				if(r == 1) { Board b = read_board(d); bool w = mm.type == MSG_SELECT_CHAIN; v = node_h(b, mm, s2, choices(mm), w); }
+				if(v > bv) { bv = v; bi = (int)i; bk = r; }
+			}
+			if(bi < 0) break;
+			best = std::max(best, bv);
+			if(bk == 2) break;
+			d.load(saved); replays++;
+			take(st, *live[bi]); if(live[bi]->main && !window) st.actions++;
+			d.respond(live[bi]->resp); bool rt;
+			if(!d.run(m, rt)) break;
+			double v; if(la_run(d, m, st, v) != 1) break;
+		}
+		return best;
+	}
+	// Lookahead for the states ranked [0, K x width) of a level, in parallel; their rank becomes max(promise, playout).
+	void look_level(std::vector<Node>& next, size_t width) {
+		size_t n = std::min(next.size(), (size_t)(lookK * width));
+		std::atomic<size_t> at{0};
+		auto work = [&] {
+			for(;;) {
+				size_t i = at++; if(i >= n || out_of_time()) return;
+				const uint64_t key = path_key(next[i].st.path);
+				double v; bool have = false;
+				{ std::lock_guard<std::mutex> lk(lamx); auto it = laCache.find(key); if(it != laCache.end()) { v = it->second; have = true; } }
+				if(!have) {
+					Prompt m; bool ok; auto d = replay(next[i].st.path, m, ok);
+					if(!ok || d->arena < 0 || !g_snap) continue;
+					v = lookahead(*d, m, next[i].st);
+					if(out_of_time()) continue;
+					std::lock_guard<std::mutex> lk(lamx); laCache[key] = v;
+				}
+				if(v > next[i].h) next[i].h += laMix * (v - next[i].h);
+			}
+		};
+		std::vector<std::thread> ts; int nt = std::max(1, std::min<int>(beamThreads, (int)n));
+		for(int i = 0; i < nt; i++) ts.emplace_back([&work] { ThreadEnd te; work(); });
+		for(auto& t : ts) t.join();
 	}
 	// Each wider beam pass re-expands states the narrower one already expanded (its kept states are mostly among the
 	// wider pass's too). Their children are kept from the previous pass and reused: no replays for them. Not kept: a
@@ -1626,6 +1738,12 @@ struct Search {
 				// Ties are broken by a hash of the line, not by which thread finished first: the same search keeps the same
 				// states every time (reproducible for tuning) while ties still land in a scattered order (no bias by name).
 				std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h != b.h ? a.h > b.h : a.tie < b.tie; });
+				if(lookK > 0 && next.size() > width) {
+					auto tl2 = Clock::now(); uint64_t r1 = replays.load();
+					look_level(next, width);
+					std::sort(next.begin(), next.end(), [](const Node& a, const Node& b) { return a.h != b.h ? a.h > b.h : a.tie < b.tie; });
+					if(getenv("MDC_BEAMLOG")) fprintf(stderr, "  lookahead: %zu states, %llu replays, %.1fs\n", std::min(next.size(), (size_t)(lookK * width)), (unsigned long long)(replays.load() - r1), std::chrono::duration<double>(Clock::now() - tl2).count());
+				}
 				// MDC_TRACE=<file with a line's labels (JSON array)>: where that line's state ranks at each level (debugging
 				// why the beam drops a known line).
 				static const std::vector<std::string> trace = [] { std::vector<std::string> t; if(const char* f = getenv("MDC_TRACE")) { std::ifstream in(f); if(in) t = json::parse(in).get<std::vector<std::string>>(); } return t; }();
@@ -2356,6 +2474,9 @@ int main(int argc, char** argv) {
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
+			s->lookK = req.value("lookahead", getenv("MDC_LOOKAHEAD") ? atof(getenv("MDC_LOOKAHEAD")) : 0.0);
+			s->laSteps = req.value("laSteps", getenv("MDC_LASTEPS") ? atoi(getenv("MDC_LASTEPS")) : 6);
+			s->laMix = req.value("laMix", getenv("MDC_LAMIX") ? atof(getenv("MDC_LAMIX")) : 1.0);
 			s->hitCard = req.value("hitCard", 0u);
 			s->hitStep = req.value("hitStep", -1);
 			s->oppFirst = req.value("oppFirst", 0u);
