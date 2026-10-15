@@ -118,8 +118,9 @@ def explain(line, why, nm, ctype, kindof=lambda c: ""):
             if feeds[i]:
                 nxt = sorted(feeds[i])
                 d.append("Sets up " + "; ".join("step %d (%s)" % (k + 1, short(step_text(steps[k], nm))) for k in nxt[:3]) + ("; and more" if len(nxt) > 3 else "") + ".")
-            if direct_cards[i]:
-                d.append("On the end board: " + lst(["%s (%s%.1f points)" % (nm(c), (kind[c].lower() + ", ") if c in kind else "", pts[c]) for c in direct_cards[i]]) + ".")
+            shown = [c for c in direct_cards[i] if c in kind]   # interruptions / locks only (not a body or a spent material's crumbs)
+            if shown:
+                d.append("On the end board: " + lst(["%s (%s, %.1f points)" % (nm(c), kind[c].lower(), pts[c]) for c in shown]) + ".")
             if reach[i] >= total - 0.05:
                 d.append("Everything this line builds (%.1f points) depends on it." % total)
             elif reach[i] > direct[i] + 0.05:

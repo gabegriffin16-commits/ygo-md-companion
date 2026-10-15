@@ -31,13 +31,19 @@ def sets(c):
     sc = info(c)[1] or 0
     return {(sc >> (16 * i)) & 0xfff for i in range(4) if (sc >> (16 * i)) & 0xffff}
 ALL = sorted(set(main) | set(extra))
+import re
+QUOTES = {o: set(q for q in re.findall(r'"([^"]{4,})"', info(o)[3])) for o in ALL}
+USED_ENGINE = set()   # filled after the deck sample: cards the lines use in most hands holding them (Bonfire, One for One)
 def engine(c):
-    """Part of the deck's engine: shares an archetype with 2+ other cards of the deck, or names / is named by one of them."""
+    """Part of the deck's engine: shares an archetype with 2+ other cards of the deck, names / is named by one of them (a
+    quoted name or archetype inside a card's name counts: "Diabellstar"), or the lines use it in most hands holding it."""
     if c in HT: return False
+    if c in USED_ENGINE: return True
     mine = sets(c)
     if mine and sum(1 for o in ALL if o != c and sets(o) & mine) >= 2: return True
-    n, t = info(c)[2], info(c)[3]
-    return any(o != c and ('"%s"' % n in info(o)[3] or '"%s"' % info(o)[2] in t) for o in ALL)
+    n = info(c)[2]
+    # (A Main Deck card quoting an Extra Deck card's name doesn't count: Magicians' Souls quotes "Dark Magician".)
+    return any(o != c and (any(q in n for q in QUOTES[o]) or (o in main and any(q in info(o)[2] for q in QUOTES[c]))) for o in ALL)
 is_ht_text = is_ht
 is_ht = lambda c: (c in HT or not engine(c)) if c in main else is_ht_text(c)   # openers: engine cards only (Faimena counts, Ash doesn't)
 qid = [10]; crashes = []
@@ -85,9 +91,27 @@ for i in range(M):
     print("deck sample %d/%d: %.2f  %s" % (i + 1, M, b["score"] if b else 0, ", ".join(nm(c) for c in h)), flush=True)
 scores = [x["score"] for x in sample]
 good = round(statistics.quantiles(scores, n=4)[2], 2) if len(scores) >= 4 else max(scores)   # "a good board": the top quarter's floor
+from explain import explain
 def opener_of(x):
-    acts = [s[1] for s in x["steps"] if s[1] in x["hand"] and s[0] in ("Normal Summon", "Special Summon", "Activate") and not is_ht(s[1])]
+    """The hand card the line opens with: the first one whose step leads to end-board points (explain.py's trace). A free
+    activation that builds nothing (Crossout Designator played first because it costs nothing) isn't the opener."""
+    w = ask({"cmd": "score", "field": x["field"], "zones": x.get("zones", []), "backrow": x["backrow"], "hand": x.get("left", []), "gy": x.get("gy", []), "banished": x.get("banished", []), "extra": extra, "deck": main})
+    ex = explain(x, w["score"], nm, lambda c: info(c)[0])[0] if w.get("score") else [{"points": 1}] * len(x["steps"])
+    # Cards of the hand used in steps that lead to end-board points (a free activation that builds nothing isn't "used").
+    left = Counter(x["hand"]); x["useful"] = []
+    for st, e in zip(x["steps"], ex):
+        if e["points"] <= 0: continue
+        for c in [st[1]] + list(st[3]):
+            if left.get(c, 0) > 0: left[c] -= 1; x["useful"].append(c)
+    # A Trap in hand can't open turn one (a copy the line activated was Set from the Deck by an effect), unless it says
+    # it can be activated from the hand.
+    trap_ok = lambda c: not (info(c)[0] & 0x4) or "activate this card from your hand" in info(c)[3].lower()
+    acts = [s[1] for s, e in zip(x["steps"], ex) if s[1] in x["hand"] and s[0] in ("Normal Summon", "Special Summon", "Activate") and not is_ht(s[1]) and trap_ok(s[1]) and e["points"] > 0]
     return acts[0] if acts else None
+# Cards the lines use in at least half of the sample hands holding them (2+ hands) are engine, whatever their wording.
+for c in set(main):
+    xs = [x for x in sample if c in x["hand"]]
+    if c not in HT and not is_ht_text(c) and len(xs) >= 2 and sum(1 for x in xs if c in x["uses"]) >= 0.5 * len(xs): USED_ENGINE.add(c)
 for x in sample: x["opener"] = opener_of(x)
 # ---- pass 2: every card of the deck (a complete guide: no card left out) ----
 # Each non-handtrap card gets its own hands (the deck sample's + N dealt with it). Its role comes from what the lines did:
@@ -122,7 +146,7 @@ for st in cards:
         b = search(sh)
         if b: solo = brief(b, sh); solo["opener"] = opener_of(solo)
     opens = sum(1 for x in hands if x["opener"] == st) / len(hands)
-    usedr = sum(1 for x in hands if st in x["uses"]) / len(hands)
+    usedr = sum(1 for x in hands if st in x.get("useful", x["uses"])) / len(hands)
     gain = built(solo) if solo else 0
     role = "starter" if gain >= SOLO or opens >= OPEN else "extender" if usedr >= USED else "situational"
     kind = ("1-card" if gain >= SOLO else "2-card") if role == "starter" else None
