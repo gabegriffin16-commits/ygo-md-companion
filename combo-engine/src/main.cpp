@@ -1563,6 +1563,7 @@ struct Search {
 		}
 	}
 	const bool traceOn = getenv("MDC_TRACE") != nullptr;
+	size_t deckPickX = 1;
 	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
 	// What a capped card pick is for (the game's hint): giving cards up (materials, costs, Tributes, discards) or taking them.
 	static bool give_up(uint64_t hint) { return hint == 500 || hint == 501 || hint == 502 || hint == 503 || hint == 504 || hint == 507 || (hint >= 511 && hint <= 513) || hint == 519; }
@@ -1678,6 +1679,9 @@ struct Search {
 			static const bool noCap = getenv("MDC_NOPICKCAP") != nullptr;
 			static const size_t capMin = getenv("MDC_PICKMIN") ? (size_t)atoi(getenv("MDC_PICKMIN")) : 2;   // 2 beat 4 on the guideless set at every budget (Snake-Eye's long lines), same on the tune set
 			size_t pickCap = noCap ? (size_t)-1 : std::max<size_t>(capMin, beam_width / 2);
+			// Picks from the Deck (what to send / search / summon) shape the resources a long combo has later: a wider cap
+			// there (request "deckPickX" / MDC_DECKPICKX, default 1 = same as other picks).
+			if(pickPrompt && deckPickX > 1 && !m.cloc.empty() && std::all_of(m.cloc.begin(), m.cloc.end(), [](uint8_t l) { return l == LOCATION_DECK; })) pickCap = pickCap == (size_t)-1 ? pickCap : pickCap * deckPickX;
 			if(pickPrompt && live.size() > pickCap) {
 				auto h = [](const std::string& s) { uint64_t t = 1469598103934665603ull; for(char ch : s) t = (t ^ (unsigned char)ch) * 1099511628211ull; return t; };
 				std::vector<const Opt*> keep, rest;
@@ -2688,6 +2692,7 @@ int main(int argc, char** argv) {
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
 			s->learnW = req.value("learn", getenv("MDC_LEARN") ? atof(getenv("MDC_LEARN")) : 0.0);
+			s->deckPickX = (size_t)std::max(1, req.value("deckPickX", getenv("MDC_DECKPICKX") ? atoi(getenv("MDC_DECKPICKX")) : 1));
 			if(req.contains("guide") && req["guide"].is_array()) for(auto& x : req["guide"]) s->guideSeq.push_back(x.get<uint32_t>());
 			if(req.contains("guidePicks") && req["guidePicks"].is_array()) for(auto& x : req["guidePicks"]) { std::vector<uint32_t> v; if(x.is_array()) for(auto& y : x) v.push_back(y.get<uint32_t>()); s->guidePicks.push_back(v); }
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
