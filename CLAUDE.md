@@ -281,6 +281,20 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   6/14); e.g. Yubel Samsara vs Droll 4.20 -> 14.51 (guide 11.32), D/D/D Doom Queen vs Droll 2.05 -> 14.76 (12.81), Kewl
   Tune Rotary vs Droll 4.40 -> 11.14 (6.90). Still behind: Branded Walbaz through Droll 10.12 (13.61), Yubel Nightmare
   Throne vs Nibiru x3 12.3-12.7 (13.0-16.2): the long-combo decks.
+  Long combos (task 7, Oct 2026): found and fixed a beam bug: a chain window's duplicate key had no record of what's on
+  the chain, so the window after activating an effect was cut as a duplicate of an earlier window with the same board /
+  hand / choices (Memento Dark Blade's Main Phase effect never resolved: beam-only search "complete" after 12 replays).
+  Window keys now include the sorted labels since the last Main Phase action. tune.py 15k: std 114.02 -> 114.49,
+  guideless 94.59 -> 94.30 (noise); 30k std 119.74 -> 119.31; Yubel Fiendsmith guides +3.6 total. Memento's real gap
+  stays (guides 13.7-13.9, engine ~8-10.7 from 1 card): `bench/tracegoal.py` (goal line, then MDC_TRACE with the promise
+  split into board / hand / GY / moves) shows the guide-like line cut at beam level 3 (rank ~520 of 650) right after
+  Tatsunootoshigo fills the GY: board 0.5 and 2 moves vs the top states' 3.5 and 4. Even with all 7 guide end cards as
+  goals, 60 s reaches 4 of 7. Tried: weighting GY cards the deck can use (own GY effect from the script read, or named by
+  a "from your GY" add/summon) in the beam's promise (`wGyUse`, off by default): rank 524 -> 389 at 0.8; tune 15k at 0.4
+  std +0.6 / guideless +1.0, at 0.8 -0.7 / +1.2; Memento / Yubel guide totals within noise. Promise weights can't lift
+  a state that's behind on everything visible: the next step is lookahead (a greedy playout per candidate state), a
+  bigger feature that needs a pass/fail test agreed first. Note: guide 1cc hands are just the named card; spell fillers
+  that can be Set (Forbidden Droplet) add ~7 points of held "set" value, so don't judge Memento with them.
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

@@ -95,6 +95,7 @@ struct CardRow {
 	bool matTrig = false;      // it does something when used as material ("if this card is sent to the GY as material for a Fusion Summon")
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
+	bool gyAct = false;        // has an effect it activates from the GY (fx_check): a GY copy is a resource for later steps
 	int8_t fxChecked = 0;      // 1: checked against its script (fx_check); fxZeroed: places whose text value the script didn't back (bits 1 field, 2 set, 4 hand, 8 GY)
 	uint8_t fxZeroed = 0, fxShared = 0;   // fxShared: places where its interruptions share one use per turn (only the best counts)
 	std::string desc;
@@ -717,7 +718,7 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 	for(const auto* v : lists) for(uint32_t c : *v) { auto it = g_cards.find(c); if(it == g_cards.end() || it->second.fxChecked || !todo.insert(c).second) continue;
 		((it->second.type & (TYPE_FUSION | TYPE_SYNCHRO | TYPE_XYZ | TYPE_LINK)) ? su.extra : su.deck).push_back(c); }
 	if(todo.empty()) return;
-	std::unordered_map<uint32_t, uint8_t> can; std::unordered_set<uint32_t> any;
+	std::unordered_map<uint32_t, uint8_t> can; std::unordered_set<uint32_t> any, gyActs;
 	// Per card and place: the once-per-turn key of each opponent's-turn action there ("You can only use 1 of these effects
 	// per turn": the same count code). All the same key = one use per turn there, so a 2nd interruption adds nothing.
 	std::unordered_map<uint32_t, std::array<std::vector<uint64_t>, 4>> keys; uint64_t uniq = 1ull << 63;
@@ -733,6 +734,7 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 			uint8_t m = 0;
 			auto zones = [&](uint16_t r) { uint8_t z = 0; if(r & (LOCATION_MZONE | 0x400 | 0x800)) z |= 1; if(r & LOCATION_SZONE) z |= trapLike ? (ty & TYPE_CONTINUOUS ? 3 : 2) : 1; if(r & LOCATION_HAND) z |= 4; if(r & LOCATION_GRAVE) z |= 8; return z; };
 			const uint16_t t = f.type;
+			if((t & (EFFECT_TYPE_IGNITION | EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_QUICK_O)) && (f.range & LOCATION_GRAVE)) gyActs.insert(f.card);
 			if(t & EFFECT_TYPE_ACTIVATE) m |= trapLike ? (ty & TYPE_CONTINUOUS ? 3 : 2) : 1;
 			else if(t & EFFECT_TYPE_IGNITION) m = 0;
 			else if((t & (EFFECT_TYPE_TRIGGER_O | EFFECT_TYPE_TRIGGER_F)) && (t & EFFECT_TYPE_SINGLE)) m |= 1 | 8 | (trapLike ? 2 : 0) | (f.range ? zones(f.range) : 0);   // "if this (Set) card is Summoned / destroyed / sent...": acts from where it was
@@ -746,7 +748,7 @@ static void fx_check(const std::vector<const std::vector<uint32_t>*>& lists) {
 		}
 	}
 	for(uint32_t c : todo) {
-		CardRow& r = g_cards[c]; r.fxChecked = 1;
+		CardRow& r = g_cards[c]; r.fxChecked = 1; r.gyAct = gyActs.count(c) > 0;
 		if(!any.count(c)) continue;
 		uint8_t m = can[c], z = 0;
 		if(r.ev.field > 0 && !(m & 1)) { r.ev.field = 0; z |= 1; }
@@ -1205,6 +1207,11 @@ struct Search {
 		}
 		}
 	}
+	// Index of the last Main Phase action in a line's labels ("ns" / "ss" / "act" / "END"), 0 if none.
+	static size_t n_main_from(const std::vector<std::string>& labels) {
+		for(size_t q = labels.size(); q-- > 0;) { const std::string& l = labels[q]; if(l.rfind("ns ", 0) == 0 || l.rfind("ss ", 0) == 0 || l.rfind("act ", 0) == 0 || l == "END") return q; }
+		return 0;
+	}
 	static void take(St& st, const Opt& o) { st.path.push_back(o.resp); st.mine.push_back(o.resp); st.mineType.push_back(o.ptype); st.labels.push_back(o.label); add_step(st.steps, o); if(o.end) st.ending = true; st.lastPick = o.pkey; st.pickedFrom = o.avail; }
 	// Cards picked one at a time: picking A then B ends where B then A does, so after one of our picks only cards that
 	// come later (by where they are) are offered, and each set is tried once instead of once per order. Only our own
@@ -1314,14 +1321,43 @@ struct Search {
 	// by each action (and every choice inside it), keep the most promising few, repeat. The beam widens on
 	// each pass until time runs out, so early choices (what to search, what to discard) all get a fair look,
 	// which plain depth-first search with a time limit doesn't give them.
-	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; std::string vkey; };   // tie: fixed pseudo-random order for equal h; vkey: its duplicate-check key
+	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; std::string vkey; double sc = 0; uint16_t nh = 0, ng = 0, nm = 0; };   // sc/nh/ng/nm: board score, hand, GY, moves (MDC_TRACE)   // tie: fixed pseudo-random order for equal h; vkey: its duplicate-check key
 	std::mutex vmx; std::unordered_set<std::string> bvisited;
 	// How good a mid-combo state looks: the board so far, plus how much is still left to do from here
 	// (effects ready to use, cards in hand, the Normal Summon).
 	double promise(const Board& b, bool nsLeft, size_t moves) const {
 		ProfTimer pt(g_profScore);
-		return score_of(b) + W_MOVES * moves + W_HAND * b.hand.size() + (nsLeft ? W_NS : 0) + W_GY * b.grave.size();
+		size_t use = 0; if(W_GYUSE != W_GY) for(uint32_t c : b.grave) if(gyUse.count(c)) use++;
+		return score_of(b) + W_MOVES * moves + W_HAND * b.hand.size() + (nsLeft ? W_NS : 0) + W_GY * (b.grave.size() - use) + W_GYUSE * use;
 	}
+	// GY cards this deck can still use (long resource-building combos fill the GY first and cash it in later: Memento's
+	// Tatsunootoshigo sends 3 Mementos that Angwitch / Ghattic / Fusion bring back): the card's own effect works from the GY
+	// (its script), or a card of the deck adds / Special Summons from the GY something it names (a quoted name or
+	// archetype in that sentence; "a monster" with no name = any monster).
+	double W_GYUSE = 0.1; std::unordered_set<uint32_t> gyUse;
+	void init_gy_use() {
+		std::vector<std::string> tags; bool anyMon = false;
+		std::vector<const std::vector<uint32_t>*> all = {&setup.deck, &setup.extra, &setup.hand};
+		for(const auto* v : all) for(uint32_t c : *v) {
+			auto it = g_cards.find(c); if(it == g_cards.end()) continue;
+			std::string d = evalx::lower(it->second.desc); size_t a = 0;
+			while(a < d.size()) {
+				size_t e = d.find_first_of(".;", a); if(e == std::string::npos) e = d.size();
+				std::string sn = d.substr(a, e - a); a = e + 1;
+				if(sn.find("your gy") == std::string::npos || (sn.find("special summon") == std::string::npos && sn.find("add") == std::string::npos)) continue;
+				bool q = false;
+				for(size_t p = sn.find('"'); p != std::string::npos; ) { size_t p2 = sn.find('"', p + 1); if(p2 == std::string::npos) break; tags.push_back(sn.substr(p + 1, p2 - p - 1)); q = true; p = sn.find('"', p2 + 1); }
+				if(!q && sn.find("monster") != std::string::npos) anyMon = true;
+			}
+		}
+		for(const auto* v : all) for(uint32_t c : *v) {
+			auto it = g_cards.find(c); if(it == g_cards.end()) continue;
+			bool u = it->second.gyAct || (anyMon && (it->second.type & TYPE_MONSTER));
+			for(const auto& t : tags) if(!u && !t.empty() && it->second.lname.find(t) != std::string::npos) u = true;
+			if(u) gyUse.insert(c);
+		}
+	}
+	const bool traceOn = getenv("MDC_TRACE") != nullptr;
 	double W_MOVES = 0.35, W_HAND = 0.25, W_NS = 0.5, W_GY = 0.1; bool diverse = true; size_t width0 = 8;
 	// Play from the live duel at prompt m until the next free Main Phase choice; each one reached becomes a child.
 	void sub(Duel& dref, Prompt m, St st, bool atStart, std::vector<Node>& out, std::mutex& omx, size_t par) {
@@ -1353,7 +1389,14 @@ struct Search {
 				std::vector<Opt> opts = choices(m);
 				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
-				if(window) k = "W" + k;
+				// A chain window's state includes what's on the chain, which the board doesn't show: the window right after a
+				// Normal Summon and the one after activating that monster's effect can have the same board, hand and choices
+				// (Memento Dark Blade: its activation was cut as a duplicate of the summon's window, so the beam never resolved
+				// it). So a window's key also has the labels since the last Main Phase action (what opened this chain).
+				if(window) {   // (sorted: the same picks made in another order are the same chain, as in the mid-action check)
+					std::vector<std::string> since(st.labels.begin() + n_main_from(st.labels), st.labels.end()); std::sort(since.begin(), since.end());
+					k = "W" + k + "@"; for(auto& l : since) k += l + ";";
+				}
 				{ std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(k).second) return; }
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
@@ -1364,6 +1407,7 @@ struct Search {
 				if(window) { nsLeft = true; for(auto& l : st.labels) if(l.rfind("ns ", 0) == 0) { nsLeft = false; break; } }
 				static const double wWin = getenv("MDC_WWIN") ? atof(getenv("MDC_WWIN")) : 0.5;   // tune.py 15k/30k, std + guideless: +4.6 / +0.2 / +2.6 / +1.4, never lower
 				Node n; n.st = std::move(st); n.h = promise(b, nsLeft, moves) + (window ? wWin * moves : 0); n.parent = par; n.vkey = k;
+				if(traceOn) { n.sc = score_of(b); n.nh = (uint16_t)b.hand.size(); n.ng = (uint16_t)b.grave.size(); n.nm = (uint16_t)moves; }
 				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
 				return;
@@ -1588,7 +1632,8 @@ struct Search {
 				if(!trace.empty()) {
 					long rank = -1; size_t best = 0;
 					for(size_t q = 0; q < next.size(); q++) { const auto& lb = next[q].st.labels; if(lb.size() <= trace.size() && lb.size() >= best && std::equal(lb.begin(), lb.end(), trace.begin())) { rank = (long)q; best = lb.size(); } }
-					if(rank >= 0) fprintf(stderr, "trace w%zu d%d: rank %ld of %zu (h %.2f, top %.2f), %zu/%zu labels in, board %.2f\n", width, depth, rank, next.size(), next[rank].h, next.empty() ? 0 : next[0].h, best, trace.size(), next[rank].h);
+					auto parts = [](const Node& x) { char t[96]; snprintf(t, sizeof t, "h %.2f = board %.2f + hand %u, gy %u, moves %u", x.h, x.sc, x.nh, x.ng, x.nm); return std::string(t); };
+					if(rank >= 0) fprintf(stderr, "trace w%zu d%d: rank %ld of %zu, %zu/%zu labels in | line: %s | top: %s\n", width, depth, rank, next.size(), best, trace.size(), parts(next[rank]).c_str(), parts(next[0]).c_str());
 					else fprintf(stderr, "trace w%zu d%d: line not among %zu children\n", width, depth, next.size());
 					if(!next.empty() && depth <= 4) { std::string t; for(auto& l : next[0].st.labels) if(l.rfind("ns ", 0) == 0 || l.rfind("ss ", 0) == 0 || l.rfind("act ", 0) == 0 || l.rfind("chain ", 0) == 0) t += l + " | "; fprintf(stderr, "   top: %s\n", t.c_str()); }
 				}
@@ -2309,6 +2354,8 @@ int main(int argc, char** argv) {
 			s->diverse = req.value("diverse", true);
 			s->width0 = (size_t)std::max(2, req.value("width", 8));
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
+			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
+			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
 			s->hitCard = req.value("hitCard", 0u);
 			s->hitStep = req.value("hitStep", -1);
 			s->oppFirst = req.value("oppFirst", 0u);
