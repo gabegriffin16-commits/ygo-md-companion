@@ -1203,6 +1203,38 @@ struct Search {
 				if(out.size() > 1) { opts.swap(out); return; }
 			}
 		}
+		// Smart default (one choice, no extra branching), when a Link is involved: a Link goes where its arrows point at the
+		// most free zones (then at the most of our monsters); anything else goes to a zone our Links don't point to, keeping
+		// those free for the next Extra Deck monster. Memento: Proxy F Magician's arrows stay on free zones, so Artemis and
+		// then Zoroa still have a legal zone (the first free zone fills them). MDC_NOSMARTZONE: the old first-free zone.
+		static const bool noSmart = getenv("MDC_NOSMARTZONE") != nullptr;
+		if(!noSmart && !linkZones && !(g_zones && opts.size() > 1)) {
+			bool isAction; uint32_t c = placing(st, isAction);
+			auto ci = g_cards.find(c); const bool placingLink = ci != g_cards.end() && (ci->second.type & TYPE_LINK);
+			// Links that want monsters in the zones they point to (Cross-Sheep: "Special Summoned to a zone this card points
+			// to"; Spright Elf / Geonator: protect what they point to; Proxy F Magician: only a Fusion Monster "Fusion Summoned
+			// to a zone this card points to") get them; zones of Links that don't care stay free for Extra Deck monsters.
+			const bool placingFusion = ci != g_cards.end() && (ci->second.type & TYPE_FUSION);
+			Board b = read_board(du); uint8_t pointed = 0, occupied = 0, wanted = 0; bool haveLink = false;
+			for(size_t i = 0; i < b.mzone.size() && i < b.mslot.size(); i++) {
+				int s = b.mslot[i]; if(s < 0 || s > 6) continue; occupied |= 1 << s;
+				auto it = g_cards.find(b.mzone[i]); if(it == g_cards.end() || !(it->second.type & TYPE_LINK)) continue;
+				haveLink = true; uint8_t z = link_points(s, (uint32_t)it->second.def); pointed |= z;
+				const std::string d = evalx::lower(it->second.desc);
+				if(d.find("fusion summoned to a zone") != std::string::npos ? placingFusion : d.find("points to") != std::string::npos) wanted |= z;
+			}
+			if(placingLink || haveLink) {
+				int best = -1, bestV = -1;
+				for(int seq = 0; seq < 7; seq++) {
+					if(!freeM(seq)) continue;
+					int v;
+					if(placingLink) { uint8_t t = link_points(seq, (uint32_t)ci->second.def); int fr = 0, oc = 0; for(int q = 0; q < 7; q++) if(t & (1 << q)) { if(occupied & (1 << q)) oc++; else if(q != seq) fr++; } v = 10 * fr + oc; }
+					else v = ((wanted >> seq) & 1) ? 2 : ((pointed >> seq) & 1) ? 0 : 1;
+					if(v > bestV) { bestV = v; best = seq; }
+				}
+				if(best >= 0) { opts.clear(); opts.push_back(pick(best, ("zone " + std::to_string(best)).c_str())); return; }
+			}
+		}
 		if(!g_zones) return;
 		int side = -1; for(int seq : {0, 1, 3, 4}) if(freeM(seq)) { side = seq; break; }
 		if(side < 0 && !freeM(2)) return;   // no Main Monster Zone choice to make

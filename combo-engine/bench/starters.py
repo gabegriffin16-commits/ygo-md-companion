@@ -6,12 +6,13 @@ line using the starter + at most one other card from the hand: a guide's "+1"), 
 board most, each with its best line), and how the main line holds up against each handtrap (oppFirst search).
 Writes the guide data model (JSON) for the Guide Crafter page.
   python3 starters.py <engine> <cards.cdb> <scripts.zip> <deck.json> <out.json>
-  env M (deck sample, 40), N (hands per starter, 12), OPEN (starter if it opens >= this share of its lines, 0.3), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
-import json, os, random, sqlite3, subprocess, sys, statistics
+  env M (shared hand pool, 150: every hand counts for every engine card in it), N (at least this many hands per card: topped up, 12), STABLE (early stop for the single-card / pair / handtrap searches, 0.4), OPEN (starter if it opens >= this share of its lines, 0.3), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
+import json, os, random, sqlite3, subprocess, sys, statistics, time
+T0 = time.time()
 from collections import Counter, defaultdict
 sys.stdout.reconfigure(encoding="utf-8")
 exe, cdb, zipf, deckf, outf = sys.argv[1:6]
-M = int(os.environ.get("M") or 40); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
+M = int(os.environ.get("M") or 150); STABLE = float(os.environ.get("STABLE") or 0.4); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
 SECS = float(os.environ.get("SECS") or 6); THREADS = int(os.environ.get("THREADS") or 12); random.seed(int(os.environ.get("SEED") or 1))
 db = sqlite3.connect(cdb)
 nm = lambda c: (db.execute("select name from texts where id=?", (c,)).fetchone() or [str(c)])[0]
@@ -134,7 +135,7 @@ out = {"deck": os.path.basename(deckf), "searchSecs": SECS, "opening": {"hands":
 print("good board >= %.2f; %d cards to check, %d non-engine" % (good, len(cards), len(non_engine)), flush=True)
 for st in cards:
     hands = [x for x in sample if st in x["hand"]]
-    for i in range(N):
+    for i in range(max(0, N - len(hands))):   # top up: most cards already have enough hands in the pool
         h = deal(st); b = search(h)
         if b: x = brief(b, h); x["opener"] = opener_of(x); hands.append(x)
     if not hands: continue
@@ -143,7 +144,7 @@ for st in cards:
     solo = None
     if brick_hand:
         sh = [st] + [c for c in brick_hand if c != st][:4]
-        b = search(sh)
+        b = search(sh, stable=STABLE, stableMinMs=1500)
         if b: solo = brief(b, sh); solo["opener"] = opener_of(solo)
     opens = sum(1 for x in hands if x["opener"] == st) / len(hands)
     usedr = sum(1 for x in hands if st in x.get("useful", x["uses"])) / len(hands)
@@ -170,7 +171,7 @@ for st in cards:
         for pc in cards:
             if pc == st and main.count(st) < 2: continue
             ph = [st, pc] + [c for c in brick_hand][:3]
-            b = search(ph)
+            b = search(ph, stable=STABLE, stableMinMs=1500)
             if b: x = brief(b, ph); pairs.append({"partner": pc, "score": x["score"], "line": x})
         pairs.sort(key=lambda x: -x["score"])
     # A 1-card starter's main line is its line alone (with non-engine cards): the guide's "1-card combo".
@@ -187,7 +188,7 @@ for st in cards:
     ups.sort(key=lambda u: -u["gain"])
     vs = []
     for ht in HT:
-        b = search(mainline["hand"], oppFirst=ht)
+        b = search(mainline["hand"], oppFirst=ht, stable=STABLE, stableMinMs=1500)
         if not b: continue
         hit = any(s["do"] == "Opp" for s in b["steps"])
         # Relative to the main line, capped at it: a separate search can land a little higher by chance.
@@ -207,4 +208,4 @@ for c in out["cards"]:
     c["fromDeck"] = round(sum(1 for x in pool if c["card"] in x["board"]) / len(pool), 2) if pool else 0
 json.dump(out, open(outf, "w"), indent=1)
 p.stdin.write('{"cmd":"quit"}\n'); p.stdin.flush()
-print("wrote", outf)
+print("wrote", outf, "in %.1f min" % ((time.time() - T0) / 60))

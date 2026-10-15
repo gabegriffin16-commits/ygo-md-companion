@@ -317,6 +317,14 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   many of our monsters / free zones it points to): std 114.13, guideless 93.34, Memento guides 58.7 -> 62.6, Thunder
   Dragon 276.1 -> 284.4 (21/26), Yubel Fiendsmith 189.5 -> 175.5: off by default. Still doesn't reach Zoroa (the choice
   that matters there is mirrored on an empty board and broken later by "first free zone" for main-deck monsters).
+  Smart default placement (ON, `MDC_NOSMARTZONE` = old first-free zone; one choice, no extra branching, only when a Link
+  is involved): a Link goes where its arrows point at the most free zones (then our monsters); any other monster goes to a
+  zone pointed to by a Link that wants it (text "points to"; "Fusion Summoned to a zone" = Fusion Monsters only: Proxy F
+  Magician), else a zone no Link points to, else one pointed to by a Link that doesn't care (kept free for Extra Deck
+  monsters). Memento Zoroa as a goal: 0/6 -> 6/6. tune 15k std 114.49 -> 114.29, guideless 94.30 -> 94.45; guides (20 s,
+  averages): Memento 62.3 -> 62.7, Yubel Fiendsmith 192.2 -> 194.6, Thunder Dragon 276.1 -> 288.0 (21/26). A first version
+  that avoided every pointed zone cost Memento ~5 (it kept monsters out of Cross-Sheep's zones). Memento's plain search
+  still doesn't find Zoroa unasked: that's ranking (next: a per-deck learned position value).
   Baseline guide tally after the window-key fix (`work/u3_*.txt`, 20 s): 78 comparable hands, found 4, better 39, even 4,
   missed 31 (Memento 7/7, Yubel Fiendsmith 9/11, Thunder Dragon 6, Rikka 5 with guessed placements).
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
