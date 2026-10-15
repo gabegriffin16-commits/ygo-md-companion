@@ -1152,10 +1152,58 @@ struct Search {
 		if(s.kind == "Normal Summon" || s.kind == "Special Summon") { isAction = true; return s.card; }
 		return 0;
 	}
-	static void zone_opts(const Prompt& m, const St& st, std::vector<Opt>& opts) {
-		if(!g_zones || m.type != MSG_SELECT_PLACE || m.count != 1 || m.player != 0) return;
+	// Zones a Link monster in zone `s` points to on our side (0-4 Main Monster Zones left to right, 5 / 6 the Extra
+	// Monster Zones above 1 / 3). Markers: 0x1 bottom-left, 0x2 bottom, 0x4 bottom-right, 0x8 left, 0x20 right,
+	// 0x40 top-left, 0x80 top, 0x100 top-right.
+	static uint8_t link_points(int s, uint32_t mk) {
+		uint8_t z = 0; auto add = [&](int q) { if(q >= 0 && q <= 6) z |= 1 << q; };
+		if(s <= 4) {
+			if((mk & 0x8) && s > 0) add(s - 1);
+			if((mk & 0x20) && s < 4) add(s + 1);
+			if(mk & 0x40) { if(s == 2) add(5); if(s == 4) add(6); }
+			if(mk & 0x80) { if(s == 1) add(5); if(s == 3) add(6); }
+			if(mk & 0x100) { if(s == 0) add(5); if(s == 2) add(6); }
+		} else {
+			int c = s == 5 ? 1 : 3;
+			if(mk & 0x1) add(c - 1); if(mk & 0x2) add(c); if(mk & 0x4) add(c + 1);
+		}
+		return z;
+	}
+	void zone_opts(const Prompt& m, const St& st, std::vector<Opt>& opts, Duel& du) {
 		auto freeM = [&](int seq) { return !(m.flag & (1u << seq)); };
 		auto pick = [&](int seq, const char* lbl) { Opt o; o.label = lbl; o.resp = Bytes(); o.resp += (char)m.player; o.resp += (char)LOCATION_MZONE; o.resp += (char)seq; return o; };
+		if(m.type != MSG_SELECT_PLACE || m.count != 1 || m.player != 0) return;
+		// Link arrows: the zone matters when a Link monster we control points somewhere (Cross-Sheep: "Special Summoned to a
+		// zone this card points to"; Extra Deck monsters only go to an Extra Monster Zone or a zone a Link points to, so the
+		// first free zone can use up the spots a later Link Summon needs: Memento's Proxy F Magician -> Artemis -> Zoroa),
+		// or when the monster placed is a Link (which of our monsters it points to). One choice per kind of zone:
+		// Extra vs Main Monster Zone, pointed to by our Links or not, and for a Link how many of our monsters it would point to.
+		static const bool linkZones = getenv("MDC_LINKZONES") != nullptr;   // opt-in: Memento / Thunder Dragon gained, Yubel Fiendsmith lost (CLAUDE.md)
+		if(linkZones) {
+			bool isAction; uint32_t c = placing(st, isAction);
+			auto ci = g_cards.find(c); const bool placingLink = ci != g_cards.end() && (ci->second.type & TYPE_LINK);
+			const uint32_t mk = placingLink ? (uint32_t)ci->second.def : 0;
+			Board b = read_board(du); uint8_t pointed = 0, occupied = 0; bool haveLink = false;
+			for(size_t i = 0; i < b.mzone.size() && i < b.mslot.size(); i++) {
+				int s = b.mslot[i]; if(s < 0 || s > 6) continue; occupied |= 1 << s;
+				auto it = g_cards.find(b.mzone[i]); if(it != g_cards.end() && (it->second.type & TYPE_LINK)) { haveLink = true; pointed |= link_points(s, (uint32_t)it->second.def); }
+			}
+			if(haveLink || placingLink) {
+				std::vector<Opt> out; std::set<int> seen;
+				for(int seq : {0, 1, 2, 3, 4, 5, 6}) {
+					if(!freeM(seq)) continue;
+					// For a Link: how many of our monsters it would point to, and how many free zones (where the next Extra Deck
+					// monster can go: Proxy F Magician in the right Extra Monster Zone points at free zones for Artemis -> Zoroa;
+					// in the left one it points at full zones and the line stops).
+					int pts = 0, frees = 0;
+					if(placingLink) { uint8_t t = link_points(seq, mk); for(int q = 0; q < 7; q++) if(t & (1 << q)) { if(occupied & (1 << q)) pts++; else if(q != seq) frees++; } }
+					int sig = (seq >= 5 ? 1000 : 0) + ((pointed >> seq) & 1 ? 100 : 0) + 10 * std::min(pts, 2) + std::min(frees, 2);
+					if(seen.insert(sig).second) out.push_back(pick(seq, ("zone " + std::to_string(seq)).c_str()));
+				}
+				if(out.size() > 1) { opts.swap(out); return; }
+			}
+		}
+		if(!g_zones) return;
 		int side = -1; for(int seq : {0, 1, 3, 4}) if(freeM(seq)) { side = seq; break; }
 		if(side < 0 && !freeM(2)) return;   // no Main Monster Zone choice to make
 		bool isAction; uint32_t c = placing(st, isAction);
@@ -1248,7 +1296,7 @@ struct Search {
 			st.aim = false;   // back to us: any target was already chosen
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts); pick_order(m, st, opts);
+			zone_opts(m, st, opts, *d); pick_order(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			if(interrupting() && !st.hit) {
 				// Still replaying the planned line: only its next choice is allowed.
@@ -1438,7 +1486,7 @@ struct Search {
 			}
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts); pick_order(m, st, opts);
+			zone_opts(m, st, opts, *d); pick_order(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			bool epOK = false;
 			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
@@ -1566,7 +1614,7 @@ struct Search {
 			if(m.type == MSG_SELECT_IDLECMD || window) return 1;
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts); pick_order(m, st, opts);
+			zone_opts(m, st, opts, d); pick_order(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			if(opts.empty()) return 0;
 			const bool giveUp = give_up(m.hint);
@@ -1814,7 +1862,7 @@ struct Search {
 			}
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts);
+			zone_opts(m, st, opts, *d);
 			const Opt* pick = nullptr; for(auto& o : opts) if(o.label == labels[li]) { pick = &o; break; }
 			if(!pick) {
 				if(getenv("MDC_SEEDLOG")) { std::string have; for(auto& o : opts) have += " [" + o.label + "]"; fprintf(stderr, "seed stops at label %zu of %zu: wanted [%s], prompt type %d offers%s\n", li, labels.size(), labels[li].c_str(), m.type, have.substr(0, 300).c_str()); }

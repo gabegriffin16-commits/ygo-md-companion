@@ -307,6 +307,18 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   get the same greedy endpoint value) and cost replays the beam needed. Not worth more tuning without a new idea (e.g.
   playouts done on the live duel at child creation instead of a replay, or a learned value). Note: guide 1cc hands are just the named card; spell fillers
   that can be Set (Forbidden Droplet) add ~7 points of held "set" value, so don't judge Memento with them.
+  Monster placement (Oct 2026): monsters go to the first free zone (`r_place`); zones only branch for center-aware
+  decks. Milestone goal searches on Memento Dark Blade (Creation King, Twin Dragon, Cross-Sheep, Spright Elf, Zoroa; 3
+  runs each): Zoroa is never reached with default placement, always with every free zone tried (`MDC_ALLZONES` test,
+  since removed): the line needs Proxy F Magician in the right Extra Monster Zone so its arrows point at free zones for
+  Artemis, then Zoroa. But trying every zone costs too much: tune 15k std 114.49 -> 97.28, Memento guides 61.7 -> 51.9,
+  Yubel Fiendsmith 192.3 -> 174.9. Link-aware placement (opt-in `MDC_LINKZONES`, `zone_opts` + `link_points`: one choice
+  per kind of zone when a Link is involved: Extra vs Main Monster Zone, pointed to by our Links or not, and for a Link how
+  many of our monsters / free zones it points to): std 114.13, guideless 93.34, Memento guides 58.7 -> 62.6, Thunder
+  Dragon 276.1 -> 284.4 (21/26), Yubel Fiendsmith 189.5 -> 175.5: off by default. Still doesn't reach Zoroa (the choice
+  that matters there is mirrored on an empty board and broken later by "first free zone" for main-deck monsters).
+  Baseline guide tally after the window-key fix (`work/u3_*.txt`, 20 s): 78 comparable hands, found 4, better 39, even 4,
+  missed 31 (Memento 7/7, Yubel Fiendsmith 9/11, Thunder Dragon 6, Rikka 5 with guessed placements).
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

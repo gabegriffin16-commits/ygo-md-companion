@@ -11,7 +11,7 @@ for f in sys.argv[1:]:
     name = re.sub(r".*[\\/]|\.txt$", "", f)
     c = {"hands": 0, "found": 0, "better": 0, "even": 0, "missed": 0, "missingCards": 0, "special": 0, "guessed": 0}
     cur = None
-    for l in open(f, encoding="utf-8"):
+    for l in open(f, encoding="utf-8", errors="replace"):
         m = re.match(r"## (.*?)  \(start", l)
         if m: cur = m.group(1); continue
         m = re.match(r"\s+-> (.*)", l)
