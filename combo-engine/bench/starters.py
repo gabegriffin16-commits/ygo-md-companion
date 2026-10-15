@@ -6,13 +6,13 @@ line using the starter + at most one other card from the hand: a guide's "+1"), 
 board most, each with its best line), and how the main line holds up against each handtrap (oppFirst search).
 Writes the guide data model (JSON) for the Guide Crafter page.
   python3 starters.py <engine> <cards.cdb> <scripts.zip> <deck.json> <out.json>
-  env M (shared hand pool, 150: every hand counts for every engine card in it), N (at least this many hands per card: topped up, 12), STABLE (early stop for the single-card / pair / handtrap searches, 0.4), OPEN (starter if it opens >= this share of its lines, 0.3), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
+  env M (shared hand pool, 100: every hand counts for every engine card in it), N (at least this many hands per card: topped up, 12), STABLE (early stop for the single-card / pair / handtrap searches, 0.4), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
 import json, os, random, sqlite3, subprocess, sys, statistics, time
 T0 = time.time()
 from collections import Counter, defaultdict
 sys.stdout.reconfigure(encoding="utf-8")
 exe, cdb, zipf, deckf, outf = sys.argv[1:6]
-M = int(os.environ.get("M") or 150); STABLE = float(os.environ.get("STABLE") or 0.4); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
+M = int(os.environ.get("M") or 100); STABLE = float(os.environ.get("STABLE") or 0.4); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
 SECS = float(os.environ.get("SECS") or 6); THREADS = int(os.environ.get("THREADS") or 12); random.seed(int(os.environ.get("SEED") or 1))
 db = sqlite3.connect(cdb)
 nm = lambda c: (db.execute("select name from texts where id=?", (c,)).fetchone() or [str(c)])[0]
@@ -100,6 +100,7 @@ def opener_of(x):
     ex = explain(x, w["score"], nm, lambda c: info(c)[0])[0] if w.get("score") else [{"points": 1}] * len(x["steps"])
     # Cards of the hand used in steps that lead to end-board points (a free activation that builds nothing isn't "used").
     left = Counter(x["hand"]); x["useful"] = []
+    x["acted"] = [st[1] for st, e in zip(x["steps"], ex) if e["points"] > 0 and st[1] in x["hand"]]   # cards that acted themselves (not a cost or material pick)
     for st, e in zip(x["steps"], ex):
         if e["points"] <= 0: continue
         for c in [st[1]] + list(st[3]):
@@ -110,15 +111,18 @@ def opener_of(x):
     acts = [s[1] for s, e in zip(x["steps"], ex) if s[1] in x["hand"] and s[0] in ("Normal Summon", "Special Summon", "Activate") and not is_ht(s[1]) and trap_ok(s[1]) and e["points"] > 0]
     return acts[0] if acts else None
 # Cards the lines use in at least half of the sample hands holding them (2+ hands) are engine, whatever their wording.
+# (Counted on plays where the card itself acts and leads to end-board points: a card spent as a cost, like Triple Tactics
+# Talent sent for Diabellstar's summon, isn't one.)
+for x in sample: opener_of(x)   # fills x["useful"]
 for c in set(main):
     xs = [x for x in sample if c in x["hand"]]
-    if c not in HT and not is_ht_text(c) and len(xs) >= 2 and sum(1 for x in xs if c in x["uses"]) >= 0.5 * len(xs): USED_ENGINE.add(c)
-for x in sample: x["opener"] = opener_of(x)
+    if c not in HT and not is_ht_text(c) and len(xs) >= 2 and sum(1 for x in xs if c in x["acted"]) >= 0.25 * len(xs): USED_ENGINE.add(c)   # a quarter: a 1-of often sits behind a stronger starter (Magicians' Souls)
+for x in sample: x["opener"] = opener_of(x)   # again, now that the engine cards are known
 # ---- pass 2: every card of the deck (a complete guide: no card left out) ----
 # Each non-handtrap card gets its own hands (the deck sample's + N dealt with it). Its role comes from what the lines did:
 # 1-card starter = alone with the deck's 4 most common non-engine cards, the board it builds (field, set cards, GY,
 # banished; cards still held don't count) scores >= SOLO: its line is a true 1-card combo (handtraps in hand may serve as
-# material or a cost, as in real hands); 2-card starter = the line opens with it in >= OPEN of its hands; extender = used in >= USED of
+# material or a cost, as in real hands); 2-card starter = in a working pair (two engine cards + non-engine filler build >= SOLO using both); extender = used in >= USED of
 # them; else situational. Non-engine cards (handtraps, staples) are listed, not checked.
 OPEN = float(os.environ.get("OPEN") or 0.3); USED = float(os.environ.get("USED") or 0.5); SOLO = float(os.environ.get("SOLO") or 4.0)
 cards = sorted(set(c for c in main if engine(c)), key=lambda c: -main.count(c))
@@ -133,6 +137,8 @@ print("non-engine filler: %s" % ", ".join(nm(c) for c in (brick_hand or [])[:4])
 out = {"deck": os.path.basename(deckf), "searchSecs": SECS, "opening": {"hands": len(sample), "median": statistics.median(scores), "good": good,
        "shareGood": round(sum(1 for s in scores if s >= good) / len(scores), 2)}, "cards": [], "nonEngine": non_engine, "filler": (brick_hand or [])[:4], "soloMin": SOLO, "starters": []}
 print("good board >= %.2f; %d cards to check, %d non-engine" % (good, len(cards), len(non_engine)), flush=True)
+# Phase A, per card: its hands (pool + top-up), what the lines did with it, and its line alone (1-card test).
+cinfo = {}
 for st in cards:
     hands = [x for x in sample if st in x["hand"]]
     for i in range(max(0, N - len(hands))):   # top up: most cards already have enough hands in the pool
@@ -140,42 +146,57 @@ for st in cards:
         if b: x = brief(b, h); x["opener"] = opener_of(x); hands.append(x)
     if not hands: continue
     out.setdefault("hands", {})[str(st)] = [{"hand": x["hand"], "score": x["score"], "uses": x["uses"], "opener": x["opener"], "board": x["field"] + x["backrow"]} for x in hands]   # for later re-analysis
-    sc = [x["score"] for x in hands]; med = statistics.median(sc)
     solo = None
     if brick_hand:
         sh = [st] + [c for c in brick_hand if c != st][:4]
         b = search(sh, stable=STABLE, stableMinMs=1500)
         if b: solo = brief(b, sh); solo["opener"] = opener_of(solo)
+    cinfo[st] = {"hands": hands, "solo": solo, "built": built(solo) if solo else 0}
+    print("%s: alone builds %.1f, %d hands" % (nm(st), cinfo[st]["built"], len(hands)), flush=True)
+# Phase B, pairs: every two engine cards that aren't 1-card starters, with the rest of the hand non-engine. A pair "works"
+# when its line builds a real board (>= SOLO, cards left in hand not counted) using both cards: a guide's 2-card combo.
+# This decides 2-card starters (instead of how often a card happened to open its hands' lines, which swung 19-50% for
+# Ecclesia between runs: what goes first depends on the other cards in the hand).
+one = {c for c in cinfo if cinfo[c]["built"] >= SOLO}
+rest = [c for c in cards if c in cinfo and c not in one]
+pairs_by = defaultdict(list); combos_with = defaultdict(list)
+if brick_hand:
+    for i, a in enumerate(rest):
+        for b2 in rest[i:]:
+            if a == b2 and main.count(a) < 2: continue
+            ph = [a, b2] + [c for c in brick_hand][:3]
+            b = search(ph, stable=STABLE, stableMinMs=1500)
+            if not b: continue
+            x = brief(b, ph); op = opener_of(x); bl = built(x)
+            ok = bl >= SOLO and a in x["useful"] and b2 in x["useful"] and (a != b2 or x["useful"].count(a) >= 2)
+            # The pair's starter is the card its line opens with; the other one extends it (Ecclesia + Urgula: Ecclesia
+            # starts, Urgula is the extender that combos with it).
+            if ok and op in (a, b2):
+                other = b2 if op == a else a
+                pairs_by[op].append({"partner": other, "score": x["score"], "built": round(bl, 2), "line": x})
+                combos_with[other].append(op)
+    print("pairs: %d tested, %d cards in a working pair" % (len(rest) * (len(rest) + 1) // 2, len(pairs_by)), flush=True)
+# Phase C, roles and the guide entries.
+for st in cards:
+    if st not in cinfo: continue
+    hands, solo, gain = cinfo[st]["hands"], cinfo[st]["solo"], cinfo[st]["built"]
+    sc = [x["score"] for x in hands]; med = statistics.median(sc)
+    pairs = sorted(pairs_by.get(st, []), key=lambda x: -x["score"])
     opens = sum(1 for x in hands if x["opener"] == st) / len(hands)
     usedr = sum(1 for x in hands if st in x.get("useful", x["uses"])) / len(hands)
-    gain = built(solo) if solo else 0
-    role = "starter" if gain >= SOLO or opens >= OPEN else "extender" if usedr >= USED else "situational"
-    kind = ("1-card" if gain >= SOLO else "2-card") if role == "starter" else None
+    kind = "1-card" if st in one else "2-card" if pairs else None
+    role = "starter" if kind else "extender" if usedr >= USED else "situational"
     base = {"card": st, "copies": main.count(st), "role": role, "hands": len(hands), "median": round(med, 2), "opens": round(opens, 2), "used": round(usedr, 2),
             "reliability": round(sum(1 for s in sc if s >= good) / len(sc), 2), "kind": kind, "soloBuilt": round(gain, 2), "solo": solo,
-            "soloFiller": [c for c in (solo or {}).get("uses", []) if not engine(c)]}
+            "soloFiller": [c for c in (solo or {}).get("uses", []) if not engine(c)], "combosWith": sorted(set(combos_with.get(st, [])))}
     users = [x for x in hands if st in x["uses"]]
     if users: base["best"] = max(users, key=lambda x: x["score"])   # its best line (extenders / situational: where it shines)
     out["cards"].append({k: v for k, v in base.items() if k != "best"} | ({"best": base["best"]} if users else {}))
-    print("%s: %s%s (alone builds %.1f, opens %d%%, used %d%%), %d hands, median %.2f, good in %d%%" % (nm(st), role, " " + kind if kind else "", gain, round(opens * 100), round(usedr * 100), len(hands), med, round(base["reliability"] * 100)), flush=True)
+    print("%s: %s%s (alone builds %.1f, %d working pairs, opens %d%%, used %d%%), %d hands, median %.2f, good in %d%%" % (nm(st), role, " " + kind if kind else "", gain, len(pairs), round(opens * 100), round(usedr * 100), len(hands), med, round(base["reliability"] * 100)), flush=True)
     if role != "starter": json.dump(out, open(outf, "w"), indent=1); continue
-    # Main line: the best line using the starter + at most one other card of the hand.
-    # (Non-engine cards spent as material or a cost don't count: any spare card does that.)
-    lean = [x for x in hands if len([c for c in x["uses"] if c != st and engine(c)]) <= 1 and st in x["uses"]]
-    # None: the line needing the fewest other cards among hands at or above the median (not the best 5-card line).
-    extra_n = lambda x: len([c for c in x["uses"] if c != st and engine(c)])
-    # A 2-card starter: search it with every engine partner (the rest of the hand non-engine), like a guide's 2-card
-    # combos; the best pair is its main line, the top 3 are listed.
-    pairs = []
-    if kind == "2-card" and brick_hand:
-        for pc in cards:
-            if pc == st and main.count(st) < 2: continue
-            ph = [st, pc] + [c for c in brick_hand][:3]
-            b = search(ph, stable=STABLE, stableMinMs=1500)
-            if b: x = brief(b, ph); pairs.append({"partner": pc, "score": x["score"], "line": x})
-        pairs.sort(key=lambda x: -x["score"])
-    # A 1-card starter's main line is its line alone (with non-engine cards): the guide's "1-card combo".
-    mainline = solo if kind == "1-card" else pairs[0]["line"] if pairs else max(lean, key=lambda x: x["score"]) if lean else min([x for x in hands if x["score"] >= med], key=lambda x: (extra_n(x), -x["score"]))
+    # A 1-card starter's main line is its line alone (with non-engine cards): the guide's "1-card combo"; a 2-card
+    # starter's is its best working pair, the next 3 pairs listed.
+    mainline = solo if kind == "1-card" else pairs[0]["line"]
     # Upgrades: cards (other than the starter) present and used in hands that score clearly above the starter's median.
     with_c = defaultdict(list)
     for x in hands:

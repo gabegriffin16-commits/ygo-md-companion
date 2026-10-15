@@ -327,6 +327,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   still doesn't find Zoroa unasked: that's ranking (next: a per-deck learned position value).
   Baseline guide tally after the window-key fix (`work/u3_*.txt`, 20 s): 78 comparable hands, found 4, better 39, even 4,
   missed 31 (Memento 7/7, Yubel Fiendsmith 9/11, Thunder Dragon 6, Rikka 5 with guessed placements).
+  Guide builder speed + stability (Oct 2026): starters.py now deals one shared pool of 100 hands (each counts for every
+  engine card in it; top-up to N=12), early-stops single / pair / handtrap searches (`stable` 0.4), and decides 2-card
+  starters by pair tests: every two engine cards that aren't 1-card starters, with non-engine filler; a pair "works" when
+  it builds >= 4 using both, and the card its line opens with is the 2-card starter (the other "combos with" it). The
+  old rule (opens >= 30% of its hands) swung 19-50% for Ecclesia between runs. Engine-by-usage now counts only plays
+  where the card itself acts (not costs: Triple Tactics Talent sent for Diabellstar), in >= 25% of its sample hands.
+  `bench/rolediff.py` compares runs. Result: Dracotail 12-13 min (was ~45), 0 of 19 roles change over 3 seeds; Snake-Eye
+  13-14 min, 2 of 17 change (Magicians' Souls: same Magicians' Souls + Oak combo, the line opens with either card;
+  Flamberge Dragon used in ~50% of its hands, extender vs situational).
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another
