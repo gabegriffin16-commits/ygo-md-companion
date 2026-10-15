@@ -344,6 +344,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   engine 14.21 vs guide 6.80 now), and marks hands with no legal play as not comparable (follow-ups needing an earlier
   line, K9 opponent's-turn lines, Extra Deck "starting cards"). starters.py REFINE (20 s): each main line gets a longer
   search seeded with the line found.
+  Learned position value (opt-in `learn` / MDC_LEARN = weight; main.cpp pos_feats / learn_note / learn_fit): every
+  position the beam or the depth-first workers reach is a sample (features: which deck cards are in hand / field / Set /
+  GY / banished, open moves, Normal Summon); each line carries its positions (St::anc) and every recorded board raises
+  their "best reached"; a linear model of best - board now is refit at each beam level and adds weight x its prediction
+  to the rank. Agreed test (20 s guides x2, tune 15k): beam-only first version: Memento 62.7 -> 63.4, Yubel Fiendsmith
+  194.6 -> 201.2 (+3.4%), std -0.97, guideless +0.96; with depth-first samples (current code): std 114.86 -> 115.61,
+  guideless 96.37 -> 97.47, but Memento 59.3, Yubel 191.5 (the bookkeeping costs 2-7% of replays). FAILED (needs +5%).
+  Chaining ten 20 s searches seeded with the previous best stays at 9.93 on Memento Dark Blade. Next: a guided replay of
+  the guide's own steps to tell "the engine can't play this line" from "the search doesn't find it".
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

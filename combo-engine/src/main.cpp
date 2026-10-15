@@ -782,7 +782,7 @@ struct Search {
 	std::unordered_set<std::string> visited;
 	std::map<std::string, Found> boards;
 	// ending: the turn was ended and the End Phase is being played out (see ep_worth).
-	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false, epDeep = false; uint64_t lastPick = 0; std::shared_ptr<const St> epRoot; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; std::vector<Bytes> mine; std::vector<int> mineType; };
+	struct St { std::vector<Bytes> path; std::vector<Step> steps; std::vector<std::string> labels; int actions = 0; bool hit = false, aim = false, ending = false, epDeep = false; uint64_t lastPick = 0; std::shared_ptr<const St> epRoot; std::shared_ptr<const std::vector<uint64_t>> pickedFrom; std::vector<Bytes> mine; std::vector<int> mineType; std::vector<uint32_t> anc; };   // anc: learn samples of the positions on this line
 	// Is the End Phase worth playing out? Only when a card we have mentions it (Ecclesia / Cartesia adding themselves
 	// back, Branded searches): otherwise the board at "end turn" is already final and searches stay as fast as before.
 	static bool ep_worth(const Board& b) {
@@ -1106,6 +1106,7 @@ struct Search {
 		Board b; { ProfTimer pt(g_profBoard); b = read_board(d); }
 		std::string k = key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand);
 		double sc; { ProfTimer pt(g_profScore); sc = score_of(b); }   // can differ for the same visible cards: what's in the GY to revive
+		if(learnW > 0 && !st.anc.empty()) { std::lock_guard<std::mutex> lk(lmx); for(uint32_t i : st.anc) if(i < samples.size() && sc > samples[i].best) samples[i].best = sc; }
 		std::lock_guard<std::mutex> lk(mx);
 		auto it = boards.find(k);
 		if(it == boards.end() || sc > it->second.score + 1e-9 || (sc > it->second.score - 1e-9 && steps.size() < it->second.steps.size())) { Found f; f.steps = steps; f.labels = st.labels; f.board = b; f.score = sc; f.mine = st.mine; f.mineType = st.mineType; boards[k] = f; }
@@ -1354,6 +1355,7 @@ struct Search {
 				std::string k = std::string(st.hit ? "H" : "") + key_of(b.mzone) + "|" + key_of(b.szone) + "|" + key_of(b.hand) + "|" + key_of(b.grave) + "|" + key_of(b.banished) + zkey(b) + "#";
 				for(auto& o : opts) k += o.label + ";";
 				{ std::lock_guard<std::mutex> lk(mx); if(!visited.insert(k).second) return; }
+				if(learnW > 0) { size_t mv = 0; for(auto& o : opts) if(o.main && !o.end) mv++; learn_note(st, b, mv, !m.summon.empty(), score_of(b)); }
 				record(*d, st);
 				if(st.actions >= maxActions) {   // out of actions: only ending the turn (and its End Phase) is left
 					if(!epOK) return;
@@ -1401,7 +1403,53 @@ struct Search {
 	// by each action (and every choice inside it), keep the most promising few, repeat. The beam widens on
 	// each pass until time runs out, so early choices (what to search, what to discard) all get a fair look,
 	// which plain depth-first search with a time limit doesn't give them.
-	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; std::string vkey; double sc = 0; uint16_t nh = 0, ng = 0, nm = 0; };   // sc/nh/ng/nm: board score, hand, GY, moves (MDC_TRACE)   // tie: fixed pseudo-random order for equal h; vkey: its duplicate-check key
+	struct Node { St st; double h = 0; size_t parent = 0; uint64_t tie = 0; std::string vkey; double sc = 0; uint16_t nh = 0, ng = 0, nm = 0; double hbase = 0; std::vector<int> feats; };   // hbase/feats: rank without the learned term, and the position's features (learn)
+	// Learned position value (opt-in: request "learn" = weight, env MDC_LEARN): long combos fill the hand / GY with
+	// resources and look weak for many steps, so the beam cuts them. Each pass records every kept position's features
+	// (which deck cards are where, open moves, Normal Summon) and, after the pass, the best board any of its lines
+	// reached; a small linear model of "how much better than its board now" is trained on that and adds learnW x its
+	// prediction to positions' rank in the next, wider pass. Per search, per deck: no guides, nothing carried over.
+	// Every position either search reaches (beam or depth-first) is a sample; each line carries its positions' sample
+	// numbers (St::anc) and every board recorded on it raises their "best reached". The depth-first workers finish many
+	// complete lines, so the model has data from the first beam passes on.
+	double learnW = 0;
+	std::mutex lmx; std::unordered_map<uint64_t, int> fidx; std::vector<double> lw;
+	struct Sample { std::vector<int> f; double sc, best; }; std::vector<Sample> samples; size_t fittedAt = 0;
+	std::vector<int> learn_note(St& st, const Board& b, size_t moves, bool nsLeft, double sc) {
+		std::vector<int> f = pos_feats(b, moves, nsLeft);
+		std::lock_guard<std::mutex> lk(lmx);
+		if(samples.size() < 400000) { st.anc.push_back((uint32_t)samples.size()); samples.push_back({f, sc, sc}); }
+		return f;
+	}
+	std::vector<int> pos_feats(const Board& b, size_t moves, bool nsLeft) {
+		std::vector<int> f; std::lock_guard<std::mutex> lk(lmx);
+		auto id = [&](uint64_t k) { auto it = fidx.find(k); if(it != fidx.end()) return it->second; int i = (int)fidx.size(); fidx[k] = i; return i; };
+		const std::vector<uint32_t>* where[5] = {&b.hand, &b.mzone, &b.szone, &b.grave, &b.banished};
+		for(uint64_t w = 0; w < 5; w++) for(uint32_t c : *where[w]) f.push_back(id((w + 1) << 32 | c));
+		f.push_back(id(6ull << 32 | std::min<size_t>(moves, 8)));
+		if(nsLeft) f.push_back(id(7ull << 32));
+		return f;
+	}
+	double learned(const std::vector<int>& f) {
+		std::lock_guard<std::mutex> lk(lmx);
+		if(lw.empty()) return 0;
+		double v = 0; for(int i : f) if(i < (int)lw.size()) v += lw[i];
+		return v;
+	}
+	void learn_fit() {
+		std::vector<Sample> ss; size_t nf;
+		{ std::lock_guard<std::mutex> lk(lmx); if(samples.size() < 200 || samples.size() < fittedAt * 5 / 4) return; fittedAt = samples.size();
+		  size_t from = samples.size() > 100000 ? samples.size() - 100000 : 0; ss.assign(samples.begin() + from, samples.end()); nf = fidx.size(); }
+		std::vector<double> w(nf, 0.0);
+		double mean = 0; for(auto& s : ss) mean += s.best - s.sc; mean /= ss.size();
+		// SGD on (best - board now) - mean (an offset common to every position doesn't change the ranking), small L2.
+		for(int ep = 0; ep < 3; ep++) for(auto& s : ss) {
+			double p = 0; for(int i : s.f) p += w[i];
+			double g = (s.best - s.sc - mean) - p;
+			for(int i : s.f) w[i] += 0.02 * g - 1e-4 * w[i];
+		}
+		std::lock_guard<std::mutex> lk(lmx); lw.swap(w);
+	}   // sc/nh/ng/nm: board score, hand, GY, moves (MDC_TRACE)   // tie: fixed pseudo-random order for equal h; vkey: its duplicate-check key
 	std::mutex vmx; std::unordered_set<std::string> bvisited;
 	// How good a mid-combo state looks: the board so far, plus how much is still left to do from here
 	// (effects ready to use, cards in hand, the Normal Summon).
@@ -1510,7 +1558,8 @@ struct Search {
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
 				double h = node_h(b, m, st, opts, window);
-				Node n; n.st = std::move(st); n.h = h; n.parent = par; n.vkey = k;
+				Node n; n.st = std::move(st); n.h = h; n.parent = par; n.vkey = k; n.hbase = h;
+				if(learnW > 0) { n.sc = score_of(b); n.feats = learn_note(n.st, b, moves, !m.summon.empty(), n.sc); n.h = h + learnW * learned(n.feats); }
 				if(traceOn) { n.sc = score_of(b); n.nh = (uint16_t)b.hand.size(); n.ng = (uint16_t)b.grave.size(); n.nm = (uint16_t)moves; }
 				{ uint64_t t = 1469598103934665603ull; for(auto& l : n.st.labels) { for(char ch : l) t = (t ^ (unsigned char)ch) * 1099511628211ull; t = (t ^ 0xff) * 1099511628211ull; } n.tie = t; }   // FNV-1a of the line
 				std::lock_guard<std::mutex> lk(omx); out.push_back(std::move(n));
@@ -1746,7 +1795,7 @@ struct Search {
 				if(!noReuse) { std::lock_guard<std::mutex> lk(cmx); auto it = prevKids.find(key); if(it != prevKids.end()) { kept = it->second; have = true; } }
 				if(have) {
 					std::vector<Node> fresh;
-					for(auto& c : kept) { { std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(c.vkey).second) continue; } Node x = c; x.parent = i; fresh.push_back(std::move(x)); }
+					for(auto& c : kept) { { std::lock_guard<std::mutex> lk(vmx); if(!bvisited.insert(c.vkey).second) continue; } Node x = c; x.parent = i; if(learnW > 0) x.h = x.hbase + learnW * learned(x.feats); fresh.push_back(std::move(x)); }
 					{ std::lock_guard<std::mutex> lk(omx); for(auto& x : fresh) out.push_back(std::move(x)); }
 					std::lock_guard<std::mutex> lk(cmx); curKids[key] = std::move(kept);
 					continue;
@@ -1812,6 +1861,7 @@ struct Search {
 				beam_depth = depth;
 				auto tl = Clock::now(); uint64_t r0 = replays.load();
 				std::vector<Node> next; { ProfTimer pt(g_profLevel); next = expand_level(level); }
+				if(learnW > 0) { learn_fit(); for(auto& n : next) n.h = n.hbase + learnW * learned(n.feats); }
 				{ ProfTimer pt(g_profEpDeep); ep_deep(); }
 				if(getenv("MDC_BEAMLOG2") && next.size() > 200) { for(size_t q = 0; q < 12; q++) { std::string t; auto& lb = next[q * next.size() / 12].st.labels; for(size_t k = 0; k < lb.size(); k++) t += lb[k] + " | "; fprintf(stderr, "  %s\n", t.c_str()); } }
 				if(getenv("MDC_BEAMLOG")) fprintf(stderr, "width %zu depth %d: %zu nodes -> %zu children, %llu replays, %.1fs\n", width, depth, level.size(), next.size(), (unsigned long long)(replays.load() - r0), std::chrono::duration<double>(Clock::now() - tl).count());
@@ -1860,6 +1910,7 @@ struct Search {
 				}
 				level.swap(next);
 			}
+			if(learnW > 0 && getenv("MDC_BEAMLOG")) fprintf(stderr, "  learn: %zu samples, %zu features\n", samples.size(), fidx.size());
 			if(!trimmed && !capped && !out_of_time()) { beam_complete = true; return; }   // nothing was cut: every line was checked
 			if(width > 100000) return;
 		}
@@ -2553,6 +2604,7 @@ int main(int argc, char** argv) {
 			s->width0 = (size_t)std::max(2, req.value("width", 8));
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
+			s->learnW = req.value("learn", getenv("MDC_LEARN") ? atof(getenv("MDC_LEARN")) : 0.0);
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
 			s->lookK = req.value("lookahead", getenv("MDC_LOOKAHEAD") ? atof(getenv("MDC_LOOKAHEAD")) : 0.0);
 			s->laSteps = req.value("laSteps", getenv("MDC_LASTEPS") ? atoi(getenv("MDC_LASTEPS")) : 6);
