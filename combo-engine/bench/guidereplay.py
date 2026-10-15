@@ -18,27 +18,38 @@ def code(name):
     r = db.execute("select id from texts where lower(name)=? order by id", (name.lower(),)).fetchone()
     return r[0] if r else None
 c = json.load(open(combof, encoding="utf-8")); c = c if isinstance(c, dict) else c[0]
-actors, picks = [], []   # picks[i]: the other cards named in acting card i's part of its step (materials, sends, targets)
+actors, picks, soft = [], [], []   # picks[i]: the other cards named in acting card i's part of its step
+PROC = ("normal summon", "link summon", "xyz summon", "synchro summon", "tribute summon")
 for s in c["steps"]:
-    es = s["entries"]
+    es = [e for e in s["entries"] if e.get("card")]
     if not es: continue
-    if (es[0].get("label") or "").lower() == "link":   # materials, then the Link monster
-        summ = [e for e in es if e.get("symbol") == "summon" and e.get("card")]
-        if summ: actors.append(summ[0]["card"]["name"]); picks.append([e["card"]["name"] for e in es if e.get("card") and e is not summ[0]])
+    labs = [(e.get("label") or "").lower() for e in es]
+    syms = [e.get("symbol") or "" for e in es]
+    cons = [e.get("connector") or "" for e in es]
+    # A material summon: cards joined by plus / equals (old "link" label, or no label at all): the result is the actor.
+    if labs[0] == "link" or (not syms[0] and not labs[0] and ("plus" in cons or "equals" in cons)):
+        k = next((i + 1 for i, cn in enumerate(cons) if cn == "equals" and i + 1 < len(es)), None)
+        if k is None: k = next((i for i in range(len(es) - 1, 0, -1) if syms[i] == "summon"), len(es) - 1)
+        actors.append(es[k]["card"]["name"]); picks.append([e["card"]["name"] for i, e in enumerate(es) if i != k]); soft.append(0)
+        for e in es[k + 1:]:   # anything after the summon in the same step (its effect)
+            if (e.get("symbol") or "") in ("effect", "chain") or any(w in (e.get("label") or "").lower() for w in ("effect", "activate")): actors.append(e["card"]["name"]); picks.append([]); soft.append(0)
+            elif picks: picks[-1].append(e["card"]["name"])
         continue
     for i, e in enumerate(es):
-        if not e.get("card"): continue
-        sym, lab = e.get("symbol") or "", (e.get("label") or "").lower()
-        if sym in ("set_st",) or "endphase" in lab: continue
-        if sym in ("effect", "graveyard") or lab.startswith(("activate", "effect", "grave effect")) or (i == 0 and sym == "summon"):
-            actors.append(e["card"]["name"]); picks.append([])
+        sym, lab = syms[i], labs[i]
+        if sym in ("set_st",) or "endphase" in lab or "end phase" in lab: continue
+        hard = any(w in lab for w in PROC)
+        act = sym in ("effect", "chain") or "effect" in lab or "activate" in lab
+        sft = i == 0 and sym == "summon" and not hard
+        if hard or act or sft:
+            actors.append(e["card"]["name"]); picks.append([]); soft.append(1 if sft and not act else 0)
         elif picks: picks[-1].append(e["card"]["name"])
 codes = [code(a) for a in actors]
 missing = [a for a, x in zip(actors, codes) if not x]
 if missing: print("not in the card database:", missing)
 seq = [x for x in codes if x]
 if len(sys.argv) > 7: hand = [code(h.strip()) for h in sys.argv[7].split(",")]
-else: hand = [code(x["name"]) for x in c.get("startingCards", []) if isinstance(x, dict) and x.get("name")] or [seq[0]]
+else: hand = [h for h in (code(x["name"]) for x in c.get("startingCards", []) if isinstance(x, dict) and x.get("name")) if h] or [seq[0]]
 deck = list(d["main"])
 for h in hand:
     if h in deck: deck.remove(h)
@@ -54,6 +65,7 @@ ask({"cmd": "init", "cdb": cdb, "scripts": zipf})
 gp = [[code(x) for x in pk if code(x)] for pk, cc in zip(picks, codes) if cc]
 req = {"cmd": "search", "deck": deck, "extra": d["extra"], "hand": hand, "timeMs": int(secs * 1000), "threads": int(os.environ.get("THREADS") or 12), "top": 5, "maxActions": 60, "guide": seq, "labels": True}
 if not os.environ.get("NOPICKS"): req["guidePicks"] = gp   # NOPICKS=1: only the acting cards
+req["guideSoft"] = [sf for sf, cc in zip(soft, codes) if cc]
 r = ask(req)
 best_j, best_b = -1, None
 for b in r.get("boards", []):

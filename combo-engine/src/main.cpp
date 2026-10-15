@@ -1189,9 +1189,13 @@ struct Search {
 	// choice and in optional chain windows only the next card of the sequence may act; picks, zones and targets stay free.
 	// Once the sequence is done, play is free. Tells "the engine can't play this line" from "the search doesn't find it".
 	std::vector<uint32_t> guideSeq;
+	std::vector<uint8_t> guideSoft;   // 1: a summon that opens a guide step, also done when another card's effect summoned it (a pick)
 	size_t guide_pos(const St& st) const {
 		size_t j = 0;
-		for(const Step& s : st.steps) if(j < guideSeq.size() && s.card == guideSeq[j] && (s.kind == "Activate" || s.kind == "Use" || s.kind == "Normal Summon" || s.kind == "Special Summon")) j++;
+		for(const Step& s : st.steps) {
+			if(j < guideSeq.size() && s.card == guideSeq[j] && (s.kind == "Activate" || s.kind == "Use" || s.kind == "Normal Summon" || s.kind == "Special Summon")) { j++; continue; }
+			while(j < guideSeq.size() && j < guideSoft.size() && guideSoft[j] && std::find(s.picks.begin(), s.picks.end(), guideSeq[j]) != s.picks.end()) j++;
+		}
 		return j;
 	}
 	std::vector<std::vector<uint32_t>> guidePicks;   // per acting card: the cards its guide step names (materials, sends, targets)
@@ -1221,7 +1225,9 @@ struct Search {
 			bool acts = o.main || o.label.rfind("chain ", 0) == 0;
 			// Activating a Field Spell is always allowed: guides write it as a result ("add Mementomictlan, place in field zone").
 			auto ci = g_cards.find(o.step.card); bool field = idle && acts && ci != g_cards.end() && (ci->second.type & 0x80000) && o.label.rfind("act ", 0) == 0;
-			if((acts && !o.end && (o.step.card == guideSeq[j] || field)) || (chain && !acts)) keep.push_back(o);
+			// A soft (summoned-as-a-result) next card may arrive through the card after it: allow that one too.
+			bool nextOk = j + 1 < guideSeq.size() && j < guideSoft.size() && guideSoft[j] && o.step.card == guideSeq[j + 1];
+			if((acts && !o.end && (o.step.card == guideSeq[j] || field || nextOk)) || (chain && !acts)) keep.push_back(o);
 		}
 		opts.swap(keep);
 	}
@@ -2694,6 +2700,7 @@ int main(int argc, char** argv) {
 			s->learnW = req.value("learn", getenv("MDC_LEARN") ? atof(getenv("MDC_LEARN")) : 0.0);
 			s->deckPickX = (size_t)std::max(1, req.value("deckPickX", getenv("MDC_DECKPICKX") ? atoi(getenv("MDC_DECKPICKX")) : 1));
 			if(req.contains("guide") && req["guide"].is_array()) for(auto& x : req["guide"]) s->guideSeq.push_back(x.get<uint32_t>());
+			if(req.contains("guideSoft") && req["guideSoft"].is_array()) for(auto& x : req["guideSoft"]) s->guideSoft.push_back(x.get<int>() ? 1 : 0);
 			if(req.contains("guidePicks") && req["guidePicks"].is_array()) for(auto& x : req["guidePicks"]) { std::vector<uint32_t> v; if(x.is_array()) for(auto& y : x) v.push_back(y.get<uint32_t>()); s->guidePicks.push_back(v); }
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
 			s->lookK = req.value("lookahead", getenv("MDC_LOOKAHEAD") ? atof(getenv("MDC_LOOKAHEAD")) : 0.0);

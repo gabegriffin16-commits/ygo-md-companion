@@ -372,7 +372,12 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   guideless 97.16 -> 97.89, Memento 63.4 -> 65.4, Yubel 194.8 -> 193.4; + Cross-Sheep placement: std 114.66, guideless
   97.03, Memento 67.4, Yubel 195.9, Thunder Dragon 288.0 -> 297.2 (22/26). Memento since the start of this work: 58.7
   -> 67.4 (guide 90.1). Widening capped picks from the Deck (opt-in `deckPickX` / MDC_DECKPICKX) hurt: x2 Memento 63.9,
-  Yubel 188.4; x3 64.6 / 187.4 (fixed-budget sets level): off. Next: guided replays of Yubel Fiendsmith / Rikka guides.
+  Yubel 188.4; x3 64.6 / 187.4 (fixed-budget sets level): off. Guided replays of Yubel Fiendsmith / Rikka guides stop
+  early (acting card 3-9 of ~35) on guide-format differences, not engine limits: authors write steps differently
+  (Link Summons as "plus / equals" with no label, "Link Summon" at the end of a material list, the "graveyard" symbol for
+  a GY effect or for a "Destroy" result, a summon that opens a step being another card's result: request "guideSoft"),
+  and add-vs-Set option prompts aren't guided (Spirit of Yubel added Nightmare Pain instead of Setting it). guidereplay.py
+  parses by labels now; making it robust per author is a long tail, left as is.
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another
