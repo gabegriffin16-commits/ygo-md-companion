@@ -362,6 +362,16 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   when destroyed / sent (`gyGood`, from text) rank first among capped picks. tune 15k std 114.29 (same), guideless 94.45
   -> 97.16; guides Memento 62.7 -> 63.4, Yubel Fiendsmith 194.6 -> 194.8. Next: guide the picks too, to confirm the whole
   line is playable, then widen the capped picks where they matter (sends from the Deck early in a line).
+  Pick sets (found with guided picks: request "guidePicks", the cards each guide step names): multi-card picks listed
+  sets in the game's card order and stopped at 80 (40 for Level sums), so only sets of the first few cards were ever
+  offered (Creation King "send 3 from your Deck and/or Extra Deck": ~1100 sets; the guide's never offered). Now the
+  candidates are ordered best-first before building sets (`pick_order_idx`, same ranking as capped picks; MDC_NOPICKSORT
+  to compare). With it the guided replay of Memento Dark Blade follows 21 of 31 acting cards (was 15); Links that care
+  what they point to (text "points to": Cross-Sheep) are placed to point at one of our monsters and a free zone: 26 of
+  31 (the rest: individual picks). Measured (tune 15k; guides 20 s, 2 repeats): sorted sets: std 114.29 -> 114.78,
+  guideless 97.16 -> 97.89, Memento 63.4 -> 65.4, Yubel 194.8 -> 193.4; + Cross-Sheep placement: std 114.66, guideless
+  97.03, Memento 67.4, Yubel 195.9, Thunder Dragon 288.0 -> 297.2 (22/26). Memento since the start of this work: 58.7
+  -> 67.4 (guide 90.1). Next: widen capped picks where they matter.
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

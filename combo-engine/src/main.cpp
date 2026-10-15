@@ -629,6 +629,33 @@ static std::vector<Opt> dedupe(std::vector<Opt> v) {
 	return out;
 }
 static std::vector<Opt> choices0(const Prompt& m);
+// The candidates of a multi-card pick, best first (the same idea as the capped-pick ranking in the search): giving cards
+// up (costs, materials, sends) puts cards that act when sent / used / destroyed first, then Deck > GY > hand > field,
+// cheaper first; taking or targeting puts their cards first, then our most valuable.
+static double pick_card_value(uint32_t c) {   // = Search::card_value: one of our cards' interruption value (1 if the text missed it)
+	auto it = g_cards.find(c); if(it == g_cards.end()) return 1.0;
+	const CardEval& e = it->second.ev;
+	double v = std::max({(double)e.field, (double)e.set, (double)e.hand, e.gy * 0.8, (double)e.onSummon});
+	return v > 0 ? v : 1.0;
+}
+static std::vector<uint32_t> pick_order_idx(const Prompt& m) {
+	std::vector<uint32_t> ord(m.cards.size()); for(size_t i = 0; i < ord.size(); i++) ord[i] = (uint32_t)i;
+	static const bool off = getenv("MDC_NOPICKSORT") != nullptr;
+	if(off || ord.size() < 2) return ord;
+	const uint64_t h = m.hint;
+	const bool giveUp = h == 500 || h == 501 || h == 502 || h == 503 || h == 504 || h == 507 || (h >= 511 && h <= 513) || h == 519;
+	const bool toGy = h == 501 || h == 502 || h == 504 || (h >= 511 && h <= 513);
+	std::vector<double> sc(ord.size());
+	for(size_t i = 0; i < ord.size(); i++) {
+		uint32_t c = m.cards[i]; auto it = g_cards.find(c);
+		bool theirs = i < m.ccon.size() && m.ccon[i] == 1; uint8_t loc = i < m.cloc.size() ? m.cloc[i] : 0;
+		if(theirs) sc[i] = giveUp ? -5 : 10;
+		else if(giveUp) sc[i] = (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (toGy && it != g_cards.end() && it->second.gyGood ? 1.5 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * pick_card_value(c);
+		else sc[i] = pick_card_value(c);
+	}
+	std::stable_sort(ord.begin(), ord.end(), [&](uint32_t a, uint32_t b) { return sc[a] > sc[b]; });
+	return ord;
+}
 static std::vector<Opt> choices(const Prompt& m) {
 	std::vector<Opt> v = choices0(m);
 	for(auto& o : v) { if(!o.picks.empty()) o.hint = (uint32_t)m.hint; o.ptype = m.type; }
@@ -664,11 +691,14 @@ static std::vector<Opt> choices0(const Prompt& m) {
 		return out;
 	case MSG_SELECT_CARD: case MSG_SELECT_TRIBUTE: {
 		size_t n = m.cards.size(); uint32_t lo = std::max<uint32_t>(m.mn, 1), hi = std::min<uint32_t>(m.mx, (uint32_t)n);
-		std::vector<uint32_t> idx;
+		// Sets are built from the best-ranked cards first: only the first ~80 sets are offered, and in the game's list order
+		// those were all sets of the first few cards (Memento's Creation King "send 3 from your Deck and/or Extra Deck": ~20
+		// cards, ~1100 sets, the guide's Ghattic + Akihiron + Creation King never offered). MDC_NOPICKSORT: list order.
+		std::vector<uint32_t> ord = pick_order_idx(m), idx;
 		std::function<void(size_t, uint32_t)> rec = [&](size_t start, uint32_t k) {
 			if(out.size() > 80) return;
 			if(idx.size() == k) { out.push_back(pickset(idx, m.cards)); return; }
-			for(size_t i = start; i < n; i++) { idx.push_back((uint32_t)i); rec(i + 1, k); idx.pop_back(); }
+			for(size_t i = start; i < n; i++) { idx.push_back(ord[i]); rec(i + 1, k); idx.pop_back(); }
 		};
 		for(uint32_t k = lo; k <= hi; k++) rec(0, k);
 		return dedupe(out);
@@ -680,11 +710,11 @@ static std::vector<Opt> choices0(const Prompt& m) {
 		return dedupe(out);
 	case MSG_SELECT_SUM: {
 		uint32_t must = 0; for(uint32_t v : m.mustParam) must += v & 0xffff;
-		size_t n = m.cards.size(); std::vector<uint32_t> idx;
+		size_t n = m.cards.size(); std::vector<uint32_t> idx, ord = pick_order_idx(m);   // best-ranked cards first (as above)
 		std::function<void(size_t, uint32_t)> rec = [&](size_t start, uint32_t total) {
 			if(out.size() > 40) return;
 			if(!idx.empty() && must + total == m.acc) out.push_back(pickset(idx, m.cards));
-			for(size_t i = start; i < n; i++) { uint32_t v = m.cardParam[i] & 0xffff; if(must + total + v > m.acc) continue; idx.push_back((uint32_t)i); rec(i + 1, total + v); idx.pop_back(); }
+			for(size_t i = start; i < n; i++) { uint32_t q = ord[i], v = m.cardParam[q] & 0xffff; if(must + total + v > m.acc) continue; idx.push_back(q); rec(i + 1, total + v); idx.pop_back(); }
 		};
 		rec(0, 0);
 		if(out.empty()) { std::vector<uint32_t> all; for(size_t i = 0; i < n; i++) all.push_back((uint32_t)i); out.push_back(pickset(all, m.cards)); }
@@ -1164,9 +1194,26 @@ struct Search {
 		for(const Step& s : st.steps) if(j < guideSeq.size() && s.card == guideSeq[j] && (s.kind == "Activate" || s.kind == "Use" || s.kind == "Normal Summon" || s.kind == "Special Summon")) j++;
 		return j;
 	}
+	std::vector<std::vector<uint32_t>> guidePicks;   // per acting card: the cards its guide step names (materials, sends, targets)
 	void guide_filter(const Prompt& m, const St& st, std::vector<Opt>& opts) const {
 		if(guideSeq.empty() || m.player != 0) return;
 		const bool idle = m.type == MSG_SELECT_IDLECMD, chain = m.type == MSG_SELECT_CHAIN && !m.forced;
+		const bool pickp = m.type == MSG_SELECT_CARD || m.type == MSG_SELECT_UNSELECT_CARD || m.type == MSG_SELECT_SUM || m.type == MSG_SELECT_TRIBUTE;
+		if(pickp && !guidePicks.empty()) {
+			// Picks inside an action: the cards the last two acting cards' guide steps name, when a choice made of them exists.
+			// The current acting card's cards first; the one before it as a fallback (a chain resolves the earlier one later).
+			size_t j = guide_pos(st);
+			for(size_t back = 1; back <= 2 && back <= j; back++) {
+				std::set<uint32_t> pref;
+				for(size_t q = j - back; q < j && q < guidePicks.size(); q++) for(uint32_t c : guidePicks[q]) pref.insert(c);
+				if(pref.empty()) continue;
+				std::vector<Opt> keep;
+				for(auto& o : opts) { bool ok = !o.picks.empty() || o.label == "finish"; for(uint32_t c : o.picks) if(!pref.count(c)) ok = false; if(ok) keep.push_back(o); }
+				bool any = false; for(auto& o : keep) if(!o.picks.empty()) any = true;
+				if(any) { opts.swap(keep); return; }
+			}
+			return;
+		}
 		if(!idle && !chain) return;
 		size_t j = guide_pos(st); if(j >= guideSeq.size()) return;
 		std::vector<Opt> keep;
@@ -1254,7 +1301,12 @@ struct Search {
 				for(int seq = 0; seq < 7; seq++) {
 					if(!freeM(seq)) continue;
 					int v;
-					if(placingLink) { uint8_t t = link_points(seq, (uint32_t)ci->second.def); int fr = 0, oc = 0; for(int q = 0; q < 7; q++) if(t & (1 << q)) { if(occupied & (1 << q)) oc++; else if(q != seq) fr++; } v = 10 * fr + oc; }
+					if(placingLink) {
+						uint8_t t = link_points(seq, (uint32_t)ci->second.def); int fr = 0, oc = 0; for(int q = 0; q < 7; q++) if(t & (1 << q)) { if(occupied & (1 << q)) oc++; else if(q != seq) fr++; }
+						// A Link whose text cares about what it points to (Cross-Sheep: a monster Summoned to a zone it points to, effects
+						// by the types of the monsters it points to) wants both: one of our monsters and a free zone. Others: free zones.
+						v = ci->second.lname.empty() || evalx::lower(ci->second.desc).find("points to") == std::string::npos ? 10 * fr + oc : 20 * std::min(oc, 1) + 20 * std::min(fr, 1) + fr + oc;
+					}
 					else v = ((wanted >> seq) & 1) ? 2 : ((pointed >> seq) & 1) ? 0 : 1;
 					if(v > bestV) { bestV = v; best = seq; }
 				}
@@ -2637,6 +2689,7 @@ int main(int argc, char** argv) {
 			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
 			s->learnW = req.value("learn", getenv("MDC_LEARN") ? atof(getenv("MDC_LEARN")) : 0.0);
 			if(req.contains("guide") && req["guide"].is_array()) for(auto& x : req["guide"]) s->guideSeq.push_back(x.get<uint32_t>());
+			if(req.contains("guidePicks") && req["guidePicks"].is_array()) for(auto& x : req["guidePicks"]) { std::vector<uint32_t> v; if(x.is_array()) for(auto& y : x) v.push_back(y.get<uint32_t>()); s->guidePicks.push_back(v); }
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
 			s->lookK = req.value("lookahead", getenv("MDC_LOOKAHEAD") ? atof(getenv("MDC_LOOKAHEAD")) : 0.0);
 			s->laSteps = req.value("laSteps", getenv("MDC_LASTEPS") ? atoi(getenv("MDC_LASTEPS")) : 6);

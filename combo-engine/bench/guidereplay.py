@@ -18,19 +18,21 @@ def code(name):
     r = db.execute("select id from texts where lower(name)=? order by id", (name.lower(),)).fetchone()
     return r[0] if r else None
 c = json.load(open(combof, encoding="utf-8")); c = c if isinstance(c, dict) else c[0]
-actors = []
+actors, picks = [], []   # picks[i]: the other cards named in acting card i's part of its step (materials, sends, targets)
 for s in c["steps"]:
     es = s["entries"]
     if not es: continue
     if (es[0].get("label") or "").lower() == "link":   # materials, then the Link monster
         summ = [e for e in es if e.get("symbol") == "summon" and e.get("card")]
-        if summ: actors.append(summ[0]["card"]["name"])
+        if summ: actors.append(summ[0]["card"]["name"]); picks.append([e["card"]["name"] for e in es if e.get("card") and e is not summ[0]])
         continue
     for i, e in enumerate(es):
         if not e.get("card"): continue
         sym, lab = e.get("symbol") or "", (e.get("label") or "").lower()
         if sym in ("set_st",) or "endphase" in lab: continue
-        if sym in ("effect", "graveyard") or lab.startswith(("activate", "effect", "grave effect")) or (i == 0 and sym == "summon"): actors.append(e["card"]["name"])
+        if sym in ("effect", "graveyard") or lab.startswith(("activate", "effect", "grave effect")) or (i == 0 and sym == "summon"):
+            actors.append(e["card"]["name"]); picks.append([])
+        elif picks: picks[-1].append(e["card"]["name"])
 codes = [code(a) for a in actors]
 missing = [a for a, x in zip(actors, codes) if not x]
 if missing: print("not in the card database:", missing)
@@ -49,7 +51,10 @@ def ask(o):
         r = json.loads(p.stdout.readline())
         if r.get("id") == o["id"] and (r.get("ready") or r.get("done") or r.get("error")): return r
 ask({"cmd": "init", "cdb": cdb, "scripts": zipf})
-r = ask({"cmd": "search", "deck": deck, "extra": d["extra"], "hand": hand, "timeMs": int(secs * 1000), "threads": int(os.environ.get("THREADS") or 12), "top": 5, "maxActions": 60, "guide": seq, "labels": True})
+gp = [[code(x) for x in pk if code(x)] for pk, cc in zip(picks, codes) if cc]
+req = {"cmd": "search", "deck": deck, "extra": d["extra"], "hand": hand, "timeMs": int(secs * 1000), "threads": int(os.environ.get("THREADS") or 12), "top": 5, "maxActions": 60, "guide": seq, "labels": True}
+if not os.environ.get("NOPICKS"): req["guidePicks"] = gp   # NOPICKS=1: only the acting cards
+r = ask(req)
 best_j, best_b = -1, None
 for b in r.get("boards", []):
     j = 0
