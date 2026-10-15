@@ -353,6 +353,15 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   guideless 96.37 -> 97.47, but Memento 59.3, Yubel 191.5 (the bookkeeping costs 2-7% of replays). FAILED (needs +5%).
   Chaining ten 20 s searches seeded with the previous best stays at 9.93 on Memento Dark Blade. Next: a guided replay of
   the guide's own steps to tell "the engine can't play this line" from "the search doesn't find it".
+  Guided replay (`bench/guidereplay.py` + request "guide": the guide's acting cards in order; picks / zones / targets free;
+  Field Spells may be activated anytime; guided states rank by progress): the engine plays Memento Dark Blade's guide
+  line through its first 14-15 of 31 acting cards, then a needed card isn't where the guide has it. The difference is the
+  picks: the guide sends Goblin + Shleepy with Tatsunootoshigo, fuses Mace + Tatsunootoshigo + Dark Blade, sends Akihiron
+  with Creation King (cards that act from the GY / when destroyed); we sent Ghattic / Fracture Dance by "cheapest first".
+  Fix kept (ON, MDC_NOGYPICK to compare): cards going to the GY (discard / destroy / send / materials) that act there or
+  when destroyed / sent (`gyGood`, from text) rank first among capped picks. tune 15k std 114.29 (same), guideless 94.45
+  -> 97.16; guides Memento 62.7 -> 63.4, Yubel Fiendsmith 194.6 -> 194.8. Next: guide the picks too, to confirm the whole
+  line is playable, then widen the capped picks where they matter (sends from the Deck early in a line).
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

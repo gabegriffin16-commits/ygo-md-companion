@@ -93,6 +93,7 @@ struct CardRow {
 	bool backAtEnd = false;    // it banishes itself "until the End Phase": still ours once the turn ends
 	bool needsChain = false;   // it acts "in response to" an activation (Zalen) or "when you activate" one (Gulamel): used on top of our own
 	bool matTrig = false;      // it does something when used as material ("if this card is sent to the GY as material for a Fusion Summon")
+	bool gyGood = false;       // it does something once in the GY or when destroyed / sent there (Memento monsters): worth giving up to the GY first
 	std::vector<std::string> strs;
 	CardEval ev;   // how much it adds to an end board, read from its text (src/evaluate.h)
 	bool gyAct = false;        // has an effect it activates from the GY (fx_check): a GY copy is a resource for later steps
@@ -129,7 +130,8 @@ static bool load_cdb(const std::string& path, std::string& err) {
 		{ const unsigned char* dt = sqlite3_column_text(st, 26); r.desc = dt ? (const char*)dt : ""; r.ev = evalx::evaluate(r.desc, r.type); { std::string ld = evalx::lower(r.desc); r.centerAware = ld.find("center main monster zone") != std::string::npos; r.endPhase = ld.find("end phase") != std::string::npos;
 			r.backAtEnd = ld.find("banish this card (until the end phase)") != std::string::npos || ld.find("banish this card until the end phase") != std::string::npos;
 			r.matTrig = ld.find("as material for a") != std::string::npos || ld.find("as fusion material") != std::string::npos || ld.find("as synchro material") != std::string::npos || ld.find("as xyz material") != std::string::npos || ld.find("as link material") != std::string::npos || ld.find("used as material") != std::string::npos;
-			r.needsChain = ld.find("in response to") != std::string::npos || ld.find("when you activate") != std::string::npos; } }
+			r.needsChain = ld.find("in response to") != std::string::npos || ld.find("when you activate") != std::string::npos;
+			for(const char* k : {"this card is sent to the gy", "this card is destroyed", "this card is in your gy", "this card in your gy", "special summon this card from your gy", "banish this card from your gy", "add this card from your gy"}) if(ld.find(k) != std::string::npos) r.gyGood = true; } }
 		r.ev.code = id;
 		g_cards[id] = std::move(r);
 	}
@@ -1153,6 +1155,29 @@ struct Search {
 		if(s.kind == "Normal Summon" || s.kind == "Special Summon") { isAction = true; return s.card; }
 		return 0;
 	}
+	// Guided search (request "guide": the acting cards of a known line, in order; a diagnostic): on our free Main Phase
+	// choice and in optional chain windows only the next card of the sequence may act; picks, zones and targets stay free.
+	// Once the sequence is done, play is free. Tells "the engine can't play this line" from "the search doesn't find it".
+	std::vector<uint32_t> guideSeq;
+	size_t guide_pos(const St& st) const {
+		size_t j = 0;
+		for(const Step& s : st.steps) if(j < guideSeq.size() && s.card == guideSeq[j] && (s.kind == "Activate" || s.kind == "Use" || s.kind == "Normal Summon" || s.kind == "Special Summon")) j++;
+		return j;
+	}
+	void guide_filter(const Prompt& m, const St& st, std::vector<Opt>& opts) const {
+		if(guideSeq.empty() || m.player != 0) return;
+		const bool idle = m.type == MSG_SELECT_IDLECMD, chain = m.type == MSG_SELECT_CHAIN && !m.forced;
+		if(!idle && !chain) return;
+		size_t j = guide_pos(st); if(j >= guideSeq.size()) return;
+		std::vector<Opt> keep;
+		for(auto& o : opts) {
+			bool acts = o.main || o.label.rfind("chain ", 0) == 0;
+			// Activating a Field Spell is always allowed: guides write it as a result ("add Mementomictlan, place in field zone").
+			auto ci = g_cards.find(o.step.card); bool field = idle && acts && ci != g_cards.end() && (ci->second.type & 0x80000) && o.label.rfind("act ", 0) == 0;
+			if((acts && !o.end && (o.step.card == guideSeq[j] || field)) || (chain && !acts)) keep.push_back(o);
+		}
+		opts.swap(keep);
+	}
 	// Zones a Link monster in zone `s` points to on our side (0-4 Main Monster Zones left to right, 5 / 6 the Extra
 	// Monster Zones above 1 / 3). Markers: 0x1 bottom-left, 0x2 bottom, 0x4 bottom-right, 0x8 left, 0x20 right,
 	// 0x40 top-left, 0x80 top, 0x100 top-right.
@@ -1329,7 +1354,7 @@ struct Search {
 			st.aim = false;   // back to us: any target was already chosen
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts, *d); pick_order(m, st, opts);
+			zone_opts(m, st, opts, *d); pick_order(m, st, opts); guide_filter(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			if(interrupting() && !st.hit) {
 				// Still replaying the planned line: only its next choice is allowed.
@@ -1494,13 +1519,18 @@ struct Search {
 	// take or target, their cards, then our most valuable.
 	static double pick_rank(const Prompt& m, const Opt& o, bool giveUp) {
 		double v = 0;
+		// Cards going to the GY (discard, destroy, send, materials) that act there or when destroyed / sent go first: long
+		// combos send the cards they'll use (Memento's guide sends Goblin / Shleepy with Tatsunootoshigo; we sent Fracture
+		// Dance). MDC_NOGYPICK to compare.
+		static const bool noGyPick = getenv("MDC_NOGYPICK") != nullptr;
+		const bool toGy = !noGyPick && (m.hint == 501 || m.hint == 502 || m.hint == 504 || (m.hint >= 511 && m.hint <= 513));
 		for(uint32_t c : o.picks) {
 			size_t at = std::find(m.cards.begin(), m.cards.end(), c) - m.cards.begin();
 			if(o.pkey) for(size_t q = 0; q < m.ckeys.size(); q++) if(m.ckeys[q] == o.pkey) { at = q; break; }
 			bool theirs = at < m.ccon.size() && m.ccon[at] == 1; uint8_t loc = at < m.cloc.size() ? m.cloc[at] : 0;
 			auto it = g_cards.find(c);
 			if(theirs) v += giveUp ? -5 : 10;
-			else if(giveUp) v += (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * card_value(c);
+			else if(giveUp) v += (it != g_cards.end() && it->second.matTrig ? 2.0 : 0) + (toGy && it != g_cards.end() && it->second.gyGood ? 1.5 : 0) + (loc == LOCATION_DECK ? 1.0 : loc == LOCATION_GRAVE || loc == LOCATION_EXTRA ? 0.5 : loc == LOCATION_HAND ? 0.3 : -1.0) - 0.1 * card_value(c);
 			else v += card_value(c);
 		}
 		return v;
@@ -1558,6 +1588,7 @@ struct Search {
 				if(!window) record(*d, st);
 				size_t moves = 0; for(auto& o : opts) if(o.main && !o.end) moves++;
 				double h = node_h(b, m, st, opts, window);
+				if(!guideSeq.empty()) h += 50.0 * guide_pos(st);   // guided: progress through the sequence first (picks that keep it going)
 				Node n; n.st = std::move(st); n.h = h; n.parent = par; n.vkey = k; n.hbase = h;
 				if(learnW > 0) { n.sc = score_of(b); n.feats = learn_note(n.st, b, moves, !m.summon.empty(), n.sc); n.h = h + learnW * learned(n.feats); }
 				if(traceOn) { n.sc = score_of(b); n.nh = (uint16_t)b.hand.size(); n.ng = (uint16_t)b.grave.size(); n.nm = (uint16_t)moves; }
@@ -1567,7 +1598,7 @@ struct Search {
 			}
 			std::vector<Opt> opts = (m.type == MSG_SELECT_CHAIN && m.chains.empty()) ? std::vector<Opt>{} : choices(m);
 			if(m.type == MSG_SELECT_CHAIN && m.chains.empty()) { Opt o; o.label = "pass"; o.resp = p32(-1); opts.push_back(o); }
-			zone_opts(m, st, opts, *d); pick_order(m, st, opts);
+			zone_opts(m, st, opts, *d); pick_order(m, st, opts); guide_filter(m, st, opts);
 			if(st.ending) ep_filter(m, opts);
 			bool epOK = false;
 			if(m.type == MSG_SELECT_IDLECMD) {        // the state we're expanding: ending the turn here is a result too
@@ -2605,6 +2636,7 @@ int main(int argc, char** argv) {
 			if(req.contains("w") && req["w"].is_array() && req["w"].size() == 4) { s->W_MOVES = req["w"][0]; s->W_HAND = req["w"][1]; s->W_NS = req["w"][2]; s->W_GY = req["w"][3]; }
 			s->W_GYUSE = req.value("wGyUse", getenv("MDC_WGYUSE") ? atof(getenv("MDC_WGYUSE")) : s->W_GY);
 			s->learnW = req.value("learn", getenv("MDC_LEARN") ? atof(getenv("MDC_LEARN")) : 0.0);
+			if(req.contains("guide") && req["guide"].is_array()) for(auto& x : req["guide"]) s->guideSeq.push_back(x.get<uint32_t>());
 			if(s->W_GYUSE != s->W_GY) s->init_gy_use();
 			s->lookK = req.value("lookahead", getenv("MDC_LOOKAHEAD") ? atof(getenv("MDC_LOOKAHEAD")) : 0.0);
 			s->laSteps = req.value("laSteps", getenv("MDC_LASTEPS") ? atoi(getenv("MDC_LASTEPS")) : 6);
