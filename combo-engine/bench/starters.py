@@ -6,13 +6,13 @@ line using the starter + at most one other card from the hand: a guide's "+1"), 
 board most, each with its best line), and how the main line holds up against each handtrap (oppFirst search).
 Writes the guide data model (JSON) for the Guide Crafter page.
   python3 starters.py <engine> <cards.cdb> <scripts.zip> <deck.json> <out.json>
-  env M (shared hand pool, 100: every hand counts for every engine card in it), N (at least this many hands per card: topped up, 12), STABLE (early stop for the single-card / pair / handtrap searches, 0.4), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
+  env M (shared hand pool, 100: every hand counts for every engine card in it), N (at least this many hands per card: topped up, 12), STABLE (early stop for the single-card / pair / handtrap searches, 0.4), REFINE (seconds for a longer, seeded search of each main line, 20; 0 = off), USED (extender, 0.5), SECS (per search, 6), THREADS (12), SEED (1)"""
 import json, os, random, sqlite3, subprocess, sys, statistics, time
 T0 = time.time()
 from collections import Counter, defaultdict
 sys.stdout.reconfigure(encoding="utf-8")
 exe, cdb, zipf, deckf, outf = sys.argv[1:6]
-M = int(os.environ.get("M") or 100); STABLE = float(os.environ.get("STABLE") or 0.4); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
+M = int(os.environ.get("M") or 100); REFINE = float(os.environ.get("REFINE") or 20); STABLE = float(os.environ.get("STABLE") or 0.4); N = int(os.environ.get("N") or 12); K = int(os.environ.get("K") or 6)
 SECS = float(os.environ.get("SECS") or 6); THREADS = int(os.environ.get("THREADS") or 12); random.seed(int(os.environ.get("SEED") or 1))
 db = sqlite3.connect(cdb)
 nm = lambda c: (db.execute("select name from texts where id=?", (c,)).fetchone() or [str(c)])[0]
@@ -197,6 +197,13 @@ for st in cards:
     # A 1-card starter's main line is its line alone (with non-engine cards): the guide's "1-card combo"; a 2-card
     # starter's is its best working pair, the next 3 pairs listed.
     mainline = solo if kind == "1-card" else pairs[0]["line"]
+    # Refine: the main line is what the guide shows, so it gets a longer search, seeded with the line found (it can only
+    # get better). The guide misses outside long combos mostly closed with more time (D/D/D Kepler at 120 s).
+    if REFINE > 0:
+        b = search(mainline["hand"], timeMs=int(REFINE * 1000), seeds=[mainline["labels"]] if mainline.get("labels") else [])
+        if b and b["score"] > mainline["score"] + 0.05:
+            print("  refined main line %.2f -> %.2f" % (mainline["score"], b["score"]), flush=True)
+            x = brief(b, mainline["hand"]); opener_of(x); mainline = x
     # Upgrades: cards (other than the starter) present and used in hands that score clearly above the starter's median.
     with_c = defaultdict(list)
     for x in hands:

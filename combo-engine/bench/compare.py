@@ -31,10 +31,16 @@ def race_of(slot):
     return 0
 def fits(slot, c):
     """Does deck card c fit a typed slot like "Dtail name", "Lv4 Monster" or "Spellcaster"?"""
-    r = db.execute("select t.name, d.level, d.type, d.race from datas d join texts t on t.id = d.id where d.id=?", (c,)).fetchone()
+    r = db.execute("select t.name, d.level, d.type, d.race, d.attribute from datas d join texts t on t.id = d.id where d.id=?", (c,)).fetchone()
     if not r: return False
     nm, lv, typ = r[0].lower(), r[1] & 0xff, r[2]
     if race_of(slot): return bool(typ & 1 and r[3] & race_of(slot))
+    # An Attribute ("<LIGHT/DARK>") means a monster of that Attribute, not a name containing the word (Allure of Darkness).
+    ATTR = {"earth": 0x1, "water": 0x2, "fire": 0x4, "wind": 0x8, "light": 0x10, "dark": 0x20, "divine": 0x40}
+    words = re.findall(r"[a-z0-9]+", slot)
+    if words and words[0] in ATTR:
+        if not (typ & 1 and r[4] & ATTR[words[0]]): return False
+        slot = " ".join(words[1:])
     for w in re.findall(r"[a-z0-9]+", slot):
         if w in ("name", "card", "cards", "any"): continue
         if w in ("tuner", "tuners"):
@@ -103,6 +109,9 @@ for b in refs["boards"]:
               len(best["steps"]), st.get("bestAt", 0), st.get("seconds", 0), ", stable" if r.get("stable") else ""))
         gf = sorted(code(x) for x in b["field"] if code(x)); found = [bb for bb in r["boards"] if all(c in bb["field"] for c in gf)]
         verdict = "engine found the guide's field" if found else "engine better by score" if best["score"] > g.get("total", 0) + 0.3 else "guide better: engine missed it" if g.get("total", 0) > best["score"] + 0.3 else "about even"
+        # No legal play at all from this hand: the guide line needs an earlier turn / line (a "resource loop" follow-up),
+        # happens on the opponent's turn (K9), or "starts" with an Extra Deck card: not an opening hand.
+        if not best["steps"] and g.get("total", 0) > best["score"]: verdict = "no legal play from this hand (follow-up / opponent's-turn line)"
         if b.get("missing"): verdict += "  [guide uses cards not in this deck: %s]" % ", ".join(b["missing"])
         if b.get("guessed"): verdict += "  [placement guessed: %s]" % ", ".join(b["guessed"])
         print("   -> %s" % verdict)

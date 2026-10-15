@@ -336,6 +336,14 @@ Bump `app/package.json` version → push → Actions builds `MasterDuelCompanion
   `bench/rolediff.py` compares runs. Result: Dracotail 12-13 min (was ~45), 0 of 19 roles change over 3 seeds; Snake-Eye
   13-14 min, 2 of 17 change (Magicians' Souls: same Magicians' Souls + Oak combo, the line opens with either card;
   Flamberge Dragon used in ~50% of its hands, extender vs situational).
+  Guide-miss triage (Oct 2026, current engine): 24 missed of 75 comparable (was 31 of 78): Memento 6, Yubel Fiendsmith 9,
+  Rikka 5, Sky Striker 2, D/D/D 1, Thunder Dragon 1. At 120 s: D/D/D Kepler found (16.26 vs 14.48), Rikka 3 of 5 even or
+  better; left: Rikka Early Jasmine / Rosalina (guide's Xyz/Link tail: as goals 60 s reaches 3/6: long-combo reach),
+  Sky Striker 2 (0.3-1.0 behind, guessed boards), Thunder Dragon WAlbaz + TDdark. Tool fixes: compare.py fills
+  "<LIGHT/DARK>"-style slots with a monster of that Attribute (it had picked Allure of Darkness: Cartesia + Bystial is
+  engine 14.21 vs guide 6.80 now), and marks hands with no legal play as not comparable (follow-ups needing an earlier
+  line, K9 opponent's-turn lines, Extra Deck "starting cards"). starters.py REFINE (20 s): each main line gets a longer
+  search seeded with the line found.
   Guide page data (Oct 2026, mockup only, owner reviewing; UI session builds the real Guide tab once the structure is
   agreed: a new Guide tab, Lines + Counter Guide folded into it later): `bench/starters.py <engine> <cdb> <zip> <deck.json>
   <out.json>` deals real random hands and covers every Main Deck card. Engine cards (shared archetype / named by another

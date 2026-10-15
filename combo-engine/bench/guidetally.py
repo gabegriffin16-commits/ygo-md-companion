@@ -18,14 +18,14 @@ for f in sys.argv[1:]:
         if not m or cur is None: continue
         v = m.group(1); c["hands"] += 1
         if "cards not in this deck" in v: c["missingCards"] += 1; continue
-        if SPECIAL.search(cur): c["special"] += 1; continue
+        if SPECIAL.search(cur) or v.startswith("no legal play"): c["special"] += 1; continue
         if "placement guessed" in v: c["guessed"] += 1
         if v.startswith("engine found"): c["found"] += 1
         elif v.startswith("engine better"): c["better"] += 1
         elif v.startswith("about even"): c["even"] += 1
         elif v.startswith("guide better"): c["missed"] += 1; missed.append((name, cur, v))
     rows.append((name, c))
-print("%-18s %5s | %5s %6s %5s %6s | %s" % ("deck", "hands", "found", "better", "even", "missed", "not comparable (missing cards / handtrap-OTK lines), guessed"))
+print("%-18s %5s | %5s %6s %5s %6s | %s" % ("deck", "hands", "found", "better", "even", "missed", "not comparable (missing cards / handtrap-OTK-follow-up lines), guessed"))
 tot = {}
 for name, c in rows:
     comp = c["found"] + c["better"] + c["even"] + c["missed"]
